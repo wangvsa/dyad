@@ -2,6 +2,15 @@ name: Compilation Testing for DYAD
 
 on:
   workflow_dispatch:
+    inputs:
+      logLevel:
+        description: 'Log level'
+        required: true
+        default: 'warning'
+      environment:
+        description: 'Environment to deploy'
+        required: false
+        default: 'staging'
   push:
     branches: [ main ]
   pull_request:
