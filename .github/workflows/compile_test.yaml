@@ -103,7 +103,7 @@ jobs:
             py-cffi:
               buildable: False
               externals:
-                - spec: "py-cffi@1.15.1"
+                - spec: "py-cffi@1.17.1"
                   prefix: /usr
             py-jsonschema:
               buildable: False
