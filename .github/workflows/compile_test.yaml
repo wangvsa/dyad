@@ -12,9 +12,9 @@ on:
         required: false
         default: 'staging'
   push:
-    branches: [ main ]
+    branches: [ wangvsa-workflow-patch ]
   pull_request:
-    branches: [ main ]
+    branches: [ wangvsa-workflow-patch ]
 
 jobs:
   compile-flux:
