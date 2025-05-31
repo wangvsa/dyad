@@ -234,7 +234,7 @@ jobs:
           # spack install cpp-logger@develop
           spack view --verbose symlink ${DYAD_INSTALL_PREFIX} flux-core@${FLUX_VERSION} # cpp-logger@develop
           if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
-            spack view --verbose symlink ${DYAD_INSTALL_PREFIX} ucx@1.13.1
+            spack view --verbose symlink -i ${DYAD_INSTALL_PREFIX} ucx@1.18.0
           fi
           if [[ $DYAD_PROFILER_MODE == 'CALIPER' ]]; then
             spack view --verbose symlink ${DYAD_INSTALL_PREFIX} caliper
