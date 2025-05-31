@@ -217,16 +217,16 @@ jobs:
           spack spec flux-core@${FLUX_VERSION}
           spack spec cpp-logger@develop
           if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
-            spack spec ucx@1.13.1
+            spack spec ucx@1.18.0
           fi
-      - name: Install dependencies
+      - name: Install Spack dependencies
         run: |
           mkdir -p ${DYAD_INSTALL_PREFIX}
           python3 -m venv ${DYAD_INSTALL_PREFIX}
           . ${SPACK_DIR}/share/spack/setup-env.sh
           spack install -j4 flux-core@${FLUX_VERSION}
           if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
-            spack install -j4 ucx@1.13.1
+            spack install -j4 ucx@1.18.0
           fi
           if [[ $DYAD_PROFILER_MODE == 'CALIPER' ]]; then
             spack install -j4 caliper
