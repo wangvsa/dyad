@@ -217,11 +217,6 @@ jobs:
           cat /home/runner/.spack/packages.yaml
           echo "-------------------------------"
           spack compiler find --scope=user
-          if [[ $CC == 'gcc-10' ]]; then
-              spack config add "packages:all:compiler:[gcc@10.3.0]"
-          else
-              spack config add "packages:all:compiler:[gcc@9.3.0]"
-          fi
           spack external find
           spack spec flux-core@${FLUX_VERSION}
           spack spec cpp-logger@develop
