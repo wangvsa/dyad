@@ -90,10 +90,10 @@ jobs:
           GCC_VERSION="14.2.0"
           cat > /home/runner/.spack/packages.yaml <<EOF
           packages:
-            # all:
-            #   target: [x86_64]
-            #   providers:
-            #     mpi: [openmpi]
+            all:
+              target: [x86_64]
+              providers:
+                mpi: [openmpi]
             python:
               buildable: False
               externals:
@@ -109,11 +109,11 @@ jobs:
               externals:
                 - spec: "py-jsonschema@4.10.3"
                   prefix: /usr
-            # py-ply:
-            #   buildable: False
-            #   externals:
-            #     - spec: "py-ply@3.11"
-            #       prefix: /usr
+            py-ply:
+              buildable: False
+              externals:
+                - spec: "py-ply@3.11"
+                  prefix: /usr
             czmq:
               buildable: False
               externals:
