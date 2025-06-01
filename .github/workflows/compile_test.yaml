@@ -214,11 +214,6 @@ jobs:
           echo "-------------------------------"
           spack compiler find --scope=user
           spack external find
-          spack spec flux-core@${FLUX_VERSION}
-          spack spec cpp-logger@develop
-          if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
-            spack spec ucx@1.18.0
-          fi
       - name: Install Spack dependencies
         run: |
           mkdir -p ${DYAD_INSTALL_PREFIX}
@@ -227,18 +222,20 @@ jobs:
           spack install -j4 flux-core@${FLUX_VERSION}
           if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
             spack install -j4 ucx@1.18.0
+            spack load ucx@1.18.0
           fi
           if [[ $DYAD_PROFILER_MODE == 'CALIPER' ]]; then
             spack install -j4 caliper
+            spack load caliper
           fi
           # spack install cpp-logger@develop
-          spack view --verbose symlink ${DYAD_INSTALL_PREFIX} flux-core@${FLUX_VERSION} # cpp-logger@develop
-          if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
-            spack view --verbose symlink -i ${DYAD_INSTALL_PREFIX} ucx@1.18.0
-          fi
-          if [[ $DYAD_PROFILER_MODE == 'CALIPER' ]]; then
-            spack view --verbose symlink ${DYAD_INSTALL_PREFIX} caliper
-          fi
+          # spack view --verbose symlink ${DYAD_INSTALL_PREFIX} flux-core@${FLUX_VERSION} # cpp-logger@develop
+          #if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
+          #  spack view --verbose symlink -i ${DYAD_INSTALL_PREFIX} ucx@1.18.0
+          #fi
+          #if [[ $DYAD_PROFILER_MODE == 'CALIPER' ]]; then
+          #  spack view --verbose symlink ${DYAD_INSTALL_PREFIX} caliper
+          #fi
       - name: Compile DYAD
         run: |
           echo "Activating spack"
