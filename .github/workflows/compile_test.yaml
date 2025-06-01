@@ -220,6 +220,7 @@ jobs:
           python3 -m venv ${DYAD_INSTALL_PREFIX}
           . ${SPACK_DIR}/share/spack/setup-env.sh
           spack install -j4 flux-core@${FLUX_VERSION}
+          spack load flux-core@{FLUX_VERSION}
           if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
             spack install -j4 ucx@1.18.0
             spack load ucx@1.18.0
