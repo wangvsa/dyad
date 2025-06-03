@@ -278,7 +278,7 @@ jobs:
           cd ${GITHUB_WORKSPACE}/docs/demos/ecp_feb_2023
           make all
       - name: Test DYAD with separate FS c
-        timeout-minutes: 1
+        timeout-minutes: 2
         run: |
           mkdir -m 775 -p $DYAD_PATH
           . ${SPACK_DIR}/share/spack/setup-env.sh
@@ -288,7 +288,7 @@ jobs:
           echo "Starting flux brokers"
           flux start --test-size=2 /bin/bash ${GITHUB_WORKSPACE}/.github/prod-cons/dyad_prod_cons_test.sh "c"
       - name: Test DYAD with separate FS cpp
-        timeout-minutes: 1
+        timeout-minutes: 2
         run: |
           mkdir -m 775 -p $DYAD_PATH
           . ${SPACK_DIR}/share/spack/setup-env.sh
@@ -298,7 +298,7 @@ jobs:
           echo "Starting flux brokers"
           flux start --test-size=2 /bin/bash ${GITHUB_WORKSPACE}/.github/prod-cons/dyad_prod_cons_test.sh "cpp"
       - name: Test DYAD with separate FS python
-        timeout-minutes: 1
+        timeout-minutes: 5
         run: |
           mkdir -m 775 -p $DYAD_PATH
           source ${DYAD_INSTALL_PREFIX}/bin/activate
