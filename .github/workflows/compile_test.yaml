@@ -228,6 +228,8 @@ jobs:
             spack install -j4 caliper
             spack load caliper
           fi
+          spack install cpp-logger
+          spack load cpp-logger
           # spack install cpp-logger@develop
           # spack view --verbose symlink ${DYAD_INSTALL_PREFIX} flux-core@${FLUX_VERSION} # cpp-logger@develop
           #if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
@@ -258,7 +260,7 @@ jobs:
           if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
             CONFIGURE_FLAGS="-DDYAD_ENABLE_UCX_DATA=ON -DDYAD_PROFILER=NONE"
           fi
-          TEST_CONF="-DDYAD_LIBDIR_AS_LIB:BOOL=ON -DCMAKE_BUILD_TYPE=Debug -DDYAD_LOGGER=FLUX -DDYAD_LOGGER_LEVEL=INFO"
+          TEST_CONF="-DDYAD_LIBDIR_AS_LIB:BOOL=ON -DCMAKE_BUILD_TYPE=Debug -DDYAD_LOGGER=CPP_LOGGER -DDYAD_LOGGER_LEVEL=INFO"
           cmake --version
           cmake -DCMAKE_INSTALL_PREFIX=${DYAD_INSTALL_PREFIX} ${CONFIGURE_FLAGS} ${TEST_CONF} ..
           make VERBOSE=1 install -j
@@ -278,7 +280,7 @@ jobs:
           cd ${GITHUB_WORKSPACE}/docs/demos/ecp_feb_2023
           make all
       - name: Test DYAD with separate FS c
-        timeout-minutes: 2
+        timeout-minutes: 1
         run: |
           mkdir -m 775 -p $DYAD_PATH
           . ${SPACK_DIR}/share/spack/setup-env.sh
@@ -288,7 +290,7 @@ jobs:
           echo "Starting flux brokers"
           flux start --test-size=2 /bin/bash ${GITHUB_WORKSPACE}/.github/prod-cons/dyad_prod_cons_test.sh "c"
       - name: Test DYAD with separate FS cpp
-        timeout-minutes: 2
+        timeout-minutes: 1
         run: |
           mkdir -m 775 -p $DYAD_PATH
           . ${SPACK_DIR}/share/spack/setup-env.sh
@@ -298,7 +300,7 @@ jobs:
           echo "Starting flux brokers"
           flux start --test-size=2 /bin/bash ${GITHUB_WORKSPACE}/.github/prod-cons/dyad_prod_cons_test.sh "cpp"
       - name: Test DYAD with separate FS python
-        timeout-minutes: 5
+        timeout-minutes: 1
         run: |
           mkdir -m 775 -p $DYAD_PATH
           source ${DYAD_INSTALL_PREFIX}/bin/activate
