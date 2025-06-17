@@ -97,7 +97,7 @@ if (DYAD_USE_CLANG_LIBCXX)
     set (GCC_TOOLCHAIN "")
 endif (DYAD_USE_CLANG_LIBCXX)
 
-option (DYAD_ENABLE_UCX_DATA "Allow to dynamically select UCX for DYAD's Data Plane" OFF)
+option (DYAD_ENABLE_UCX_DATA "Allow to dynamically select UCX for DYAD's Data Plane" ON)
 if (DYAD_ENABLE_UCX_DATA)
     set (DYAD_ENABLE_UCX_DTL 1)
 else ()
