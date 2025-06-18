@@ -7,7 +7,7 @@
 #include <dyad/common/dyad_envs.h>
 #include <dyad/common/dyad_logging.h>
 #include <dyad/common/dyad_profiler.h>
-// #include <dyad/core/dyad_core_int.h>
+#include <dyad/service/cache/cache_client.h>
 #include <dyad/core/dyad_ctx.h>
 #include <dyad/dtl/dyad_dtl_api.h>
 #include <dyad/utils/utils.h>
@@ -272,6 +272,10 @@ dyad_rc_t dyad_init (bool debug,
         DYAD_LOG_ERROR (ctx, "Cannot initialize the DTL %s", dtl_mode_str);
         goto init_region_failed;
     }
+
+    // Initialize the client-side consumer caching service
+    if (dtl_comm_mode == DYAD_COMM_RECV)
+        cache_init("na+sm://12345");
 
     // If the producer-managed path is provided, copy it into the dyad_ctx_t
     // object
@@ -755,11 +759,14 @@ DYAD_DLL_EXPORTED dyad_rc_t dyad_clear ()
         rc = DYAD_RC_OK;
         goto clear_region_finish;
     }
+    // finalize dtl
     dyad_dtl_finalize (ctx);
     if (ctx->h != NULL) {
         flux_close (ctx->h);
         ctx->h = NULL;
     }
+    // finalize cache service
+    cache_fini();
     if (ctx->kvs_namespace != NULL) {
         free (ctx->kvs_namespace);
         ctx->kvs_namespace = NULL;

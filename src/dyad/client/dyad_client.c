@@ -10,6 +10,7 @@
 #include <dyad/common/dyad_logging.h>
 #include <dyad/common/dyad_profiler.h>
 #include <dyad/client/dyad_client_int.h>
+#include <dyad/service/cache/cache_client.h>
 #include <dyad/dtl/dyad_dtl_api.h>
 #include <dyad/utils/murmur3.h>
 #include <dyad/utils/utils.h>
@@ -828,9 +829,15 @@ dyad_rc_t dyad_consume (dyad_ctx_t *restrict ctx, const char *restrict fname)
                 rc = DYAD_RC_BADFIO;
                 goto consume_close;
             }
+            // Before we bring the data to the consumer node,
+            // let's notify the cache server about the new file
+            cache_add_file(fname, data_len);
+
             // Call dyad_pull to fetch the data from the producer's
-            // Flux broker
+            // Flux broker and write it to the local consumer-managed
+            // directory
             rc = dyad_cons_store (ctx, mdata, io_fd, data_len, file_data);
+
             // Regardless if there was an error in dyad_pull,
             // free the KVS response object
             if (mdata != NULL) {
@@ -859,6 +866,11 @@ consume_done:;
     if (file_data != NULL) {
         ctx->dtl_handle->return_buffer (ctx, (void **)&file_data);
     }
+    // At this point, if everything went well, we should
+    // have a local copy of the file ready to read. Let's
+    // notify the cache server.
+    cache_access_file(fname);
+
     // Set reenter to true to allow additional intercepting
 consume_close:;
     ctx->reenter = true;
@@ -937,6 +949,11 @@ dyad_rc_t dyad_consume_w_metadata (dyad_ctx_t *restrict ctx,
             rc = DYAD_RC_BADFIO;
             goto consume_close;
         }
+
+        // Before we bring the data to the consumer node,
+        // let's notify the cache server about the new file
+        cache_add_file(fname, data_len);
+
         // Call dyad_pull to fetch the data from the producer's
         // Flux broker
         rc = dyad_cons_store (ctx, mdata, io_fd, data_len, file_data);
@@ -966,6 +983,11 @@ consume_done:;
     if (file_data != NULL) {
         ctx->dtl_handle->return_buffer (ctx, (void **)&file_data);
     }
+
+    // At this point, if everything went well, we should
+    // have a local copy of the file ready to read. Let's
+    // notify the cache server.
+    cache_access_file(fname);
 consume_close:;
     // Set reenter to true to allow additional intercepting
     ctx->reenter = true;

@@ -1,6 +1,7 @@
 set(DYAD_CTX_SRC ${CMAKE_CURRENT_SOURCE_DIR}/dyad_ctx.c)
 set(DYAD_CTX_PRIVATE_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/../common/dyad_logging.h
-                             ${CMAKE_CURRENT_SOURCE_DIR}/../common/dyad_profiler.h)
+                             ${CMAKE_CURRENT_SOURCE_DIR}/../common/dyad_profiler.h
+                             ${CMAKE_CURRENT_SOURCE_DIR}/../service/cache/cache_client.h)
 set(DYAD_CTX_PUBLIC_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/../../../include/dyad/core/dyad_ctx.h
                             ${CMAKE_CURRENT_SOURCE_DIR}/../../../include/dyad/common/dyad_rc.h
                             ${CMAKE_CURRENT_SOURCE_DIR}/../../../include/dyad/common/dyad_dtl.h
