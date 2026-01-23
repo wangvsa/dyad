@@ -38,8 +38,8 @@ extern "C" {
 
 #ifdef DYAD_LOGGER_FLUX  // FLUX -----------------------------------------------
 #define DYAD_LOGGER_INIT() ;
-#define DYAD_LOG_STDOUT_REDIRECT(fpath) freopen ((fpath), "a+", stdout);
-#define DYAD_LOG_STDERR_REDIRECT(fpath) freopen ((fpath), "a+", stderr);
+#define DYAD_LOG_STDOUT_REDIRECT(fpath) (void)! freopen ((fpath), "a+", stdout);
+#define DYAD_LOG_STDERR_REDIRECT(fpath) (void)! freopen ((fpath), "a+", stderr);
 
 #ifdef DYAD_UTIL_LOGGER
 #ifdef DYAD_LOGGER_LEVEL_DEBUG
