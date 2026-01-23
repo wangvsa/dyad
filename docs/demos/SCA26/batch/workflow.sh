@@ -1,6 +1,8 @@
 #!/bin/bash
 # Flux commands manual
 # https://flux-framework.readthedocs.io/projects/flux-core/en/latest/man1
+# This script submits jobs for ${n_tasks} pairs of producers and consumers.
+n_tasks=1
 
 script_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
 
@@ -19,9 +21,14 @@ fi
 source ${script_dir}/select_language.sh
 
 
+if [ "${DYAD_PATH_CONSUMER}" == "" || "${DYAD_PATH_PRODUCER}" == "" ]  ; then
+    echo Undefined environment variables: DYAD_PATH_PRODUCER and DYAD_PATH_CONSUMER
+    exit 1
+fi
+
+# Clean up any potentially existing data from previous runs
+flux exec -r all rm -rf ${DYAD_PATH_CONSUMER} ${DYAD_PATH_PRODUCER}
 # Prepare directories on local storages
-export DYAD_PATH_CONSUMER=/mnt/ssd/${USER}/dyad/workflow
-export DYAD_PATH_PRODUCER=/mnt/ssd/${USER}/dyad/workflow
 flux exec -r all mkdir -p ${DYAD_PATH_CONSUMER} ${DYAD_PATH_PRODUCER}
 
 
@@ -36,7 +43,6 @@ flux exec -r all flux module load ${DYAD_INSTALL_LIBDIR}/dyad.so #--mode="${DYAD
 # Here, we submit the consumer jobs first for demonstration purposes.
 # In practice, producer jobs are submitted first.
 
-n_tasks=1
 for i_task in `seq 1 $n_tasks`
 do
     echo "Submitting Consumer job"
