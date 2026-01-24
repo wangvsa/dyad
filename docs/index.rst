@@ -36,6 +36,7 @@ In resolving these challenges, DYAD aims to provide the following to users:
    :caption: Tutorials
 
    ecp_feb_2023_tutorial
+   SCA-HPCAsia26_tutorial
 
 .. toctree::
    :maxdepth: 2

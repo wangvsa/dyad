@@ -7,30 +7,27 @@ Prerequisites
 
 DYAD has the following minimum requirements to build and install:
 
-* A C99-compliant C compiler
-* A C++11-compliant C++ compiler
-* Autoconf 2.63
-* Automake
-* Libtool
-* Make
+* A C11-compliant C compiler
+* A C++17-compliant C++ compiler
+* CNake 3.12
 * pkg-config
-* Jansson 2.10
-* flux-core
+* `flux-core <https://github.com/flux-framework/flux-core.git>`_
+* `jansson 2.10 or newer <https://github.com/akheron/jansson.git>`_
+* flux-python
+
+Optionally, DYAD leverages:
+* `mochi-margo <https://github.com/mochi-hpc/mochi-margo.git>`_ to enable libfabric-based data transport layer (DTL).
+* `ucx <https://github.com/openucx/ucx.git>`_ to enable ucx-based DTL.
+* `dftracer <https://github.com/llnl/dftracer.git>`_ for performance tracing of python-based applications.
+* cpp-logger for logging operational details to aid debugging.
+* `perflow-aspect <https://perfflowaspect.readthedocs.io/en/latest/>`_ for visualizing the function-wise events to aid workflow performance diagnosis.
+* `caliper <https://github.com/llnl/Caliper.git>`_ for collecting performance profiling.
 
 Installation
 ############
 
 Manual Installation
 *******************
-
-.. attention::
-
-   Currently, DYAD can only be installed manually. This page will be updated as additional
-   methods of installation are added.
-
-.. note::
-
-   Recommended for developers and contributors
 
 You can get DYAD from its `GitHub repository <https://github.com/flux-framework/dyad>`_ using
 these commands:
@@ -40,56 +37,84 @@ these commands:
    $ git clone https://github.com/flux-framework/dyad.git
    $ cd dyad
 
-DYAD uses the Autotools for building and installation. To start the build process, run
-the following command to generate the necessary configuration scripts using Autoconf:
+DYAD relies ons cmake for building and installation.
 
 .. code-block:: shell
 
-   $ ./auotgen.sh
-
-Next, configure DYAD using the following command:
-
-.. code-block:: shell
-
-   $ ./configure --prefix=<INSTALL_PATH>
-
-Besides the normal configure script flags, DYAD's configure script also has the following
-flags:
-
-+---------------------+-------------------------+--------------------------------------------+
-| Flag                | Type (default)          | Description                                |
-+=====================+=========================+============================================+
-| --enable-dyad-debug | Bool (true if provided) | if enabled, include debugging prints and   |
-|                     |                         | logs for DYAD at runtime                   |
-+---------------------+-------------------------+--------------------------------------------+
-| --enable-perfflow   | Bool (true if provided) | if enabled, build PerfFlow Aspect-based    |
-|                     |                         | performance measurement annotations for    |
-|                     |                         | DYAD                                       |
-+---------------------+-------------------------+--------------------------------------------+
+   $ mkdir build; cd build
+   $ cmake -DDYAD_ENABLE_MARGO_DATA=ON \
+           -DDYAD_LIBDIR_AS_LIB=ON \
+           -DCMAKE_INSTALL_PREFIX=${DYAD_INSTALL_PREFIX} \
+           ..
+   $ make -j install
 
 .. note::
 
-   The installation prefix (i.e., :code:`--prefix`) is also used to try to locate flux-core.
-   First, :code:`configure` will look for flux-core in the installation prefix. If it is not
-   found there, :code:`configure` will then use :code:`pkg-config` to locate flux-core.
+   The cmake command above is provided as an example. Refer to the options
+   below to configure as needed.
+   Set the env variable `DYAD_INSTALL_PREFIX` to the desired install directory.
 
-Finally, build and install DYAD using the following commands:
+
+To enable python binding,
 
 .. code-block:: shell
 
-   $ make [-j]
-   $ make install
+   $ python3 -m venv .venv
+   $ source .venv/bin/activate
+   $ pip install flux-python=0,80.0
+   $ cd pydyad
+   $ pip install .
 
-Building with PerfFlow Aspect Support (Optional)
-************************************************
+.. note::
 
-DYAD has optional support for collecting cross-cutting performance data using
-`PerfFlow Aspect <https://perfflowaspect.readthedocs.io/en/latest/>`_. To enable this support,
-first build PerfFlow Aspect for C/C++ using
-`their instructions <https://perfflowaspect.readthedocs.io/en/latest/BuildingPerfFlowAspect.html#c-build>`_.
-Then, modify your method of choice for building DYAD as follows:
+   When installing flux-python, choose the version that matches flux-core.
 
-* **Manual Installation**: add :code:`--enable-perfflow` to your invocation of `./configure`
+
+
+There are a few custom cmake options to configure DYAD build:
+
++--------------------------+----------------------------+---------------------------------------------+
+| Flag                     | Values (**default**)       | Description                                 |
++==========================+============================+=============================================+
+| DYAD_ENABLE_MARGO_DATA   | ON, **OFF**                | Allow dynamic selection of Margo-based DTL  |
+| DYAD_ENABLE_UCX_DATA     | ON, **OFF**                | Allow dynamic selection of UCX-based DTL    |
+| DYAD_ENABLE_UCX_DATA_RMA | ON, **OFF**                | Allow dynamic selection of UCX-based RMA DTL|
++--------------------------+----------------------------+---------------------------------------------+
+| DYAD_LOGGER              | FLUX, CPP_LOGGER, **NONE** | Choose the method to log stdout/stderr      |
+| DYAD_LOGGER_LEVEL        | DEBUG, INFO, WARN,         | Choose the level of logging                 |
+|                          | ERROR, **NONE**            |                                             |
++--------------------------+----------------------------+--------------------+------------------------+
+| DYAD_PROFILER            | PERFFLOW_ASPECT, CALIPER,  | Choose the performance profiler             |
+|                          | DFTRACER, **NONE**         |                                             |
++--------------------------+----------------------------+--------------------+------------------------+
+| DYAD_ENABLE_TESTS        | ON, **OFF**                | Build unit tests                            |
+| DYAD_LIBDIR_AS_LIB       | ON, **OFF**                | Force lib as library install dir (no lib64) |
+| DYAD_USE_CLANG_LIBCXX    | ON, **OFF**                | Use clang's native runtime instead of gnu   |
+| DYAD_WARNINGS_AS_ERRORS  | ON, **OFF**                | Turn compiler warning into error            |
++--------------------------+----------------------------+---------------------------------------------+
+
+
+.. note::
+
+   mochi-margo allows seamless adoption of various DTL types. Currently, DYAD only
+   relies on it for libfabric. We plan to fully leverage diverse choices it offers
+   in the near future. To actually enable a specific type of DTL, DYAD requires the
+   environment variable ``DYAD_DTL_MODE`` set accordingly. Currently, three values are
+   accepted: ``MARGO``, ``UCX`` and ``FLUX_RPC``. When the variable is set to ``UCX`` and DYAD has
+   been built with `DYAD_ENABLE_UCX_DATA_RMA=ON`, DYAD performs asynchronous data
+   transfer via *remote memory access* (RMA) to reduce the communication cost.
+   When built with `DYAD_ENABLE_UCX_DATA=ON`, DYAD performs synchronous data transfer
+   based on UCX. In other words, the choice between synchronous and RMA-based UCX
+   is mutually exclusive at compile time. However, The choice between MARGO,
+   UCX and FLUX_RPC can be dynamic at launch time.  Also make sure to set ``DYAD_DTL_MODE``
+   consistently between the
+   environments of service and client. When none of the three DTL-related cmake
+   option is set, DYAD relies on FLUX RPC to transfer data. While DYAD currently
+   offers four different data transfer methods, the client only relies on FLUX RPC
+   to send transfer requests to the service. In the future, we plan to offer
+   alternative RPC methods that are portable.
+
+
 
 Using DYAD's APIs
 #################
@@ -98,6 +123,7 @@ Currently, DYAD provides APIs for the following programming languages:
 
 * C
 * C++
+* Python
 
 This section describes the basics of integrating them into an application.
 
@@ -124,7 +150,7 @@ To use DYAD's C++ API, first, add the following to your code:
 
 .. code-block:: cpp
 
-   #include <dyad_stream_api.hpp>
+   #include <dyad/stream/dyad_stream_api.hpp>
 
 This header defines thin wrappers around the file streams provided by the C++ Standard Library.
 More specifically, it provides the following classes:

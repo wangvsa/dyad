@@ -1,4 +1,7 @@
-﻿## DYAD dependencies
+﻿# DYAD Tutorial at SCA/HPCAsia 2026 in Osaka Japan
+This tutorial is offered as a part of the "Accelerating HPC Application I/O with Fast Node-Local Storage" session.
+
+## DYAD dependencies
 - requires: [flux-core](https://github.com/flux-framework/flux-core.git), [jansson](https://github.com/akheron/jansson.git)
 - optional: [mochi-margo](https://github.com/mochi-hpc/mochi-margo.git) for using libfabric
             [ucx](https://github.com/openucx/ucx.git) for using ucx
@@ -372,7 +375,14 @@ flux exec -r all rm -rf ${DYAD_PATH_PRODUCER}
 flux exec -r all mkdir -p ${DYAD_PATH_PRODUCER}
 ```
 
+These dlio_benchmark commands customize the existing unit3d template in the
+benchmark suite by overriding parameters such as the size and number of data files.
+In this example, we define `${HOME}/demo_DLIO` as where training data and
+benchmark results are to be stored into.
+
+
 ### Generate Training Data
+
 
 ```
 export DLIO_LOG_LEVEL=info;
