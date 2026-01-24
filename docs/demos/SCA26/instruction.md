@@ -5,7 +5,7 @@ This tutorial is offered as a part of the "Accelerating HPC Application I/O with
 - requires: [flux-core](https://github.com/flux-framework/flux-core.git), [jansson](https://github.com/akheron/jansson.git)
 - optional: [mochi-margo](https://github.com/mochi-hpc/mochi-margo.git) for using libfabric
             [ucx](https://github.com/openucx/ucx.git) for using ucx
-            [dftracer](https://github.com/llnl/dftracer.git), numpy and h5py for performance tracing
+            [dftracer](https://github.com/llnl/dftracer.git) (with numpy and h5py) for performance tracing
 
 Also, we recommend to install [flux-sched](https://github.com/flux-framework/flux-sched.git)
 For this tutorial, we already have these dependencies pre-installed.
@@ -327,6 +327,9 @@ improves I/O performance. In this setup, each trainer acts as both a consumer
 and a producer. DYAD first checks whether a sample exists in the cache; if not,
 the sample is loaded from shared storage.
 
+In this example, `${HOME}/demo_DLIO` is defined as the location where training
+data and benchmark results are stored.
+
 
 ### Install the DLIO benchmark in a Python virtual environment
 
@@ -375,10 +378,9 @@ flux exec -r all rm -rf ${DYAD_PATH_PRODUCER}
 flux exec -r all mkdir -p ${DYAD_PATH_PRODUCER}
 ```
 
-These dlio_benchmark commands customize the existing unit3d template in the
-benchmark suite by overriding parameters such as the size and number of data files.
-In this example, we define `${HOME}/demo_DLIO` as where training data and
-benchmark results are to be stored into.
+These dlio_benchmark commands customize the existing unet3d template in the
+benchmark suite by overriding parameters such as the size and number of data
+files.
 
 
 ### Generate Training Data

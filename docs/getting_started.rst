@@ -18,9 +18,9 @@ DYAD has the following minimum requirements to build and install:
 Optionally, DYAD leverages:
 * `mochi-margo <https://github.com/mochi-hpc/mochi-margo.git>`_ to enable libfabric-based data transport layer (DTL).
 * `ucx <https://github.com/openucx/ucx.git>`_ to enable ucx-based DTL.
-* `dftracer <https://github.com/llnl/dftracer.git>`_ for performance tracing of python-based applications.
+* `dftracer <https://github.com/llnl/dftracer.git>`_ for performance tracing of Python-based applications.
 * cpp-logger for logging operational details to aid debugging.
-* `perflow-aspect <https://perfflowaspect.readthedocs.io/en/latest/>`_ for visualizing the function-wise events to aid workflow performance diagnosis.
+* `perflow-aspect <https://perfflowaspect.readthedocs.io/en/latest/>`_ for visualizing function-level events to aid workflow performance diagnosis.
 * `caliper <https://github.com/llnl/Caliper.git>`_ for collecting performance profiling.
 
 Installation
@@ -37,7 +37,7 @@ these commands:
    $ git clone https://github.com/flux-framework/dyad.git
    $ cd dyad
 
-DYAD relies ons cmake for building and installation.
+DYAD relies on cmake for both building and installation.
 
 .. code-block:: shell
 
@@ -50,12 +50,11 @@ DYAD relies ons cmake for building and installation.
 
 .. note::
 
-   The cmake command above is provided as an example. Refer to the options
-   below to configure as needed.
-   Set the env variable `DYAD_INSTALL_PREFIX` to the desired install directory.
+   The cmake command above is provided as an example. Refer to the options below to customize configuration as needed.
+   Set the env variable `DYAD_INSTALL_PREFIX` to the desired installation directory.
 
 
-To enable python binding,
+To enable the DYAD Python binding,
 
 .. code-block:: shell
 
@@ -67,53 +66,108 @@ To enable python binding,
 
 .. note::
 
-   When installing flux-python, choose the version that matches flux-core.
+   When installing *flux-python*, ensure that the version matches *flux-core*.
 
 
 
-There are a few custom cmake options to configure DYAD build:
+There are several custom CMake options available to configure a DYAD build:
 
-+--------------------------+----------------------------+---------------------------------------------+
-| Flag                     | Values (**default**)       | Description                                 |
-+==========================+============================+=============================================+
-| DYAD_ENABLE_MARGO_DATA   | ON, **OFF**                | Allow dynamic selection of Margo-based DTL  |
-| DYAD_ENABLE_UCX_DATA     | ON, **OFF**                | Allow dynamic selection of UCX-based DTL    |
-| DYAD_ENABLE_UCX_DATA_RMA | ON, **OFF**                | Allow dynamic selection of UCX-based RMA DTL|
-+--------------------------+----------------------------+---------------------------------------------+
-| DYAD_LOGGER              | FLUX, CPP_LOGGER, **NONE** | Choose the method to log stdout/stderr      |
-| DYAD_LOGGER_LEVEL        | DEBUG, INFO, WARN,         | Choose the level of logging                 |
-|                          | ERROR, **NONE**            |                                             |
-+--------------------------+----------------------------+--------------------+------------------------+
-| DYAD_PROFILER            | PERFFLOW_ASPECT, CALIPER,  | Choose the performance profiler             |
-|                          | DFTRACER, **NONE**         |                                             |
-+--------------------------+----------------------------+--------------------+------------------------+
-| DYAD_ENABLE_TESTS        | ON, **OFF**                | Build unit tests                            |
-| DYAD_LIBDIR_AS_LIB       | ON, **OFF**                | Force lib as library install dir (no lib64) |
-| DYAD_USE_CLANG_LIBCXX    | ON, **OFF**                | Use clang's native runtime instead of gnu   |
-| DYAD_WARNINGS_AS_ERRORS  | ON, **OFF**                | Turn compiler warning into error            |
-+--------------------------+----------------------------+---------------------------------------------+
+.. This is how the list-table below would render ideally
+   +--------------------------+----------------------------+---------------------------------------------+
+   | Flag                     | Values (**default**)       | Description                                 |
+   +==========================+============================+=============================================+
+   | DYAD_ENABLE_MARGO_DATA   | ON, **OFF**                | Allow dynamic selection of Margo-based DTL  |
+   | DYAD_ENABLE_UCX_DATA     | ON, **OFF**                | Allow dynamic selection of UCX-based DTL    |
+   | DYAD_ENABLE_UCX_DATA_RMA | ON, **OFF**                | Allow dynamic selection of UCX-based RMA DTL|
+   +--------------------------+----------------------------+---------------------------------------------+
+   | DYAD_LOGGER              | FLUX, CPP_LOGGER, **NONE** | Choose the method to log stdout/stderr      |
+   | DYAD_LOGGER_LEVEL        | DEBUG, INFO, WARN,         | Choose the level of logging                 |
+   |                          | ERROR, **NONE**            |                                             |
+   +--------------------------+----------------------------+---------------------------------------------+
+   | DYAD_PROFILER            | PERFFLOW_ASPECT, CALIPER,  | Choose the performance profiler             |
+   |                          | DFTRACER, **NONE**         |                                             |
+   +--------------------------+----------------------------+---------------------------------------------+
+   | DYAD_ENABLE_TESTS        | ON, **OFF**                | Build unit tests                            |
+   | DYAD_LIBDIR_AS_LIB       | ON, **OFF**                | Force lib as library install dir (no lib64) |
+   | DYAD_USE_CLANG_LIBCXX    | ON, **OFF**                | Use clang's native runtime instead of gnu   |
+   | DYAD_WARNINGS_AS_ERRORS  | ON, **OFF**                | Turn compiler warning into error            |
+   +--------------------------+----------------------------+---------------------------------------------+
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 25 50
+
+   * - Flag
+     - Values (**default**)
+     - Description
+   * - **Data Transfer Options**
+     -
+     -
+   * - DYAD_ENABLE_MARGO_DATA
+     - ON, **OFF**
+     - Allow dynamic selection of Margo-based DTL
+   * - DYAD_ENABLE_UCX_DATA
+     - ON, **OFF**
+     - Allow dynamic selection of UCX-based DTL
+   * - DYAD_ENABLE_UCX_DATA_RMA
+     - ON, **OFF**
+     - Allow dynamic selection of UCX-based RMA DTL
+   * - **Logging and Profiling**
+     -
+     -
+   * - DYAD_LOGGER
+     - FLUX, CPP_LOGGER, **NONE**
+     - Choose the method to log stdout/stderr
+   * - DYAD_LOGGER_LEVEL
+     - DEBUG, INFO, WARN, ERROR, **NONE**
+     - Choose the level of logging
+   * - DYAD_PROFILER
+     - PERFFLOW_ASPECT, CALIPER, DFTRACER, **NONE**
+     - Choose the performance profiler
+   * - **Compiling/Linking Customization**
+     - 
+     - 
+   * - DYAD_ENABLE_TESTS
+     - ON, **OFF**
+     - Build unit tests
+   * - DYAD_LIBDIR_AS_LIB
+     - ON, **OFF**
+     - Force lib as library install dir (no lib64)
+   * - DYAD_USE_CLANG_LIBCXX
+     - ON, **OFF**
+     - Use clang's native runtime instead of GNU
+   * - DYAD_WARNINGS_AS_ERRORS
+     - ON, **OFF**
+     - Turn compiler warnings into errors
 
 
 .. note::
 
-   mochi-margo allows seamless adoption of various DTL types. Currently, DYAD only
-   relies on it for libfabric. We plan to fully leverage diverse choices it offers
-   in the near future. To actually enable a specific type of DTL, DYAD requires the
-   environment variable ``DYAD_DTL_MODE`` set accordingly. Currently, three values are
-   accepted: ``MARGO``, ``UCX`` and ``FLUX_RPC``. When the variable is set to ``UCX`` and DYAD has
-   been built with `DYAD_ENABLE_UCX_DATA_RMA=ON`, DYAD performs asynchronous data
-   transfer via *remote memory access* (RMA) to reduce the communication cost.
-   When built with `DYAD_ENABLE_UCX_DATA=ON`, DYAD performs synchronous data transfer
-   based on UCX. In other words, the choice between synchronous and RMA-based UCX
-   is mutually exclusive at compile time. However, The choice between MARGO,
-   UCX and FLUX_RPC can be dynamic at launch time.  Also make sure to set ``DYAD_DTL_MODE``
-   consistently between the
-   environments of service and client. When none of the three DTL-related cmake
-   option is set, DYAD relies on FLUX RPC to transfer data. While DYAD currently
-   offers four different data transfer methods, the client only relies on FLUX RPC
-   to send transfer requests to the service. In the future, we plan to offer
-   alternative RPC methods that are portable.
+   Mochi-Margo enables seamless adoption of various DTL types. Currently, DYAD
+   relies on it only for **libfabric**, but we plan to fully leverage the diverse
+   options it provides in the near future.
 
+   To enable a specific DTL type, DYAD requires the environment variable
+   ``DYAD_DTL_MODE`` to be set accordingly. At present, three values are
+   supported: ``MARGO``, ``UCX``, and ``FLUX_RPC``.
+
+   - When ``DYAD_DTL_MODE`` is set to ``UCX`` and DYAD has been built with the
+     CMake option ``DYAD_ENABLE_UCX_DATA_RMA=ON``, data transfer is performed
+     asynchronously via **remote memory access (RMA)** to reduce communication
+     costs.
+   - When built with ``DYAD_ENABLE_UCX_DATA=ON``, data transfer is synchronous
+     using UCX. In other words, the choice between synchronous and RMA-based UCX
+     is mutually exclusive at compile time.
+
+   However, the selection between ``MARGO``, ``UCX``, and ``FLUX_RPC`` can be
+   made dynamically at launch time. Ensure that ``DYAD_DTL_MODE`` is set
+   consistently in both the service and client environments.
+
+   If none of the three DTL-related CMake options are set, DYAD defaults to
+   using **FLUX RPC** for data transfer. While DYAD currently supports four
+   different data transfer methods, the client relies only on FLUX RPC to send
+   transfer requests to the service. In the future, we plan to offer alternative,
+   portable RPC methods.
 
 
 Using DYAD's APIs
