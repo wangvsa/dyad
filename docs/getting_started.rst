@@ -16,6 +16,7 @@ DYAD has the following minimum requirements to build and install:
 * flux-python
 
 Optionally, DYAD leverages:
+
 * `mochi-margo <https://github.com/mochi-hpc/mochi-margo.git>`_ to enable libfabric-based data transport layer (DTL).
 * `ucx <https://github.com/openucx/ucx.git>`_ to enable ucx-based DTL.
 * `dftracer <https://github.com/llnl/dftracer.git>`_ for performance tracing of Python-based applications.
@@ -93,6 +94,7 @@ There are several custom CMake options available to configure a DYAD build:
    | DYAD_WARNINGS_AS_ERRORS  | ON, **OFF**                | Turn compiler warning into error            |
    +--------------------------+----------------------------+---------------------------------------------+
 
+
 .. list-table::
    :header-rows: 1
    :widths: 25 25 50
@@ -125,8 +127,8 @@ There are several custom CMake options available to configure a DYAD build:
      - PERFFLOW_ASPECT, CALIPER, DFTRACER, **NONE**
      - Choose the performance profiler
    * - **Compiling/Linking Customization**
-     - 
-     - 
+     -
+     -
    * - DYAD_ENABLE_TESTS
      - ON, **OFF**
      - Build unit tests
@@ -200,7 +202,9 @@ C++ API
 *******
 
 DYAD's C++ API is implemented as a small library that wraps C++'s Standard Library file streams.
-To use DYAD's C++ API, first, add the following to your code:
+LD_PRELOAD-based function substitution does not apply to C++ streams because the
+symbols to be intercepted are not exposed. Instead, we provide a set of lightweight
+wrapper classes. To use DYAD's C++ API, first, add the following to your code:
 
 .. code-block:: cpp
 
@@ -247,6 +251,20 @@ there is one final requirement to using the C++ API. When compiling your code,
 you must link the associated library (i.e., :code:`libdyad_stream.so` or
 :code:`libdyad_stream.a`). This library can be found in the :code:`lib`
 subdirectory of the install prefix.
+
+
+Python
+*******
+
+We offer PyDYAD, a Python binding to the DYAD client library implemented in C.
+A producer-consumer example can be found at `tests/pydyad_spsc <https://github.com/flux-framework/dyad/tree/main/pydyad>`_.
+
+.. toctree::
+   :maxdepth: 1
+   :caption: An exmaple of integrating DYAD with PyTorch DataLoader
+
+   integration_with_PyTorch
+
 
 Running DYAD
 ############
