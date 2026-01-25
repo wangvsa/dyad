@@ -39,6 +39,12 @@ In resolving these challenges, DYAD aims to provide the following to users:
 
 .. toctree::
    :maxdepth: 2
+   :caption: Debugging
+
+   debugging
+
+.. toctree::
+   :maxdepth: 2
    :caption: Tutorials
 
    ecp_feb_2023_tutorial
