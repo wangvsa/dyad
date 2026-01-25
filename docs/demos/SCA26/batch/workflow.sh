@@ -21,7 +21,7 @@ fi
 source ${script_dir}/select_language.sh
 
 
-if [ "${DYAD_PATH_CONSUMER}" == "" || "${DYAD_PATH_PRODUCER}" == "" ]  ; then
+if [ "${DYAD_PATH_CONSUMER}" == "" ] || [ "${DYAD_PATH_PRODUCER}" == "" ]  ; then
     echo Undefined environment variables: DYAD_PATH_PRODUCER and DYAD_PATH_CONSUMER
     exit 1
 fi

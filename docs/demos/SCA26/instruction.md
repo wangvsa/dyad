@@ -1,5 +1,6 @@
 ﻿# DYAD Tutorial at SCA/HPCAsia 2026 in Osaka Japan
 This tutorial is offered as a part of the "Accelerating HPC Application I/O with Fast Node-Local Storage" session.
+The material of this tutorial is under [docs/demos/SCA26](https://github.com/flux-framework/dyad/tree/main/docs/demos/SCA26).
 
 ## DYAD dependencies
 - requires: [flux-core](https://github.com/flux-framework/flux-core.git), [jansson](https://github.com/akheron/jansson.git)
@@ -25,11 +26,9 @@ spack load mochi-margo
 # spack env deactivate
 ```
 
-pip install flux-python==0.80.0
 
 ## Setup the environment
 ```
-export DYAD_INSTALL_PREFIX=/home/${USER}/venv
 module load flux-core mochi-margo
 # Or
 # spack env activate dyad
@@ -39,6 +38,7 @@ module load flux-core mochi-margo
 ## Build DYAD
 
 ```
+export DYAD_INSTALL_PREFIX=/home/${USER}/venv
 git clone https://github.com/flux-framework/dyad.git
 cd dyad; mkdir build; cd build
 cmake -DDYAD_ENABLE_MARGO_DATA=ON \
@@ -185,8 +185,12 @@ $ squeue
                 70   compute interact    yeom2  R       1:38      2 dsaicn[01-02]
 ```
 
+Before continuing, verify that the second terminal is using the same environment
+as the first terminal. A script, `setup_env.sh`, is provided to quickly set this
+up by running `source ./setup_env.sh`.
 Then, set up a Flux proxy to connect to the existing instance under that
 allocation using the commands, [flux uri](https://flux-framework.readthedocs.io/projects/flux-core/en/latest/man1/flux-uri.html) and [flux proxy](https://flux-framework.readthedocs.io/projects/flux-core/en/latest/man1/flux-proxy.html).
+
 
 ```
 $ flux proxy `flux uri slurm:70`
