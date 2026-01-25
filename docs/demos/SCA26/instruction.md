@@ -331,7 +331,7 @@ improves I/O performance. In this setup, each trainer acts as both a consumer
 and a producer. DYAD first checks whether a sample exists in the cache; if not,
 the sample is loaded from shared storage.
 
-In this example, `${HOME}/demo_DLIO` is defined as the location where training
+In this example, `${RESULT_DIR}` is defined as the location where training
 data and benchmark results are stored.
 
 
@@ -363,12 +363,19 @@ export DYAD_KVS_NAMESPACE=dyad
 export DYAD_DTL_MODE=MARGO
 export DYAD_PATH_PRODUCER=/mnt/ssd/${USER}/dyad
 export DYAD_PATH_CONSUMER=/mnt/ssd/${USER}/dyad
-mkdir -p ${HOME}/demo_DLIO
-export PYTHONPATH=${HOME}/demo_DLIO:$PYTHONPATH
+mkdir -p ${RESULT_DIR}
+export PYTHONPATH=${RESULT_DIR}:$PYTHONPATH
 export TEST_FILE_SIZE=33554432
 export TEST_NUM_FILES=6400
 ```
-Copy `dyad/docs/demos/SCA26/DL/dyad_torch_data_loader.py` into `${HOME}/demo_DLIO`
+Copy `dyad/docs/demos/SCA26/DL/dyad_torch_data_loader.py` into `${RESULT_DIR}`
+We will use pre-generated data under a shared directory, `/home/sca26-tut/share`,
+to save time in this tutorial.
+
+```
+export DATA_DIR=/home/sca26-tut/share/dataset
+export RESULT_DIR=${HOME}/demo_DLIO
+```
 
 Alllocate compute nodes and start a Flux instance
 
@@ -396,13 +403,13 @@ flux run -N 4 -n 128 dlio_benchmark \
   workload=unet3d_a100 \
   ++workload.workflow.generate_data=True \
   ++workload.workflow.train=False \
-  hydra.run.dir=${HOME}/demo_DLIO/output \
-  ++workload.output.folder=${HOME}/demo_DLIO/output \
+  hydra.run.dir=${RESULT_DIR}/output \
+  ++workload.output.folder=${RESULT_DIR}/output \
   ++workload.dataset.num_files_train=${TEST_NUM_FILES} \
   ++workload.dataset.record_length_bytes=${TEST_FILE_SIZE} \
   ++workload.dataset.record_length_bytes_stdev=0 \
-  ++workload.dataset.data_folder=${HOME}/demo_DLIO/dataset \
-  ++workload.checkpoint.checkpoint_folder=${HOME}/demo_DLIO/checkpoint
+  ++workload.dataset.data_folder=${DATA_DIR} \
+  ++workload.checkpoint.checkpoint_folder=${RESULT_DIR}/checkpoint
 ```
 
 ### Train without DYAD
@@ -412,13 +419,13 @@ flux run -N 4 -n 128 dlio_benchmark \
   workload=unet3d_a100 \
   ++workload.workflow.generate_data=False \
   ++workload.workflow.train=True \
-  hydra.run.dir=${HOME}/demo_DLIO/output \
-  ++workload.output.folder=${HOME}/demo_DLIO/output  \
+  hydra.run.dir=${RESULT_DIR}/output \
+  ++workload.output.folder=${RESULT_DIR}/output  \
   ++workload.dataset.num_files_train=${TEST_NUM_FILES} \
   ++workload.dataset.record_length_bytes=${TEST_FILE_SIZE} \
   ++workload.dataset.record_length_bytes_stdev=0 \
-  ++workload.dataset.data_folder=${HOME}/demo_DLIO/dataset \
-  ++workload.checkpoint.checkpoint_folder=${HOME}/demo_DLIO/checkpoint \
+  ++workload.dataset.data_folder=${DATA_DIR} \
+  ++workload.checkpoint.checkpoint_folder=${RESULT_DIR}/checkpoint \
   ++workload.reader.batch_size=1 \
   ++workload.train.epochs=20 \
   ++workload.train.computation_time=0
@@ -431,13 +438,13 @@ flux run -N 4 -n 128 dlio_benchmark \
   workload=unet3d_a100 \
   ++workload.workflow.generate_data=False \
   ++workload.workflow.train=True \
-  hydra.run.dir=${HOME}/demo_DLIO/output \
-  ++workload.output.folder=${HOME}/demo_DLIO/output  \
+  hydra.run.dir=${RESULT_DIR}/output \
+  ++workload.output.folder=${RESULT_DIR}/output  \
   ++workload.dataset.num_files_train=${TEST_NUM_FILES} \
   ++workload.dataset.record_length_bytes=${TEST_FILE_SIZE} \
   ++workload.dataset.record_length_bytes_stdev=0 \
-  ++workload.dataset.data_folder=${HOME}/demo_DLIO/dataset \
-  ++workload.checkpoint.checkpoint_folder=${HOME}/demo_DLIO/checkpoint \
+  ++workload.dataset.data_folder=${DATA_DIR} \
+  ++workload.checkpoint.checkpoint_folder=${RESULT_DIR}/checkpoint \
   ++workload.reader.batch_size=1 \
   ++workload.train.epochs=20 \
   ++workload.train.computation_time=0 \
