@@ -7,30 +7,28 @@ Prerequisites
 
 DYAD has the following minimum requirements to build and install:
 
-* A C99-compliant C compiler
-* A C++11-compliant C++ compiler
-* Autoconf 2.63
-* Automake
-* Libtool
-* Make
+* A C11-compliant C compiler
+* A C++17-compliant C++ compiler
+* CNake 3.12
 * pkg-config
-* Jansson 2.10
-* flux-core
+* `flux-core <https://github.com/flux-framework/flux-core.git>`_
+* `jansson 2.10 or newer <https://github.com/akheron/jansson.git>`_
+* flux-python
+
+Optionally, DYAD leverages:
+
+* `mochi-margo <https://github.com/mochi-hpc/mochi-margo.git>`_ to enable libfabric-based data transport layer (DTL).
+* `ucx <https://github.com/openucx/ucx.git>`_ to enable ucx-based DTL.
+* `dftracer <https://github.com/llnl/dftracer.git>`_ for performance tracing of Python-based applications.
+* cpp-logger for logging operational details to aid debugging.
+* `perflow-aspect <https://perfflowaspect.readthedocs.io/en/latest/>`_ for visualizing function-level events to aid workflow performance diagnosis.
+* `caliper <https://github.com/llnl/Caliper.git>`_ for collecting performance profiling.
 
 Installation
 ############
 
 Manual Installation
 *******************
-
-.. attention::
-
-   Currently, DYAD can only be installed manually. This page will be updated as additional
-   methods of installation are added.
-
-.. note::
-
-   Recommended for developers and contributors
 
 You can get DYAD from its `GitHub repository <https://github.com/flux-framework/dyad>`_ using
 these commands:
@@ -40,56 +38,139 @@ these commands:
    $ git clone https://github.com/flux-framework/dyad.git
    $ cd dyad
 
-DYAD uses the Autotools for building and installation. To start the build process, run
-the following command to generate the necessary configuration scripts using Autoconf:
+DYAD relies on cmake for both building and installation.
 
 .. code-block:: shell
 
-   $ ./auotgen.sh
-
-Next, configure DYAD using the following command:
-
-.. code-block:: shell
-
-   $ ./configure --prefix=<INSTALL_PATH>
-
-Besides the normal configure script flags, DYAD's configure script also has the following
-flags:
-
-+---------------------+-------------------------+--------------------------------------------+
-| Flag                | Type (default)          | Description                                |
-+=====================+=========================+============================================+
-| --enable-dyad-debug | Bool (true if provided) | if enabled, include debugging prints and   |
-|                     |                         | logs for DYAD at runtime                   |
-+---------------------+-------------------------+--------------------------------------------+
-| --enable-perfflow   | Bool (true if provided) | if enabled, build PerfFlow Aspect-based    |
-|                     |                         | performance measurement annotations for    |
-|                     |                         | DYAD                                       |
-+---------------------+-------------------------+--------------------------------------------+
+   $ mkdir build; cd build
+   $ cmake -DDYAD_ENABLE_MARGO_DATA=ON \
+           -DDYAD_LIBDIR_AS_LIB=ON \
+           -DCMAKE_INSTALL_PREFIX=${DYAD_INSTALL_PREFIX} \
+           ..
+   $ make -j install
 
 .. note::
 
-   The installation prefix (i.e., :code:`--prefix`) is also used to try to locate flux-core.
-   First, :code:`configure` will look for flux-core in the installation prefix. If it is not
-   found there, :code:`configure` will then use :code:`pkg-config` to locate flux-core.
+   The cmake command above is provided as an example. Refer to the options below to customize configuration as needed.
+   Set the env variable `DYAD_INSTALL_PREFIX` to the desired installation directory.
 
-Finally, build and install DYAD using the following commands:
+
+To enable the DYAD Python binding,
 
 .. code-block:: shell
 
-   $ make [-j]
-   $ make install
+   $ python3 -m venv .venv
+   $ source .venv/bin/activate
+   $ pip install flux-python=0,80.0
+   $ cd pydyad
+   $ pip install .
 
-Building with PerfFlow Aspect Support (Optional)
-************************************************
+.. note::
 
-DYAD has optional support for collecting cross-cutting performance data using
-`PerfFlow Aspect <https://perfflowaspect.readthedocs.io/en/latest/>`_. To enable this support,
-first build PerfFlow Aspect for C/C++ using
-`their instructions <https://perfflowaspect.readthedocs.io/en/latest/BuildingPerfFlowAspect.html#c-build>`_.
-Then, modify your method of choice for building DYAD as follows:
+   When installing *flux-python*, ensure that the version matches *flux-core*.
 
-* **Manual Installation**: add :code:`--enable-perfflow` to your invocation of `./configure`
+
+
+There are several custom CMake options available to configure a DYAD build:
+
+.. This is how the list-table below would render ideally
+   +--------------------------+----------------------------+---------------------------------------------+
+   | Flag                     | Values (**default**)       | Description                                 |
+   +==========================+============================+=============================================+
+   | DYAD_ENABLE_MARGO_DATA   | ON, **OFF**                | Allow dynamic selection of Margo-based DTL  |
+   | DYAD_ENABLE_UCX_DATA     | ON, **OFF**                | Allow dynamic selection of UCX-based DTL    |
+   | DYAD_ENABLE_UCX_DATA_RMA | ON, **OFF**                | Allow dynamic selection of UCX-based RMA DTL|
+   +--------------------------+----------------------------+---------------------------------------------+
+   | DYAD_LOGGER              | FLUX, CPP_LOGGER, **NONE** | Choose the method to log stdout/stderr      |
+   | DYAD_LOGGER_LEVEL        | DEBUG, INFO, WARN,         | Choose the level of logging                 |
+   |                          | ERROR, **NONE**            |                                             |
+   +--------------------------+----------------------------+---------------------------------------------+
+   | DYAD_PROFILER            | PERFFLOW_ASPECT, CALIPER,  | Choose the performance profiler             |
+   |                          | DFTRACER, **NONE**         |                                             |
+   +--------------------------+----------------------------+---------------------------------------------+
+   | DYAD_ENABLE_TESTS        | ON, **OFF**                | Build unit tests                            |
+   | DYAD_LIBDIR_AS_LIB       | ON, **OFF**                | Force lib as library install dir (no lib64) |
+   | DYAD_USE_CLANG_LIBCXX    | ON, **OFF**                | Use clang's native runtime instead of gnu   |
+   | DYAD_WARNINGS_AS_ERRORS  | ON, **OFF**                | Turn compiler warning into error            |
+   +--------------------------+----------------------------+---------------------------------------------+
+
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 25 50
+
+   * - Flag
+     - Values (**default**)
+     - Description
+   * - **Data Transfer Options**
+     -
+     -
+   * - DYAD_ENABLE_MARGO_DATA
+     - ON, **OFF**
+     - Allow dynamic selection of Margo-based DTL
+   * - DYAD_ENABLE_UCX_DATA
+     - ON, **OFF**
+     - Allow dynamic selection of UCX-based DTL
+   * - DYAD_ENABLE_UCX_DATA_RMA
+     - ON, **OFF**
+     - Allow dynamic selection of UCX-based RMA DTL
+   * - **Logging and Profiling**
+     -
+     -
+   * - DYAD_LOGGER
+     - FLUX, CPP_LOGGER, **NONE**
+     - Choose the method to log stdout/stderr
+   * - DYAD_LOGGER_LEVEL
+     - DEBUG, INFO, WARN, ERROR, **NONE**
+     - Choose the level of logging
+   * - DYAD_PROFILER
+     - PERFFLOW_ASPECT, CALIPER, DFTRACER, **NONE**
+     - Choose the performance profiler
+   * - **Compiling/Linking Customization**
+     -
+     -
+   * - DYAD_ENABLE_TESTS
+     - ON, **OFF**
+     - Build unit tests
+   * - DYAD_LIBDIR_AS_LIB
+     - ON, **OFF**
+     - Force lib as library install dir (no lib64)
+   * - DYAD_USE_CLANG_LIBCXX
+     - ON, **OFF**
+     - Use clang's native runtime instead of GNU
+   * - DYAD_WARNINGS_AS_ERRORS
+     - ON, **OFF**
+     - Turn compiler warnings into errors
+
+
+.. note::
+
+   Mochi-Margo enables seamless adoption of various DTL types. Currently, DYAD
+   relies on it only for **libfabric**, but we plan to fully leverage the diverse
+   options it provides in the near future.
+
+   To enable a specific DTL type, DYAD requires the environment variable
+   ``DYAD_DTL_MODE`` to be set accordingly. At present, three values are
+   supported: ``MARGO``, ``UCX``, and ``FLUX_RPC``.
+
+   - When ``DYAD_DTL_MODE`` is set to ``UCX`` and DYAD has been built with the
+     CMake option ``DYAD_ENABLE_UCX_DATA_RMA=ON``, data transfer is performed
+     asynchronously via **remote memory access (RMA)** to reduce communication
+     costs.
+   - When built with ``DYAD_ENABLE_UCX_DATA=ON``, data transfer is synchronous
+     using UCX. In other words, the choice between synchronous and RMA-based UCX
+     is mutually exclusive at compile time.
+
+   However, the selection between ``MARGO``, ``UCX``, and ``FLUX_RPC`` can be
+   made dynamically at launch time. Ensure that ``DYAD_DTL_MODE`` is set
+   consistently in both the service and client environments.
+
+   If none of the three DTL-related CMake options are set, DYAD defaults to
+   using **FLUX RPC** for data transfer. While DYAD currently supports four
+   different data transfer methods, the client relies only on FLUX RPC to send
+   transfer requests to the service. In the future, we plan to offer alternative,
+   portable RPC methods.
+
 
 Using DYAD's APIs
 #################
@@ -98,6 +179,7 @@ Currently, DYAD provides APIs for the following programming languages:
 
 * C
 * C++
+* Python
 
 This section describes the basics of integrating them into an application.
 
@@ -120,11 +202,13 @@ C++ API
 *******
 
 DYAD's C++ API is implemented as a small library that wraps C++'s Standard Library file streams.
-To use DYAD's C++ API, first, add the following to your code:
+LD_PRELOAD-based function substitution does not apply to C++ streams because the
+symbols to be intercepted are not exposed. Instead, we provide a set of lightweight
+wrapper classes. To use DYAD's C++ API, first, add the following to your code:
 
 .. code-block:: cpp
 
-   #include <dyad_stream_api.hpp>
+   #include <dyad/stream/dyad_stream_api.hpp>
 
 This header defines thin wrappers around the file streams provided by the C++ Standard Library.
 More specifically, it provides the following classes:
@@ -167,6 +251,20 @@ there is one final requirement to using the C++ API. When compiling your code,
 you must link the associated library (i.e., :code:`libdyad_stream.so` or
 :code:`libdyad_stream.a`). This library can be found in the :code:`lib`
 subdirectory of the install prefix.
+
+
+Python
+*******
+
+We offer PyDYAD, a Python binding to the DYAD client library implemented in C.
+A producer-consumer example can be found at `tests/pydyad_spsc <https://github.com/flux-framework/dyad/tree/main/pydyad>`_.
+
+.. toctree::
+   :maxdepth: 1
+   :caption: An exmaple of integrating DYAD with PyTorch DataLoader
+
+   integration_with_PyTorch
+
 
 Running DYAD
 ############
@@ -251,39 +349,27 @@ do this by running:
 Configure and Run the DYAD-Enabled Applications
 ***********************************************
 
-Once the KVS namespace and DYAD module are set up, the DYAD-enabled applications can be run. To run a DYAD-enabled
-application, simply run your application as normal with certain environment variables set. A table containing the current
-environment variables recognized by DYAD is shown below.
+In addition to the two essential variables discussed above—``DYAD_KVS_NAMESPACE``
+and ``DYAD_DTL_MODE``—two more variables, ``DYAD_PATH_PRODUCER`` and ``DYAD_PATH_CONSUMER``,
+are required to run DYAD-enabled applications.”
+The table below list the essential ones. For the full list of variables, refer to
+:doc:`runtime_configuration`.
 
-+--------------------------------+-----------------+--------------+---------+-----------------------------------------------------------------+
-| Name                           | Type            | Required?    | Default | Description                                                     |
-+================================+=================+==============+=========+=================================================================+
-| :code:`DYAD_KVS_NAMESPACE`     | String          | Yes          | N/A     | The Flux KVS namespace that DYAD will use to record or look     |
-|                                |                 |              |         |                                                                 |
-|                                |                 |              |         | for file information                                            |
-+--------------------------------+-----------------+--------------+---------+-----------------------------------------------------------------+
-| :code:`DYAD_PATH_PRODUCER`     | Directory Path  | Yes [#one]_  | N/A     | The producer-managed path of the application                    |
-+--------------------------------+                 +              +         +-----------------------------------------------------------------+
-| :code:`DYAD_PATH_CONSUMER`     |                 |              |         | The consumer-managed path of the application                    |
-+--------------------------------+-----------------+--------------+---------+-----------------------------------------------------------------+
-| :code:`DYAD_SHARED_STORAGE`    | 0 or 1          | No           | 0       | If 1 (i.e., true), only provide per-file synchronization of     |
-|                                |                 |              |         |                                                                 |
-|                                |                 |              |         | the consumer (i.e., no transfer)                                |
-+--------------------------------+-----------------+--------------+---------+-----------------------------------------------------------------+
-| :code:`DYAD_KEY_DEPTH` [#two]_ | Integer         | No           | 3       | The number of levels in Flux's hierarchical KVS to use          |
-|                                |                 |              |         |                                                                 |
-|                                |                 |              |         | within DYAD's namespace                                         |
-+--------------------------------+-----------------+--------------+---------+-----------------------------------------------------------------+
-| :code:`DYAD_KEY_BINS` [#two]_  | Integer         | No           | 1024    | The maximum number of unique values for the keys associated     |
-|                                |                 |              |         |                                                                 |
-|                                |                 |              |         | with any given level of Flux's hierarchical KVS within          |
-|                                |                 |              |         |                                                                 |
-|                                |                 |              |         | DYAD's namespace                                                |
-+--------------------------------+-----------------+--------------+---------+-----------------------------------------------------------------+
+
++--------------------------------+-----------------+--------------+----------+-----------------------------------------------------------------+
+| Name                           | Type            | Required?    | Default  | Description                                                     |
++================================+=================+==============+==========+=================================================================+
+| :code:`DYAD_KVS_NAMESPACE`     | String          | Yes          | N/A      | The Flux KVS namespace that DYAD will use to record or look     |
+|                                |                 |              |          |                                                                 |
+|                                |                 |              |          | for file information                                            |
++--------------------------------+-----------------+--------------+----------+-----------------------------------------------------------------+
+| :code:`DYAD_PATH_PRODUCER`     | Directory Path  | Yes [#one]_  | N/A      | The producer-managed path of the application                    |
++--------------------------------+                 +              +          +-----------------------------------------------------------------+
+| :code:`DYAD_PATH_CONSUMER`     |                 |              |          | The consumer-managed path of the application                    |
++--------------------------------+-----------------+--------------+----------+-----------------------------------------------------------------+
+| :code:`DYAD_DTL_MODEE`         | String          | No           | FLUX_RPC | Choose data transfer method among MARGO, UCX, FLUX_RPC          |
++--------------------------------+-----------------+--------------+----------+-----------------------------------------------------------------+
 
 .. [#one] For DYAD to do anything, at least one of :code:`DYAD_PATH_PRODUCER` or :code:`DYAD_PATH_CONSUMER` must be provided.
    Applications will still work if neither are provided, but DYAD will not do anything.
 
-.. [#two] Since the Flux KVS is hierarchical, the number of KVS levels (controlled by :code:`DYAD_KEY_DEPTH`) and
-   the size of each KVS level (controlled by :code:`DYAD_KEY_BINS`) will affect the performance of DYAD. To obtain
-   optimal performance, tune these values for your use case.

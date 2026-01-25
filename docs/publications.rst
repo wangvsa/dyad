@@ -5,9 +5,14 @@ Publications and Presentations
 Papers
 ######
 
+* H. Devarajan, I. Lumsden, C. Wang, K. Georgouli, T. Scogland, J. Yeom, and M. Taufer,
+  "DYAD: Locality-aware Data Management for accelerating Deep Learning Training,"
+  *IEEE International Symposium on Computer Architecture and High Performance Computing (SBAC-PAD)*, Nov. 2024.
+  :download:`PDF <_static/Paper_2024_SBACPAD_DYAD.pdf>`
+
 * I. Lumsden, H. Devarajan, J. Marquez, S. Brink, D. Boehme, O. Pearce, J. Yeom, and M. Taufer,
   "Empirical Study of Molecular Dynamics Workflow Data Movement: DYAD vs. Traditional I/O Systems,"
-  in *2024 IEEE International Parallel and Distributed Processing Symposium Workshops (IPDPSW)*, 2024.
+  in *2024 IEEE International Parallel and Distributed Processing Symposium Workshops (IPDPSW)*, May 2024.
   :download:`PDF <_static/Paper_2024_IPDPS_HiCOMB_DYAD.pdf>`
 
 Posters

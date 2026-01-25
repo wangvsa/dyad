@@ -1,11 +1,26 @@
 DYAD: DYnamic and Asynchronous Data Streamliner
 
-DYAD aims to help sharing data files between producer and consumer job elements,
-especially within an ensemble or between co-scheduled ensembles.
-DYAD provides the service by two components: a FLUX module and a I/O wraper set.
-DYAD transparently synchronizes file I/O between producer and consumer, and
-transfers data from the producer location to the consumer location managed by the service.
-Users only need to use the file path that is under the directory managed by the service.
+DYAD aims to facilitate data file sharing between producer and consumer job elements, particularly within an ensemble or across co-scheduled ensembles.
+
+DYAD delivers this functionality through two components: a FLUX module that provides the service and a set of I/O wrappers for client-side integration.
+
+DYAD transparently synchronizes file access at the file level (rather than the byte level) between producers and consumers, and manages data transfer from the producer’s location to the consumer’s location.
+
+Users simply access files via paths located under the directory managed by the DYAD service.
+
+### Documentation
+For further information, build and refer to the documentation under `docs`
+
+```
+cd docs
+python3 -m venv .venv
+source .venv/bin/activate
+pip install "Sphinx<7.0.0" myst-parser rst2pdf
+make html
+make pdf
+```
+Then, open `index.html` under `_build/html` or DYAD.pdf under `_build/pdf`
+
 
 ### License
 

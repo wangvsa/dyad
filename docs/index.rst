@@ -32,10 +32,23 @@ In resolving these challenges, DYAD aims to provide the following to users:
    getting_started
 
 .. toctree::
+   :maxdepth: 1
+   :caption: Runtime Configuration
+
+   runtime_configuration
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Debugging
+
+   debugging
+
+.. toctree::
    :maxdepth: 2
    :caption: Tutorials
 
    ecp_feb_2023_tutorial
+   SCA-HPCAsia26_tutorial
 
 .. toctree::
    :maxdepth: 2

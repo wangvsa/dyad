@@ -80,9 +80,7 @@ endif ()
 #------------------------------------------------------------------------------
 # Build options
 #------------------------------------------------------------------------------
-# option(ENABLE_DYAD_DEBUG "Include debugging prints and logging" OFF) # This is not needed as we have CMAKE_BUILD_TYPE
 # This is verbose, maybe an alternate might help simplify
-#option(BUILD_URPC "Build DYAD's URPC code" OFF)
 #option(ENABLE_PERFFLOW "Build with PerfFlow Aspect support" OFF)
 #option(ENABLE_UCX_DTL "Build DYAD's UCX data transport layer" OFF)
 
