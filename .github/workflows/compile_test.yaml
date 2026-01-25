@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        flux: [ 0.73.0 ]
+        flux: [ master ]
         mode: ["UCX"]
         os: [ ubuntu-24.04 ]
         compiler: [ gcc ]
@@ -244,7 +244,7 @@ jobs:
       - name: Install PyDYAD
         run: |
           source ${DYAD_INSTALL_PREFIX}/bin/activate
-          pip install flux-python==0.73.0
+          pip install flux-python==0.80.0
           cd ${GITHUB_WORKSPACE}/pydyad
           pip install -v -e .
           cd ${GITHUB_WORKSPACE}
