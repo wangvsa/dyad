@@ -256,8 +256,8 @@ subdirectory of the install prefix.
 Python
 *******
 
-We offer PyDYAD, a Python binding to the DYAD client library implemented in C.
-A producer-consumer example can be found at `tests/pydyad_spsc <https://github.com/flux-framework/dyad/tree/main/pydyad>`_.
+We offer `PyDYAD <https://github.com/flux-framework/dyad/tree/main/pydyad/pydyad>`_, a Python binding to the DYAD client library implemented in C.
+A producer-consumer example can be found at `tests/pydyad_spsc <https://github.com/flux-framework/dyad/tree/main/tests/pydyad_spsc>`_.
 
 .. toctree::
    :maxdepth: 1
