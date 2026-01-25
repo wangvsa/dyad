@@ -66,7 +66,7 @@ pip install .
 In this example, we use two simple implementations of a producer and a consumer
 written in C: [prod.c](../ecp_feb_2023/prod.c) and [cons.c](../ecp_feb_2023/cons.c). Each program accepts two command-line arguments.
 
-For the producer, the arguments specify the number of files to write and the 
+For the producer, the arguments specify the number of files to write and the
 directory into which the files are written. For the consumer, the arguments
 specify the number of files to read and the directory from which the files are
 read.
@@ -78,7 +78,7 @@ between nodes as needed.
 
 The consumer opens the files it needs to read as if they already exist on its
 local storage. If a requested file does not exist locally, DYAD pauses the file
-open operation until the producer writes the file to its local storage (which 
+open operation until the producer writes the file to its local storage (which
 is remote to the consumer). DYAD then creates a local copy for the consumer,
 after which the read operation resumes normally.
 
@@ -117,7 +117,7 @@ export DYAD_DTL_MODE=MARGO
 ```
 Other data transfer layer (DTL) choices include `UCX` and `FLUX_RPC`.
 
-**The DYAD Managed Directory (DMD)** 
+**The DYAD Managed Directory (DMD)**
 
 Although it is possible to set different DMDs for the producer and the consumer,
 we typically use the same directory for both to keep file paths consistent.
@@ -230,7 +230,7 @@ override these settings through command-line arguments. Therefore, specifying
 both module arguments may not have been necessary in this example.
 
 For this particular example, we only need to load the DYAD module on the node
-where the producer is running. However, it is generally a good practice to make 
+where the producer is running. However, it is generally a good practice to make
 it available on all nodes if they are expected to produce files to be shared.
 That is why we execute [flux module load](https://flux-framework.readthedocs.io/projects/flux-core/en/latest/man1/flux-module.html) on all the Flux broker ranks.
 The DYAD module `dyad.so` requires an argument to specify the DYAD Managed Directory (DMD).
@@ -331,50 +331,53 @@ improves I/O performance. In this setup, each trainer acts as both a consumer
 and a producer. DYAD first checks whether a sample exists in the cache; if not,
 the sample is loaded from shared storage.
 
-In this example, `${HOME}/demo_DLIO` is defined as the location where training
-data and benchmark results are stored.
+In this example, `${RESULT_DIR}` is defined as the location where benchmark
+We will use pre-generated data under a shared directory, `/home/sca26-tut/share`,
+to save time in this tutorial.
+
+```
+export RESULT_DIR=${HOME}/demo_DLIO
+export DATA_DIR=/home/sca26-tut/share/dataset
+```
 
 
 ### Install the DLIO benchmark in a Python virtual environment
 
-If possible, use the same environment as PyDYAD.
+We will use the same environment as PyDYAD, which you can set up via
+`source ./setup_env.sh`.
 
 ```
-module load flux-core mochi-margo mpich
-export DYAD_INSTALL_PREFIX=/home/${USER}/venv
-source ${DYAD_INSTALL_PREFIX}/bin/activate
+module load mpich
 
 git clone https://github.com/argonne-lcf/dlio_benchmark
 cd dlio_benchmark
-# comment out nvidia-dali-cuda in setup.py
+```
+
+Comment out *nvidia-dali-cuda in* `setup.py`.
+```
 pip install .[dftracer]
-pip install flux-python==0.80.0
 ```
 
 ### Set up the environment to use DLIO, DFTracer and DYAD
 
+If you are not in the same environment as the PyDYAD, run `source ./setup_env.sh`.
+
 ```
-module load flux-core mochi-margo mpich
-export DYAD_INSTALL_PREFIX=/home/${USER}/venv
-source ${DYAD_INSTALL_PREFIX}/bin/activate
 export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${HOME}/venv/lib
+mkdir -p ${RESULT_DIR}
+cp ${HOME}/dyad/docs/demos/SCA26/DL/dyad_torch_data_loader.py ${RESULT_DIR}
+export PYTHONPATH=${RESULT_DIR}:$PYTHONPATH
+export TEST_FILE_SIZE=134217728
+export TEST_NUM_FILES=16384
 export DFTRACER_ENABLE=1
-export DYAD_KVS_NAMESPACE=dyad
-export DYAD_DTL_MODE=MARGO
-export DYAD_PATH_PRODUCER=/mnt/ssd/${USER}/dyad
-export DYAD_PATH_CONSUMER=/mnt/ssd/${USER}/dyad
-mkdir -p ${HOME}/demo_DLIO
-export PYTHONPATH=${HOME}/demo_DLIO:$PYTHONPATH
-export TEST_FILE_SIZE=33554432
-export TEST_NUM_FILES=6400
 ```
-Copy `dyad/docs/demos/SCA26/DL/dyad_torch_data_loader.py` into `${HOME}/demo_DLIO`
 
-Alllocate compute nodes and start a Flux instance
+Alllocate compute nodes and start a Flux instance. Then, make sure no data from
+previous runs are present.
 
 ```
-salloc -N 4 -n 128 --tasks-per-node=32 -t 60
-source ${HOME}/new_venv/bin/activate
+salloc -N 4 -n 512 --tasks-per-node=128 -t 60
+source ${DYAD_INSTALL_PREFIX}/bin/activate
 srun --mpi=pmi2 -N 4 -n 4 --pty flux start # -v -o,-S,log-filename=out.txt
 flux kvs namespace create ${DYAD_KVS_NAMESPACE}
 flux exec -r all flux module load ${DYAD_INSTALL_PREFIX}/lib/dyad.so
@@ -382,7 +385,8 @@ flux exec -r all rm -rf ${DYAD_PATH_PRODUCER}
 flux exec -r all mkdir -p ${DYAD_PATH_PRODUCER}
 ```
 
-These dlio_benchmark commands customize the existing unet3d template in the
+
+The dlio_benchmark commands below customize the existing *Unet3D* template in the
 benchmark suite by overriding parameters such as the size and number of data
 files.
 
@@ -390,56 +394,60 @@ files.
 ### Generate Training Data
 
 
+This first DLIO command has already been run to generate *Unet3D* training data
+into a group shared folder `${DATA_DIR}`.
+
 ```
 export DLIO_LOG_LEVEL=info;
-flux run -N 4 -n 128 dlio_benchmark \
+flux run -N 4 -n 256 dlio_benchmark \
   workload=unet3d_a100 \
   ++workload.workflow.generate_data=True \
   ++workload.workflow.train=False \
-  hydra.run.dir=${HOME}/demo_DLIO/output \
-  ++workload.output.folder=${HOME}/demo_DLIO/output \
+  hydra.run.dir=${RESULT_DIR}/output \
+  ++workload.output.folder=${RESULT_DIR}/output \
   ++workload.dataset.num_files_train=${TEST_NUM_FILES} \
   ++workload.dataset.record_length_bytes=${TEST_FILE_SIZE} \
   ++workload.dataset.record_length_bytes_stdev=0 \
-  ++workload.dataset.data_folder=${HOME}/demo_DLIO/dataset \
-  ++workload.checkpoint.checkpoint_folder=${HOME}/demo_DLIO/checkpoint
+  ++workload.dataset.data_folder=${DATA_DIR} \
+  ++workload.checkpoint.checkpoint_folder=${RESULT_DIR}/checkpoint
+unset DLIO_LOG_LEVEL
 ```
 
 ### Train without DYAD
 
 ```
-flux run -N 4 -n 128 dlio_benchmark \
+flux run -N 4 -n 512 dlio_benchmark \
   workload=unet3d_a100 \
   ++workload.workflow.generate_data=False \
   ++workload.workflow.train=True \
-  hydra.run.dir=${HOME}/demo_DLIO/output \
-  ++workload.output.folder=${HOME}/demo_DLIO/output  \
+  hydra.run.dir=${RESULT_DIR}/output \
+  ++workload.output.folder=${RESULT_DIR}/output  \
   ++workload.dataset.num_files_train=${TEST_NUM_FILES} \
   ++workload.dataset.record_length_bytes=${TEST_FILE_SIZE} \
   ++workload.dataset.record_length_bytes_stdev=0 \
-  ++workload.dataset.data_folder=${HOME}/demo_DLIO/dataset \
-  ++workload.checkpoint.checkpoint_folder=${HOME}/demo_DLIO/checkpoint \
+  ++workload.dataset.data_folder=${DATA_DIR} \
+  ++workload.checkpoint.checkpoint_folder=${RESULT_DIR}/checkpoint \
   ++workload.reader.batch_size=1 \
-  ++workload.train.epochs=20 \
+  ++workload.train.epochs=10 \
   ++workload.train.computation_time=0
 ```
 
 ### Train with DYAD
 
 ```
-flux run -N 4 -n 128 dlio_benchmark \
+flux run -N 4 -n 512 dlio_benchmark \
   workload=unet3d_a100 \
   ++workload.workflow.generate_data=False \
   ++workload.workflow.train=True \
-  hydra.run.dir=${HOME}/demo_DLIO/output \
-  ++workload.output.folder=${HOME}/demo_DLIO/output  \
+  hydra.run.dir=${RESULT_DIR}/output \
+  ++workload.output.folder=${RESULT_DIR}/output  \
   ++workload.dataset.num_files_train=${TEST_NUM_FILES} \
   ++workload.dataset.record_length_bytes=${TEST_FILE_SIZE} \
   ++workload.dataset.record_length_bytes_stdev=0 \
-  ++workload.dataset.data_folder=${HOME}/demo_DLIO/dataset \
-  ++workload.checkpoint.checkpoint_folder=${HOME}/demo_DLIO/checkpoint \
+  ++workload.dataset.data_folder=${DATA_DIR} \
+  ++workload.checkpoint.checkpoint_folder=${RESULT_DIR}/checkpoint \
   ++workload.reader.batch_size=1 \
-  ++workload.train.epochs=20 \
+  ++workload.train.epochs=10 \
   ++workload.train.computation_time=0 \
   ++workload.reader.multiprocessing_context=fork \
   ++workload.reader.data_loader_classname=dyad_torch_data_loader.DyadTorchDataLoader \
