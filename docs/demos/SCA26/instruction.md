@@ -16,6 +16,7 @@ For this tutorial, we already have these dependencies pre-installed.
 
 ```
 git clone https://github.com/spack/spack.git
+source spack/share/spack/setup-env.sh
 spack env create dyad
 spack env activate dyad
 spack external find
@@ -31,6 +32,7 @@ spack load mochi-margo
 ```
 module load flux-core mochi-margo
 # Or
+# source spack/share/spack/setup-env.sh
 # spack env activate dyad
 # spack load mochi-margo
 ```
