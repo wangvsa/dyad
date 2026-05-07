@@ -9,10 +9,11 @@ DYAD has the following minimum requirements to build and install:
 
 * A C11-compliant C compiler
 * A C++17-compliant C++ compiler
-* CNake 3.12
+* CMake 3.12
 * pkg-config
 * `flux-core <https://github.com/flux-framework/flux-core.git>`_
 * `jansson 2.10 or newer <https://github.com/akheron/jansson.git>`_
+* `gotcha 1.0.8 or newer <https://github.com/llnl/GOTCHA.git>`_
 * flux-python
 
 Optionally, DYAD leverages:
@@ -92,6 +93,7 @@ There are several custom CMake options available to configure a DYAD build:
    | DYAD_LIBDIR_AS_LIB       | ON, **OFF**                | Force lib as library install dir (no lib64) |
    | DYAD_USE_CLANG_LIBCXX    | ON, **OFF**                | Use clang's native runtime instead of gnu   |
    | DYAD_WARNINGS_AS_ERRORS  | ON, **OFF**                | Turn compiler warning into error            |
+   | DYAD_GOTCHA_PRIORITY     | <int>, **gotch_default**   | Set GOTCHA symbol interception priority     |
    +--------------------------+----------------------------+---------------------------------------------+
 
 
@@ -141,6 +143,9 @@ There are several custom CMake options available to configure a DYAD build:
    * - DYAD_WARNINGS_AS_ERRORS
      - ON, **OFF**
      - Turn compiler warnings into errors
+   * - DYAD_GOTCHA_PRIORITY
+     - <int>, **gotcha_default**
+     - Set GOTCHA symbol interception priority
 
 
 .. note::
@@ -170,6 +175,15 @@ There are several custom CMake options available to configure a DYAD build:
    different data transfer methods, the client relies only on FLUX RPC to send
    transfer requests to the service. In the future, we plan to offer alternative,
    portable RPC methods.
+
+   GOTCHA allows consistent symbol interception behavior when there are multiple
+   interception libraries at runtime. For example, both Spindle and DYAD intercept
+   :code:`open()` for different purposes. GOTCHA chains the wrappers so both
+   execute, with execution order controlled by priority. DYAD's priority can be
+   set via the ``DYAD_GOTCHA_PRIORITY`` environment variable — a higher value
+   means DYAD's wrapper runs first. If the variable is not set, all tools default
+   to priority 0 and order is determined by load order. This is only relevant to
+   the interception wrapper.
 
 
 Using DYAD's APIs

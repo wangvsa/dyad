@@ -227,6 +227,16 @@ if (${JANSSON_FOUND})  # Note: this find_package does not properly name its '_FO
 else ()
     message(FATAL_ERROR "-- [${PROJECT_NAME}] Jansson is needed for ${PROJECT_NAME} build")
 endif ()
+find_package(gotcha NAMES GOTCHA
+             HINTS "$ENV{gotcha_DIR}" "$ENV{GOTCHA_DIR}"
+             PATH_SUFFIXES lib lib/cmake/gotcha lib/cmake/GOTCHA
+                           lib64 lib64/cmake/gotcha lib64/cmake/GOTCHA
+             REQUIRED)
+if (${gotcha_FOUND})
+    message(STATUS "[${PROJECT_NAME}] found gotcha at ${gotcha_INCLUDE_DIRS}")
+else ()
+    message(FATAL_ERROR "-- [${PROJECT_NAME}] gotcha is needed for ${PROJECT_NAME} build")
+endif ()
 
 # Optional Dependencies
 # =============================================================================

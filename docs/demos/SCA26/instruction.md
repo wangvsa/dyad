@@ -3,7 +3,7 @@ This tutorial is offered as a part of the "Accelerating HPC Application I/O with
 The material of this tutorial is under [docs/demos/SCA26](https://github.com/flux-framework/dyad/tree/main/docs/demos/SCA26).
 
 ## DYAD dependencies
-- requires: [flux-core](https://github.com/flux-framework/flux-core.git), [jansson](https://github.com/akheron/jansson.git)
+- requires: [flux-core](https://github.com/flux-framework/flux-core.git), [jansson](https://github.com/akheron/jansson.git), [gotcha](https://github.com/llnl/GOTCHA.git)
 - optional: [mochi-margo](https://github.com/mochi-hpc/mochi-margo.git) for using libfabric
             [ucx](https://github.com/openucx/ucx.git) for using ucx
             [dftracer](https://github.com/llnl/dftracer.git) (with numpy and h5py) for performance tracing
@@ -24,6 +24,8 @@ spack compiler find
 spack install --add ucx
 spack install --add mochi-margo
 spack load mochi-margo
+spack install --add gotcha
+spack load gotcha
 # spack env deactivate
 ```
 
@@ -35,6 +37,7 @@ module load flux-core mochi-margo
 # source spack/share/spack/setup-env.sh
 # spack env activate dyad
 # spack load mochi-margo
+# spack load gotcha
 ```
 
 ## Build DYAD

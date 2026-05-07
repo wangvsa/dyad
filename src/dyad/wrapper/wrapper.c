@@ -39,7 +39,6 @@ using namespace std;  // std::clock ()
 #include <time.h>
 #endif  // defined(__cplusplus)
 
-#include <dlfcn.h>
 #include <dyad/client/dyad_client_int.h>
 #include <dyad/common/dyad_dtl.h>
 #include <dyad/common/dyad_envs.h>
@@ -47,6 +46,7 @@ using namespace std;  // std::clock ()
 #include <dyad/common/dyad_profiler.h>
 #include <dyad/utils/utils.h>
 #include <fcntl.h>
+#include <gotcha/gotcha.h>
 #include <libgen.h>  // dirname
 #include <unistd.h>
 
@@ -62,6 +62,27 @@ static void dyad_wrapper_fini (void) __attribute__ ((destructor));
 #if DYAD_SYNC_DIR
 int sync_directory (const char *path);
 #endif  // DYAD_SYNC_DIR
+
+/* Forward declarations of wrapper functions, required for the GOTCHA binding table. */
+static int dyad_open_wrapper (const char *path, int oflag, ...);
+static FILE *dyad_fopen_wrapper (const char *path, const char *mode);
+static int dyad_close_wrapper (int fd);
+static int dyad_fclose_wrapper (FILE *fp);
+
+/* GOTCHA wrappee handles -- one per intercepted symbol.
+ * After gotcha_wrap(), each handle holds the address of the real function. */
+static gotcha_wrappee_handle_t wrappee_open_handle;
+static gotcha_wrappee_handle_t wrappee_fopen_handle;
+static gotcha_wrappee_handle_t wrappee_close_handle;
+static gotcha_wrappee_handle_t wrappee_fclose_handle;
+
+/* GOTCHA binding table: { symbol_name, wrapper_fn, &wrappee_handle } */
+static struct gotcha_binding_t dyad_bindings[] = {
+    {"open", __extension__ (void *)dyad_open_wrapper, &wrappee_open_handle},
+    {"fopen", __extension__ (void *)dyad_fopen_wrapper, &wrappee_fopen_handle},
+    {"close", __extension__ (void *)dyad_close_wrapper, &wrappee_close_handle},
+    {"fclose", __extension__ (void *)dyad_fclose_wrapper, &wrappee_fclose_handle},
+};
 
 /*****************************************************************************
  *                                                                           *
@@ -101,11 +122,21 @@ void dyad_wrapper_init (void)
     DYAD_C_FUNCTION_START ();
     dyad_ctx_init (DYAD_COMM_RECV, NULL);
     ctx = ctx_mutable = dyad_ctx_get ();
+
+    gotcha_wrap (dyad_bindings,
+                 sizeof (dyad_bindings) / sizeof (struct gotcha_binding_t),
+                 "dyad_wrapper");
+    char *gotcha_prio = getenv (DYAD_GOTCHA_PRIORITY_ENV);
+    if (gotcha_prio) {
+        gotcha_set_priority ("dyad_wrapper", atoi (gotcha_prio));
+        DYAD_LOG_DEBUG (ctx, "DYAD Wrapper: Gotcha priority %s", gotcha_prio);
+    }
+
     DYAD_LOG_DEBUG (ctx, "DYAD Wrapper: Initialized");
     DYAD_C_FUNCTION_END ();
 }
 
-void dyad_wrapper_fini ()
+void dyad_wrapper_fini (void)
 {
     DYAD_C_FUNCTION_START ();
     DYAD_LOG_DEBUG (ctx, "DYAD Wrapper: Finalized");
@@ -116,11 +147,10 @@ void dyad_wrapper_fini ()
 #endif
 }
 
-DYAD_DLL_EXPORTED int open (const char *path, int oflag, ...)
+static int dyad_open_wrapper (const char *path, int oflag, ...)
 {
     DYAD_C_FUNCTION_START ();
     DYAD_C_FUNCTION_UPDATE_STR ("path", "path");
-    char *error = NULL;
     typedef int (*open_ptr_t) (const char *, int, mode_t, ...);
     open_ptr_t func_ptr = NULL;
     int mode = 0;
@@ -133,11 +163,10 @@ DYAD_DLL_EXPORTED int open (const char *path, int oflag, ...)
         va_end (arg);
     }
 
-    // https://stackoverflow.com/questions/14134245/iso-c-void-and-function-pointers
-    // func_ptr = (open_ptr_t)dlsym (RTLD_NEXT, "open");
-    *(void **)&func_ptr = dlsym (RTLD_NEXT, "open");
-    if ((error = dlerror ())) {
-        DPRINTF (ctx, "DYAD_SYNC: error in dlsym: %s", error);
+    func_ptr = __extension__  (open_ptr_t)gotcha_get_wrappee (wrappee_open_handle);
+    if (func_ptr == NULL) {
+        errno = ENOSYS;  // return the failure code
+        DYAD_LOG_DEBUG (ctx, "DYAD_SYNC: failed to retrieve gotcha wrapped 'open()'");
         DYAD_C_FUNCTION_END ();
         return -1;
     }
@@ -157,7 +186,7 @@ DYAD_DLL_EXPORTED int open (const char *path, int oflag, ...)
         DPRINTF (ctx, "DYAD_SYNC: failed open sync (\"%s\").", path);
         goto real_call;
     }
-    IPRINTF (ctx, "DYAD_SYNC: exists open sync (\"%s\").", path);
+    IPRINTF (ctx, "DYAD_SYNC: exits open sync (\"%s\").", path);
 
 real_call:;
     int ret = (func_ptr (path, oflag, mode));
@@ -182,19 +211,18 @@ real_call:;
     return ret;
 }
 
-DYAD_DLL_EXPORTED FILE *fopen (const char *path, const char *mode)
+static FILE *dyad_fopen_wrapper (const char *path, const char *mode)
 {
     DYAD_C_FUNCTION_START ();
     DYAD_C_FUNCTION_UPDATE_STR ("path", "path");
-    char *error = NULL;
     typedef FILE *(*fopen_ptr_t) (const char *, const char *);
     fopen_ptr_t func_ptr = NULL;
     char upath[PATH_MAX + 1] = {'\0'};
 
-    // func_ptr = (fopen_ptr_t)dlsym (RTLD_NEXT, "fopen");
-    *(void **)&func_ptr = dlsym (RTLD_NEXT, "fopen");
-    if ((error = dlerror ())) {
-        DPRINTF (ctx, "DYAD_SYNC: error in dlsym: %s\n", error);
+    func_ptr = __extension__ (fopen_ptr_t)gotcha_get_wrappee (wrappee_fopen_handle);
+    if (func_ptr == NULL) {
+        errno = ENOSYS;  // return the failure code
+        DYAD_LOG_DEBUG (ctx, "DYAD_SYNC: failed to retrieve gotcha wrapped 'fopen()'");
         DYAD_C_FUNCTION_END ();
         return NULL;
     }
@@ -240,23 +268,22 @@ real_call:;
     return fh;
 }
 
-DYAD_DLL_EXPORTED int close (int fd)
+static int dyad_close_wrapper (int fd)
 {
     DYAD_C_FUNCTION_START ();
     DYAD_C_FUNCTION_UPDATE_INT ("fd", fd);
     bool to_sync = false;
-    char *error = NULL;
     typedef int (*close_ptr_t) (int);
     close_ptr_t func_ptr = NULL;
     char path[PATH_MAX + 1] = {'\0'};
     int rc = 0;
 
-    // func_ptr = (close_ptr_t)dlsym (RTLD_NEXT, "close");
-    *(void **)&func_ptr = dlsym (RTLD_NEXT, "close");
-    if ((error = dlerror ())) {
-        DPRINTF (ctx, "DYAD_SYNC: error in dlsym: %s\n", error);
+    func_ptr = __extension__ (close_ptr_t)gotcha_get_wrappee (wrappee_close_handle);
+    if (func_ptr == NULL) {
+        errno = ENOSYS;  // return the failure code
+        DYAD_LOG_DEBUG (ctx, "DYAD_SYNC: failed to retrieve gotcha wrapped 'close()'");
         DYAD_C_FUNCTION_END ();
-        return -1;  // return the failure code
+        return -1;
     }
 
     if ((fd < 0) || (ctx == NULL) || (ctx->h == NULL) || !ctx->reenter) {
@@ -327,23 +354,22 @@ real_call:;  // semicolon here to avoid the error
     return rc;
 }
 
-DYAD_DLL_EXPORTED int fclose (FILE *fp)
+static int dyad_fclose_wrapper (FILE *fp)
 {
     DYAD_C_FUNCTION_START ();
     bool to_sync = false;
-    char *error = NULL;
     typedef int (*fclose_ptr_t) (FILE *);
     fclose_ptr_t func_ptr = NULL;
     char path[PATH_MAX + 1] = {'\0'};
     int rc = 0;
     int fd = 0;
 
-    // func_ptr = (fclose_ptr_t)dlsym (RTLD_NEXT, "fclose");
-    *(void **)&func_ptr = dlsym (RTLD_NEXT, "fclose");
-    if ((error = dlerror ())) {
-        DYAD_LOG_DEBUG (ctx, "DYAD_SYNC: error in dlsym: %s\n", error);
+    func_ptr = __extension__ (fclose_ptr_t)gotcha_get_wrappee (wrappee_fclose_handle);
+    if (func_ptr == NULL) {
+        errno = ENOSYS;  // return the failure code
+        DYAD_LOG_DEBUG (ctx, "DYAD_SYNC: failed to retrieve gotcha wrapped 'fclose()'");
         DYAD_C_FUNCTION_END ();
-        return EOF;  // return the failure code
+        return EOF;
     }
 
     if ((fp == NULL) || (ctx == NULL) || (ctx->h == NULL) || !ctx->reenter) {

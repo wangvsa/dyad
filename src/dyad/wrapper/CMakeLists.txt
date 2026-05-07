@@ -11,6 +11,7 @@ add_library(${PROJECT_NAME}_wrapper SHARED ${DYAD_WRAPPER_SRC}
 #                       "${DYAD_INSTALL_LIBDIR}")
 target_link_libraries(${PROJECT_NAME}_wrapper PRIVATE ${PROJECT_NAME}_ctx ${PROJECT_NAME}_client)
 target_link_libraries(${PROJECT_NAME}_wrapper PRIVATE ${PROJECT_NAME}_utils flux::core)
+target_link_libraries(${PROJECT_NAME}_wrapper PRIVATE gotcha)
 target_compile_definitions(${PROJECT_NAME}_wrapper PUBLIC BUILDING_DYAD=1)
 target_compile_definitions(${PROJECT_NAME}_wrapper PUBLIC DYAD_HAS_CONFIG)
 target_include_directories(${PROJECT_NAME}_wrapper PUBLIC
