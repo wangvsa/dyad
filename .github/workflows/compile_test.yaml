@@ -206,6 +206,7 @@ jobs:
           . ${SPACK_DIR}/share/spack/setup-env.sh
           spack install -j4 flux-core@${FLUX_VERSION}
           spack install -j4 mochi-margo
+          spack install -j4 gotcha
           if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
             spack install -j4 ucx@1.18.0
           fi
@@ -220,6 +221,7 @@ jobs:
           . ${SPACK_DIR}/share/spack/setup-env.sh
           spack load flux-core
           spack load mochi-margo
+          spack load gotcha
           if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
             spack load ucx@1.18.0
           fi
@@ -262,6 +264,7 @@ jobs:
           mkdir -m 775 -p $DYAD_PATH
           . ${SPACK_DIR}/share/spack/setup-env.sh
           spack load flux-core
+          spack load gotcha
           export PATH=${PATH}:${DYAD_INSTALL_PREFIX}/bin:${DYAD_INSTALL_PREFIX}/sbin
           export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${DYAD_INSTALL_PREFIX}/lib
           echo "Starting flux brokers"
@@ -272,6 +275,7 @@ jobs:
           mkdir -m 775 -p $DYAD_PATH
           . ${SPACK_DIR}/share/spack/setup-env.sh
           spack load flux-core
+          spack load gotcha
           export PATH=${PATH}:${DYAD_INSTALL_PREFIX}/bin:${DYAD_INSTALL_PREFIX}/sbin
           export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${DYAD_INSTALL_PREFIX}/lib
           echo "Starting flux brokers"
@@ -283,6 +287,7 @@ jobs:
           source ${DYAD_INSTALL_PREFIX}/bin/activate
           . ${SPACK_DIR}/share/spack/setup-env.sh
           spack load flux-core
+          spack load gotcha
           export PATH=${PATH}:${DYAD_INSTALL_PREFIX}/bin:${DYAD_INSTALL_PREFIX}/sbin
           export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${DYAD_INSTALL_PREFIX}/lib
           export PYTHONPATH=${GITHUB_WORKSPACE}/pydyad:${PYTHONPATH}:${DYAD_INSTALL_PREFIX}/lib/python3*/site-packages

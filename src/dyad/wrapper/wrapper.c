@@ -78,10 +78,10 @@ static gotcha_wrappee_handle_t wrappee_fclose_handle;
 
 /* GOTCHA binding table: { symbol_name, wrapper_fn, &wrappee_handle } */
 static struct gotcha_binding_t dyad_bindings[] = {
-    {"open", __extension__ (void *)dyad_open_wrapper, &wrappee_open_handle},
-    {"fopen", __extension__ (void *)dyad_fopen_wrapper, &wrappee_fopen_handle},
-    {"close", __extension__ (void *)dyad_close_wrapper, &wrappee_close_handle},
-    {"fclose", __extension__ (void *)dyad_fclose_wrapper, &wrappee_fclose_handle},
+    {"open", __extension__ (void *) dyad_open_wrapper, &wrappee_open_handle},
+    {"fopen", __extension__ (void *) dyad_fopen_wrapper, &wrappee_fopen_handle},
+    {"close", __extension__ (void *) dyad_close_wrapper, &wrappee_close_handle},
+    {"fclose", __extension__ (void *) dyad_fclose_wrapper, &wrappee_fclose_handle},
 };
 
 /*****************************************************************************
@@ -163,7 +163,7 @@ static int dyad_open_wrapper (const char *path, int oflag, ...)
         va_end (arg);
     }
 
-    func_ptr = __extension__  (open_ptr_t)gotcha_get_wrappee (wrappee_open_handle);
+    func_ptr = __extension__ (open_ptr_t) gotcha_get_wrappee (wrappee_open_handle);
     if (func_ptr == NULL) {
         errno = ENOSYS;  // return the failure code
         DYAD_LOG_DEBUG (ctx, "DYAD_SYNC: failed to retrieve gotcha wrapped 'open()'");
@@ -219,7 +219,7 @@ static FILE *dyad_fopen_wrapper (const char *path, const char *mode)
     fopen_ptr_t func_ptr = NULL;
     char upath[PATH_MAX + 1] = {'\0'};
 
-    func_ptr = __extension__ (fopen_ptr_t)gotcha_get_wrappee (wrappee_fopen_handle);
+    func_ptr = __extension__ (fopen_ptr_t) gotcha_get_wrappee (wrappee_fopen_handle);
     if (func_ptr == NULL) {
         errno = ENOSYS;  // return the failure code
         DYAD_LOG_DEBUG (ctx, "DYAD_SYNC: failed to retrieve gotcha wrapped 'fopen()'");
@@ -278,7 +278,7 @@ static int dyad_close_wrapper (int fd)
     char path[PATH_MAX + 1] = {'\0'};
     int rc = 0;
 
-    func_ptr = __extension__ (close_ptr_t)gotcha_get_wrappee (wrappee_close_handle);
+    func_ptr = __extension__ (close_ptr_t) gotcha_get_wrappee (wrappee_close_handle);
     if (func_ptr == NULL) {
         errno = ENOSYS;  // return the failure code
         DYAD_LOG_DEBUG (ctx, "DYAD_SYNC: failed to retrieve gotcha wrapped 'close()'");
@@ -364,7 +364,7 @@ static int dyad_fclose_wrapper (FILE *fp)
     int rc = 0;
     int fd = 0;
 
-    func_ptr = __extension__ (fclose_ptr_t)gotcha_get_wrappee (wrappee_fclose_handle);
+    func_ptr = __extension__ (fclose_ptr_t) gotcha_get_wrappee (wrappee_fclose_handle);
     if (func_ptr == NULL) {
         errno = ENOSYS;  // return the failure code
         DYAD_LOG_DEBUG (ctx, "DYAD_SYNC: failed to retrieve gotcha wrapped 'fclose()'");
