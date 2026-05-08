@@ -114,8 +114,8 @@ endif ()
 macro(dyad_add_werror_if_needed target)
   if (DYAD_WARNINGS_AS_ERRORS)
     target_compile_options(${target} PRIVATE 
-      $<$<COMPILER_LANGUAGE:CXX>:"-Werror">
-      $<$<COMPILER_LANGUAGE:C>:"-Werror">)
+      $<$<COMPILE_LANGUAGE:CXX>:-Werror>
+      $<$<COMPILE_LANGUAGE:C>:-Werror>)
   endif()
 endmacro(dyad_add_werror_if_needed target)
 
