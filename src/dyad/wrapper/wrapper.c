@@ -68,6 +68,10 @@ static int dyad_open_wrapper (const char *path, int oflag, ...);
 static FILE *dyad_fopen_wrapper (const char *path, const char *mode);
 static int dyad_close_wrapper (int fd);
 static int dyad_fclose_wrapper (FILE *fp);
+static int dyad_open64_wrapper (const char *path, int oflag, ...);
+static FILE *dyad_fopen64_wrapper (const char *path, const char *mode);
+static int dyad_close64_wrapper (int fd);
+static int dyad_fclose64_wrapper (FILE *fp);
 
 /* GOTCHA wrappee handles -- one per intercepted symbol.
  * After gotcha_wrap(), each handle holds the address of the real function. */
@@ -75,6 +79,10 @@ static gotcha_wrappee_handle_t wrappee_open_handle;
 static gotcha_wrappee_handle_t wrappee_fopen_handle;
 static gotcha_wrappee_handle_t wrappee_close_handle;
 static gotcha_wrappee_handle_t wrappee_fclose_handle;
+static gotcha_wrappee_handle_t wrappee_open64_handle;
+static gotcha_wrappee_handle_t wrappee_fopen64_handle;
+static gotcha_wrappee_handle_t wrappee_close64_handle;
+static gotcha_wrappee_handle_t wrappee_fclose64_handle;
 
 /* GOTCHA binding table: { symbol_name, wrapper_fn, &wrappee_handle } */
 static struct gotcha_binding_t dyad_bindings[] = {
@@ -82,6 +90,10 @@ static struct gotcha_binding_t dyad_bindings[] = {
     {"fopen", __extension__ (void *) dyad_fopen_wrapper, &wrappee_fopen_handle},
     {"close", __extension__ (void *) dyad_close_wrapper, &wrappee_close_handle},
     {"fclose", __extension__ (void *) dyad_fclose_wrapper, &wrappee_fclose_handle},
+    {"open64", __extension__ (void *) dyad_open64_wrapper, &wrappee_open64_handle},
+    {"fopen64", __extension__ (void *) dyad_fopen64_wrapper, &wrappee_fopen64_handle},
+    {"close64", __extension__ (void *) dyad_close64_wrapper, &wrappee_close64_handle},
+    {"fclose64", __extension__ (void *) dyad_fclose64_wrapper, &wrappee_fclose64_handle},
 };
 
 /*****************************************************************************
@@ -432,6 +444,298 @@ real_call:;
             DPRINTF (ctx, "DYAD_SYNC: failed fclose sync (\"%s\").\n", path);
         }
         IPRINTF (ctx, "DYAD_SYNC: exits fclose sync (\"%s\").\n", path);
+    } else {
+        rc = func_ptr (fp);
+    }
+    DYAD_C_FUNCTION_END ();
+    return rc;
+}
+
+static int dyad_open64_wrapper (const char *path, int oflag, ...)
+{
+    DYAD_C_FUNCTION_START ();
+    DYAD_C_FUNCTION_UPDATE_STR ("path", "path");
+    typedef int (*open64_ptr_t) (const char *, int, mode_t, ...);
+    open64_ptr_t func_ptr = NULL;
+    int mode = 0;
+    char upath[PATH_MAX + 1] = {'\0'};
+
+    if (oflag & O_CREAT) {
+        va_list arg;
+        va_start (arg, oflag);
+        mode = va_arg (arg, int);
+        va_end (arg);
+    }
+
+    func_ptr = __extension__ (open64_ptr_t) gotcha_get_wrappee (wrappee_open64_handle);
+    if (func_ptr == NULL) {
+        errno = ENOSYS;  // return the failure code
+        DYAD_LOG_DEBUG (ctx, "DYAD_SYNC: failed to retrieve gotcha wrapped 'open64()'");
+        DYAD_C_FUNCTION_END ();
+        return -1;
+    }
+
+    if ((mode != O_RDONLY) || is_path_dir (path)) {
+        // TODO: make sure if the directory mode is consistent
+        goto real_call;
+    }
+
+    if (!(ctx && ctx->h) || (ctx && !ctx->reenter)) {
+        IPRINTF (ctx, "DYAD_SYNC: open64 sync not applicable for \"%s\".", path);
+        goto real_call;
+    }
+
+    IPRINTF (ctx, "DYAD_SYNC: enters open64 sync (\"%s\").", path);
+    if (DYAD_IS_ERROR (dyad_consume (ctx_mutable, path))) {
+        DPRINTF (ctx, "DYAD_SYNC: failed open64 sync (\"%s\").", path);
+        goto real_call;
+    }
+    IPRINTF (ctx, "DYAD_SYNC: exits open64 sync (\"%s\").", path);
+
+real_call:;
+    int ret = (func_ptr (path, oflag, mode));
+
+    // This lock is to protect the file being produced by a producer
+    // from a consumer that has direct access to the file. For example,
+    // either the file is on a shared storage or the consumer is on
+    // the same node as where the producer is.
+    if ((ret > 0) && (mode == O_WRONLY || mode == O_APPEND) && !is_path_dir (path)) {
+        if ((ctx->relative_to_managed_path
+             && (strncmp (path, DYAD_PATH_DELIM, ctx->delim_len) != 0))
+            || cmp_canonical_path_prefix (ctx, true, path, upath, PATH_MAX)) {
+            struct flock exclusive_lock;
+            dyad_rc_t rc = dyad_excl_flock (ctx, ret, &exclusive_lock);
+            if (DYAD_IS_ERROR (rc)) {
+                dyad_release_flock (ctx, ret, &exclusive_lock);
+            }
+        }
+    }
+
+    DYAD_C_FUNCTION_END ();
+    return ret;
+}
+
+static FILE *dyad_fopen64_wrapper (const char *path, const char *mode)
+{
+    DYAD_C_FUNCTION_START ();
+    DYAD_C_FUNCTION_UPDATE_STR ("path", "path");
+    typedef FILE *(*fopen64_ptr_t) (const char *, const char *);
+    fopen64_ptr_t func_ptr = NULL;
+    char upath[PATH_MAX + 1] = {'\0'};
+
+    func_ptr = __extension__ (fopen64_ptr_t) gotcha_get_wrappee (wrappee_fopen64_handle);
+    if (func_ptr == NULL) {
+        errno = ENOSYS;  // return the failure code
+        DYAD_LOG_DEBUG (ctx, "DYAD_SYNC: failed to retrieve gotcha wrapped 'fopen64()'");
+        DYAD_C_FUNCTION_END ();
+        return NULL;
+    }
+
+    if ((strcmp (mode, "r") != 0) || is_path_dir (path)) {
+        // TODO: make sure if the directory mode is consistent
+        goto real_call;
+    }
+
+    if (!(ctx && ctx->h) || (ctx && !ctx->reenter) || !path) {
+        IPRINTF (ctx, "DYAD_SYNC: fopen64 sync not applicable for \"%s\".\n", ((path) ? path : ""));
+        goto real_call;
+    }
+
+    IPRINTF (ctx, "DYAD_SYNC: enters fopen64 sync (\"%s\").\n", path);
+    if (DYAD_IS_ERROR (dyad_consume (ctx_mutable, path))) {
+        DPRINTF (ctx, "DYAD_SYNC: failed fopen64 sync (\"%s\").\n", path);
+        goto real_call;
+    }
+    IPRINTF (ctx, "DYAD_SYNC: exits fopen64 sync (\"%s\").\n", path);
+
+real_call:;
+    FILE *fh = (func_ptr (path, mode));
+
+    // This lock is to protect the file being produced by a producer
+    // from a consumer that has direct access to the file. For example,
+    // either the file is on a shared storage or the consumer is on
+    // the same node as where the producer is.
+    if ((fh != NULL) && ((strcmp (mode, "w") == 0) || (strcmp (mode, "a") == 0))
+        && !is_path_dir (path)) {
+        if ((ctx->relative_to_managed_path
+             && (strncmp (path, DYAD_PATH_DELIM, ctx->delim_len) != 0))
+            || cmp_canonical_path_prefix (ctx, true, path, upath, PATH_MAX)) {
+            int fd = fileno (fh);
+            struct flock exclusive_lock;
+            dyad_rc_t rc = dyad_excl_flock (ctx, fd, &exclusive_lock);
+            if (DYAD_IS_ERROR (rc)) {
+                dyad_release_flock (ctx, fd, &exclusive_lock);
+            }
+        }
+    }
+    DYAD_C_FUNCTION_END ();
+    return fh;
+}
+
+static int dyad_close64_wrapper (int fd)
+{
+    DYAD_C_FUNCTION_START ();
+    DYAD_C_FUNCTION_UPDATE_INT ("fd", fd);
+    bool to_sync = false;
+    typedef int (*close64_ptr_t) (int);
+    close64_ptr_t func_ptr = NULL;
+    char path[PATH_MAX + 1] = {'\0'};
+    int rc = 0;
+
+    func_ptr = __extension__ (close64_ptr_t) gotcha_get_wrappee (wrappee_close64_handle);
+    if (func_ptr == NULL) {
+        errno = ENOSYS;  // return the failure code
+        DYAD_LOG_DEBUG (ctx, "DYAD_SYNC: failed to retrieve gotcha wrapped 'close64()'");
+        DYAD_C_FUNCTION_END ();
+        return -1;
+    }
+
+    if ((fd < 0) || (ctx == NULL) || (ctx->h == NULL) || !ctx->reenter) {
+#if defined(IPRINTF_DEFINED)
+        if (ctx == NULL) {
+            IPRINTF (ctx, "DYAD_SYNC: close64 sync not applicable. (no context)\n");
+        } else if (ctx->h == NULL) {
+            IPRINTF (ctx, "DYAD_SYNC: close64 sync not applicable. (no flux)\n");
+        } else if (!ctx->reenter) {
+            IPRINTF (ctx, "DYAD_SYNC: close64 sync not applicable. (no reenter)\n");
+        } else if (fd >= 0) {
+            IPRINTF (ctx,
+                     "DYAD_SYNC: close64 sync not applicable. (invalid file "
+                     "descriptor)\n");
+        }
+#endif  // defined(IPRINTF_DEFINED)
+        to_sync = false;
+        goto real_call;
+    }
+
+    if (is_fd_dir (fd)) {
+        // TODO: make sure if the directory mode is consistent
+        goto real_call;
+    }
+
+    if (get_path (fd, PATH_MAX - 1, path) < 0) {
+        DYAD_LOG_DEBUG (ctx, "DYAD_SYNC: unable to obtain file path from a descriptor.\n");
+        to_sync = false;
+        goto real_call;
+    }
+
+    to_sync = true;
+
+real_call:;  // semicolon here to avoid the error
+    // "a label can only be part of a statement and a declaration is not a
+    // statement"
+
+    int wronly = is_wronly (fd);
+
+    if (wronly == -1) {
+        DPRINTF (ctx, "Failed to check the mode of the file with fcntl: %s\n", strerror (errno));
+    }
+
+    if (to_sync && wronly == 1) {
+        if (ctx->fsync_write) {
+            fsync (fd);
+
+#if DYAD_SYNC_DIR
+            dyad_sync_directory (ctx, path);
+#endif  // DYAD_SYNC_DIR
+        }
+
+        struct flock exclusive_lock;
+        dyad_release_flock (ctx, fd, &exclusive_lock);
+        rc = func_ptr (fd);
+        if (rc != 0) {
+            DPRINTF (ctx, "Failed close64 (\"%s\").: %s\n", path, strerror (errno));
+        }
+        IPRINTF (ctx, "DYAD_SYNC: enters close64 sync (\"%s\").\n", path);
+        if (DYAD_IS_ERROR (dyad_produce (ctx_mutable, path))) {
+            DPRINTF (ctx, "DYAD_SYNC: failed close64 sync (\"%s\").\n", path);
+        }
+        IPRINTF (ctx, "DYAD_SYNC: exits close64 sync (\"%s\").\n", path);
+    } else {
+        rc = func_ptr (fd);
+    }
+    DYAD_C_FUNCTION_END ();
+    return rc;
+}
+
+static int dyad_fclose64_wrapper (FILE *fp)
+{
+    DYAD_C_FUNCTION_START ();
+    bool to_sync = false;
+    typedef int (*fclose64_ptr_t) (FILE *);
+    fclose64_ptr_t func_ptr = NULL;
+    char path[PATH_MAX + 1] = {'\0'};
+    int rc = 0;
+    int fd = 0;
+
+    func_ptr = __extension__ (fclose64_ptr_t) gotcha_get_wrappee (wrappee_fclose64_handle);
+    if (func_ptr == NULL) {
+        errno = ENOSYS;  // return the failure code
+        DYAD_LOG_DEBUG (ctx, "DYAD_SYNC: failed to retrieve gotcha wrapped 'fclose64()'");
+        DYAD_C_FUNCTION_END ();
+        return EOF;
+    }
+
+    if ((fp == NULL) || (ctx == NULL) || (ctx->h == NULL) || !ctx->reenter) {
+#if defined(IPRINTF_DEFINED)
+        if (ctx == NULL) {
+            IPRINTF (ctx, "DYAD_SYNC: fclose64 sync not applicable. (no context)\n");
+        } else if (ctx->h == NULL) {
+            IPRINTF (ctx, "DYAD_SYNC: fclose64 sync not applicable. (no flux)\n");
+        } else if (!ctx->reenter) {
+            IPRINTF (ctx, "DYAD_SYNC: fclose64 sync not applicable. (no reenter)\n");
+        } else if (fp == NULL) {
+            IPRINTF (ctx,
+                     "DYAD_SYNC: fclose64 sync not applicable. (invalid file "
+                     "pointer)\n");
+        }
+#endif  // defined(IPRINTF_DEFINED)
+        to_sync = false;
+        goto real_call;
+    }
+
+    if (is_fd_dir (fileno (fp))) {
+        // TODO: make sure if the directory mode is consistent
+        goto real_call;
+    }
+
+    if (get_path (fileno (fp), PATH_MAX - 1, path) < 0) {
+        DYAD_LOG_DEBUG (ctx, "DYAD_SYNC: unable to obtain file path from a descriptor.\n");
+        to_sync = false;
+        goto real_call;
+    }
+
+    to_sync = true;
+
+real_call:;
+    fd = fileno (fp);
+
+    int wronly = is_wronly (fd);
+
+    if (wronly == -1) {
+        DPRINTF (ctx, "Failed to check the mode of the file with fcntl: %s\n", strerror (errno));
+    }
+
+    if (to_sync && wronly == 1) {
+        if (ctx->fsync_write) {
+            fflush (fp);
+            fsync (fd);
+#if DYAD_SYNC_DIR
+            dyad_sync_directory (ctx, path);
+#endif  // DYAD_SYNC_DIR
+        }
+
+        struct flock exclusive_lock;
+        dyad_release_flock (ctx, fd, &exclusive_lock);
+        rc = func_ptr (fp);
+        if (rc != 0) {
+            DPRINTF (ctx, "Failed fclose64 (\"%s\").\n", path);
+        }
+        IPRINTF (ctx, "DYAD_SYNC: enters fclose64 sync (\"%s\").\n", path);
+        if (DYAD_IS_ERROR (dyad_produce (ctx_mutable, path))) {
+            DPRINTF (ctx, "DYAD_SYNC: failed fclose64 sync (\"%s\").\n", path);
+        }
+        IPRINTF (ctx, "DYAD_SYNC: exits fclose64 sync (\"%s\").\n", path);
     } else {
         rc = func_ptr (fp);
     }
