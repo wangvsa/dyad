@@ -9,10 +9,11 @@ DYAD has the following minimum requirements to build and install:
 
 * A C11-compliant C compiler
 * A C++17-compliant C++ compiler
-* CNake 3.12
+* CMake 3.12
 * pkg-config
 * `flux-core <https://github.com/flux-framework/flux-core.git>`_
 * `jansson 2.10 or newer <https://github.com/akheron/jansson.git>`_
+* `gotcha 1.0.8 or newer <https://github.com/llnl/GOTCHA.git>`_
 * flux-python
 
 Optionally, DYAD leverages:
@@ -20,7 +21,7 @@ Optionally, DYAD leverages:
 * `mochi-margo <https://github.com/mochi-hpc/mochi-margo.git>`_ to enable libfabric-based data transport layer (DTL).
 * `ucx <https://github.com/openucx/ucx.git>`_ to enable ucx-based DTL.
 * `dftracer <https://github.com/llnl/dftracer.git>`_ for performance tracing of Python-based applications.
-* cpp-logger for logging operational details to aid debugging.
+* `cpp-logger <https://github.com/hariharan-devarajan/cpp-logger.git>`_ for logging operational details to aid debugging.
 * `perflow-aspect <https://perfflowaspect.readthedocs.io/en/latest/>`_ for visualizing function-level events to aid workflow performance diagnosis.
 * `caliper <https://github.com/llnl/Caliper.git>`_ for collecting performance profiling.
 
@@ -61,7 +62,7 @@ To enable the DYAD Python binding,
 
    $ python3 -m venv .venv
    $ source .venv/bin/activate
-   $ pip install flux-python=0,80.0
+   $ pip install flux-python==0.80.0
    $ cd pydyad
    $ pip install .
 
@@ -92,6 +93,9 @@ There are several custom CMake options available to configure a DYAD build:
    | DYAD_LIBDIR_AS_LIB       | ON, **OFF**                | Force lib as library install dir (no lib64) |
    | DYAD_USE_CLANG_LIBCXX    | ON, **OFF**                | Use clang's native runtime instead of gnu   |
    | DYAD_WARNINGS_AS_ERRORS  | ON, **OFF**                | Turn compiler warning into error            |
+   +--------------------------+----------------------------+---------------------------------------------+
+   | FLUX_CORE_PREFIX         | path_to_flux-core_install  | Allow cmake to find flux-core installed     |
+   | GOTCHA_DIR               | path_to_gotcha_install     | Allow cmake to find gotcha installed        |
    +--------------------------+----------------------------+---------------------------------------------+
 
 
@@ -141,11 +145,19 @@ There are several custom CMake options available to configure a DYAD build:
    * - DYAD_WARNINGS_AS_ERRORS
      - ON, **OFF**
      - Turn compiler warnings into errors
+     -
+     -
+   * - FLUX_CORE_PREFIX
+     - path_to_flux-core_install
+     - Allow cmake to find flux-core installed
+   * - GOTCHA_DIR
+     - path_to_gotcha_install
+     - Allow cmake to find gotcha installed
 
 
 .. note::
 
-   Mochi-Margo enables seamless adoption of various DTL types. Currently, DYAD
+   **mochi-margo** enables seamless adoption of various DTL types. Currently, DYAD
    relies on it only for **libfabric**, but we plan to fully leverage the diverse
    options it provides in the near future.
 
@@ -170,6 +182,16 @@ There are several custom CMake options available to configure a DYAD build:
    different data transfer methods, the client relies only on FLUX RPC to send
    transfer requests to the service. In the future, we plan to offer alternative,
    portable RPC methods.
+
+   **flux-core** is required to build DYAD. cmake build proceedure for dyad will
+   attempt to find it under the path ``FLUX_CORE_PREFIX`` if it is set.
+   Otherwise, it searches flux-core through user's ``PATH``.
+
+   **gotcha** allows consistent symbol interception behavior when there are multiple
+   interception libraries at runtime. For example, both Spindle and DYAD intercept
+   :code:`open()` for different purposes. gotcha chains the wrappers so both
+   execute, with execution order controlled by user-defined priority.
+   gotchat is required to build DYAD but is only relevant to the interception wrapper.
 
 
 Using DYAD's APIs
@@ -197,6 +219,12 @@ simply adding the following before the shell command that launches their applica
 Once preloaded, DYAD's C API will intercept the :code:`open` and :code:`fopen` functions when consuming
 files and the :code:`close` and :code:`fclose` functions when producing files. As a result,
 if their code already uses thse functions, users do not need to change their code.
+
+GOTCHA allows consistent symbol interception behavior when there are multiple
+interception libraries at runtime by controlling the execution order by priority.
+DYAD's priority can be set via the ``DYAD_GOTCHA_PRIORITY`` environment variable
+— a higher integer value means DYAD's wrapper runs first. If the variable is not
+set, all tools default to priority 0 and order is determined by load order.
 
 C++ API
 *******

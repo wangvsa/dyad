@@ -17,9 +17,9 @@ extern "C" {
 
 DYAD_DLL_EXPORTED extern const struct dyad_ctx dyad_ctx_default;
 
-DYAD_DLL_EXPORTED dyad_ctx_t *dyad_ctx_get ();
+DYAD_DLL_EXPORTED dyad_ctx_t *dyad_ctx_get (void);
 DYAD_DLL_EXPORTED void dyad_ctx_init (dyad_dtl_comm_mode_t dtl_comm_mode, void *flux_handle);
-DYAD_DLL_EXPORTED void dyad_ctx_fini ();
+DYAD_DLL_EXPORTED void dyad_ctx_fini (void);
 
 /**
  * @brief Intialize the DYAD context
@@ -103,14 +103,14 @@ DYAD_DLL_EXPORTED dyad_rc_t dyad_set_and_init_dtl_mode (const char *dtl_mode_nam
  * This is needed for wrapper to handle dyad exceptions as the wrapper requires
  * ctx for it's lifetime
  */
-DYAD_DLL_EXPORTED dyad_rc_t dyad_clear ();
+DYAD_DLL_EXPORTED dyad_rc_t dyad_clear (void);
 
 /**
  * @brief Finalizes the DYAD instance and deallocates the context
  *
  * @return An error code from dyad_rc.h
  */
-DYAD_DLL_EXPORTED dyad_rc_t dyad_finalize ();
+DYAD_DLL_EXPORTED dyad_rc_t dyad_finalize (void);
 
 #ifdef __cplusplus
 }
