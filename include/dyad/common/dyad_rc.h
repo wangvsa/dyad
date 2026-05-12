@@ -65,6 +65,7 @@ enum dyad_core_return_codes {
 
     // MARGO
     DYAD_RC_MARGOINIT_FAIL = -4001,  // Margo initialization failed
+    DYAD_RC_MARGO_BAD_PROTO = -4002,  // Bad network protocol for Margo initialization
 
 };
 
