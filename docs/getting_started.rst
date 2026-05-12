@@ -62,7 +62,7 @@ To enable the DYAD Python binding,
 
    $ python3 -m venv .venv
    $ source .venv/bin/activate
-   $ pip install flux-python=0,80.0
+   $ pip install flux-python==0.80.0
    $ cd pydyad
    $ pip install .
 

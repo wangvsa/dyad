@@ -43,6 +43,7 @@ if (CMAKE_INSTALL_LIBDIR)
 else ()
    set(DYAD_INSTALL_BINDIR "${CMAKE_INSTALL_PREFIX}/bin")
    set(DYAD_INSTALL_LIBDIR "${CMAKE_INSTALL_PREFIX}/lib")
+   set(CMAKE_INSTALL_LIBDIR "lib")
    set(DYAD_INSTALL_INCLUDEDIR "${CMAKE_INSTALL_PREFIX}/include")
    set(DYAD_INSTALL_DOCDIR "${CMAKE_INSTALL_PREFIX}/doc")
    set(DYAD_INSTALL_SYSCONFDIR "${CMAKE_INSTALL_PREFIX}/etc/modulefiles")
@@ -227,11 +228,7 @@ if (${JANSSON_FOUND})  # Note: this find_package does not properly name its '_FO
 else ()
     message(FATAL_ERROR "-- [${PROJECT_NAME}] Jansson is needed for ${PROJECT_NAME} build")
 endif ()
-find_package(gotcha NAMES GOTCHA
-             HINTS "$ENV{gotcha_DIR}" "$ENV{GOTCHA_DIR}"
-             PATH_SUFFIXES lib lib/cmake/gotcha lib/cmake/GOTCHA
-                           lib64 lib64/cmake/gotcha lib64/cmake/GOTCHA
-             REQUIRED)
+find_package(Gotcha REQUIRED)
 if (${gotcha_FOUND})
     message(STATUS "[${PROJECT_NAME}] found gotcha at ${gotcha_INCLUDE_DIRS}")
 else ()
