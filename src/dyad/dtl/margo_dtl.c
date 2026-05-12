@@ -13,6 +13,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <dyad/common/dyad_envs.h>
 #include <dyad/common/dyad_logging.h>
 #include <dyad/common/dyad_profiler.h>
 #include <dyad/dtl/margo_dtl.h>
@@ -130,6 +131,31 @@ margo_ret_buf_done:
     return rc;
 }
 
+static dyad_rc_t validate_margo_protocol (const dyad_ctx_t* ctx, const char* protocol)
+{
+    struct na_protocol_info* info = NULL;
+    na_return_t ret = NA_Get_protocol_info (protocol, &info);
+
+    if (ret != NA_SUCCESS || info == NULL) {
+        DYAD_LOG_ERROR (ctx,
+                        "[MARGO DTL] NA protocol '%s' is not available "
+                        "(NA_Get_protocol_info returned %d). "
+                        "Check that the required libfabric provider is installed.",
+                        protocol,
+                        (int)ret);
+        return DYAD_RC_MARGO_BAD_PROTO;
+    }
+
+    DYAD_LOG_DEBUG (ctx,
+                    "[MARGO DTL] NA protocol '%s' available "
+                    "(class=%s, device=%s)",
+                    protocol,
+                    info->class_name,
+                    info->device_name);
+    NA_Free_protocol_info (info);
+    return DYAD_RC_OK;
+}
+
 dyad_rc_t dyad_dtl_margo_init (const dyad_ctx_t* ctx,
                                dyad_dtl_mode_t mode,
                                dyad_dtl_comm_mode_t comm_mode,
@@ -152,25 +178,54 @@ dyad_rc_t dyad_dtl_margo_init (const dyad_ctx_t* ctx,
     margo_handle->debug = debug;
     margo_handle->recv_ready = 0;
 
-    // the underlying network protocol
-    // to use for the margo dtl.
-    // TODO: currently hardcoded.
-    char margo_na_protocol[] = "ofi+tcp";  // works everywhere
-    // char margo_na_protocol[] = "ofi+verbs";  // best for infiniband
-    // char margo_na_protocol[] = "ofi+cxi";    // bset for HPC slingshot
-    // producer (FLUX broker)
-    // essentially the margo client
+    // Determine the Mercury network abstraction (NA) protocol (communication fabric) to use.
+    //
+    // Common values:
+    //   ofi+tcp     – portable TCP/IP via libfabric (default)
+    //   ofi+verbs   – InfiniBand via libfabric
+    //   ofi+cxi     – HPE Slingshot (Cray EX) via libfabric
+    //   sm          – shared memory (single-node testing)
+    //   na+sm       – shared memory (newer Margo)
+    //
+    //   ucx         - auto (all);              let UCX pick, safe default for ucx
+    //   ucx+tcp     - TCP/IP;                  portable, works everywhere
+    //   ucx+rc_v    - InfiniBand RC (verbs);   low-latency IB
+    //   ucx+rc_mlx5 - InfiniBand RC (mlx5 optimized); Mellanox HCAs
+    //   ucx+ud_v    - InfiniBand UD (verbs);   scalable IB, less reliability overhead
+    //   ucx+dc_mlx5 - InfiniBand DC (mlx5);    large-scale IB (Frontier, Sierra)
+    //   ucx+cma     - Cross-Memory Attach;     intra-node shared memory (Linux)
+    //   ucx+sysv    - SysV shared memory;      intra-node only
+    //
+    // Example:
+    //   export DYAD_MARGO_NA_PROTOCOL="ofi+verbs"
+
+    const char* margo_na_protocol_env = getenv (DYAD_MARGO_PROTO_ENV);
+    const char* margo_na_protocol =
+        (margo_na_protocol_env != NULL && margo_na_protocol_env[0] != '\0') ? margo_na_protocol_env
+                                                                            : "ofi+tcp";
+
+    /* Validate before committing to margo_init() */
+    dyad_rc_t rc = validate_margo_protocol (ctx, margo_na_protocol);
+    if (rc != DYAD_RC_OK) {
+        goto error;
+    }
+
     if (comm_mode == DYAD_COMM_SEND) {
+        // Producer (FLUX broker), essentially the Margo client
         margo_handle->mid = margo_init (margo_na_protocol, MARGO_CLIENT_MODE, 0, -1);
+        if (margo_handle->mid == MARGO_INSTANCE_NULL) {
+            DYAD_LOG_ERROR (ctx,
+                            "[MARGO DTL] margo_init failed (SEND, protocol=%s)",
+                            margo_na_protocol);
+            goto error;
+        }
         margo_handle->sendrecv_rpc_id = MARGO_REGISTER (margo_handle->mid,
                                                         "data_ready_rpc",
                                                         margo_rpc_in_t,
                                                         margo_rpc_out_t,
                                                         NULL);
-    }
-    // consumer (dyad client c wrapper)
-    // essentially the margo server
-    if (comm_mode == DYAD_COMM_RECV) {
+    } else if (comm_mode == DYAD_COMM_RECV) {
+        // Consumer (dyad client c wrapper), essentially the Margo server
         // The third argument indicates whether an Argobots execution stream (ES)
         // should be created to run the Mercury progress loop. If this argument is
         // set to 0, the progress loop is going to run in the context of the main
@@ -183,6 +238,12 @@ dyad_rc_t dyad_dtl_margo_init (const dyad_ctx_t* ctx,
         // will make Margo execute the RPCs in the ES running the progress loop.
         // A positive value will make Margo create new ESs to run the RPCs.
         margo_handle->mid = margo_init (margo_na_protocol, MARGO_SERVER_MODE, 1, -1);
+        if (margo_handle->mid == MARGO_INSTANCE_NULL) {
+            DYAD_LOG_ERROR (ctx,
+                            "[MARGO DTL] margo_init failed (RECV, protocol=%s)",
+                            margo_na_protocol);
+            goto error;
+        }
         margo_handle->sendrecv_rpc_id = MARGO_REGISTER (margo_handle->mid,
                                                         "data_ready_rpc",
                                                         margo_rpc_in_t,
@@ -190,6 +251,7 @@ dyad_rc_t dyad_dtl_margo_init (const dyad_ctx_t* ctx,
                                                         data_ready_rpc);
         margo_register_data (margo_handle->mid, margo_handle->sendrecv_rpc_id, margo_handle, NULL);
     }
+
     // both margo client and server
     margo_addr_self (margo_handle->mid, &margo_handle->local_addr);
     margo_handle->remote_addr = NULL;
@@ -207,8 +269,7 @@ dyad_rc_t dyad_dtl_margo_init (const dyad_ctx_t* ctx,
 
     if (comm_mode == DYAD_COMM_SEND) {
         DYAD_LOG_DEBUG (ctx, "[MARGO DTL] margo dtl initialized - flux side");
-    }
-    if (comm_mode == DYAD_COMM_RECV) {
+    } else if (comm_mode == DYAD_COMM_RECV) {
         DYAD_LOG_DEBUG (ctx, "[MARGO DTL] margo dtl initialized - client side");
     }
 
@@ -430,10 +491,12 @@ dyad_rc_t dyad_dtl_margo_finalize (const dyad_ctx_t* ctx)
 
     margo_handle = ctx->dtl_handle->private_dtl.margo_dtl_handle;
 
-    margo_addr_free (margo_handle->mid, margo_handle->local_addr);
-    if (margo_handle->remote_addr != NULL)
-        margo_addr_free (margo_handle->mid, margo_handle->remote_addr);
-    margo_finalize (margo_handle->mid);
+    if (margo_handle->mid != MARGO_INSTANCE_NULL) {
+        margo_addr_free (margo_handle->mid, margo_handle->local_addr);
+        if (margo_handle->remote_addr != NULL)
+            margo_addr_free (margo_handle->mid, margo_handle->remote_addr);
+        margo_finalize (margo_handle->mid);
+    }
     free (margo_handle);
     ctx->dtl_handle->private_dtl.margo_dtl_handle = NULL;
 
