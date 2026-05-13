@@ -231,6 +231,7 @@ endif ()
 find_package(Gotcha REQUIRED)
 if (${gotcha_FOUND})
     message(STATUS "[${PROJECT_NAME}] found gotcha at ${gotcha_INCLUDE_DIRS}")
+    include_directories(${gotcha_INCLUDE_DIRS})
 else ()
     message(FATAL_ERROR "-- [${PROJECT_NAME}] gotcha is needed for ${PROJECT_NAME} build")
 endif ()
@@ -238,15 +239,10 @@ endif ()
 # Optional Dependencies
 # =============================================================================
 if (DYAD_LOGGER STREQUAL "CPP_LOGGER")
-    find_package(cpp-logger REQUIRED
-                 HINTS ${CPP_LOGGER_DIR} ${cpp-logger_DIR}
-                       ${CPP_LOGGER_PATH} ${cpp-logger_PATH}
-                       $ENV{CPP_LOGGER_DIR} $ENV{cpp-logger_DIR}
-                       $ENV{CPP_LOGGER_PATH} $ENV{cpp-logger_PATH})
+    find_package(CppLogger REQUIRED)
     if (${cpp-logger_FOUND})
         message(STATUS "[${PROJECT_NAME}] found cpp-logger at ${CPP_LOGGER_INCLUDE_DIRS}")
         include_directories(${CPP_LOGGER_INCLUDE_DIRS})
-        set(DEPENDENCY_LIB ${DEPENDENCY_LIB} ${CPP_LOGGER_LIBRARIES})
     else ()
         message(FATAL_ERROR "-- [${PROJECT_NAME}] cpp-logger is not found but selected in cmake options for ${PROJECT_NAME} build")
     endif ()
@@ -263,7 +259,6 @@ elseif(DYAD_PROFILER STREQUAL "DFTRACER")
     if (${DFTRACER_FOUND})
         message(STATUS "[${PROJECT_NAME}] found dftracer at ${DFTRACER_INCLUDE_DIRS}")
         include_directories(${DFTRACER_INCLUDE_DIRS})
-        set(DEPENDENCY_LIB ${DEPENDENCY_LIB} ${DFTRACER_LIBRARIES})
     else ()
         message(FATAL_ERROR "-- [${PROJECT_NAME}] dftracer is not found but selected in cmake options ${PROJECT_NAME} build")
     endif ()

@@ -10,7 +10,7 @@
 #   gotcha_INCLUDE_DIRS   - Where to find gotcha.h.
 #   gotcha_LIBRARIES      - List of libraries when using gotcha.
 
-cmake_minimum_required(VERSION 3.0)
+#cmake_minimum_required(VERSION 3.0)
 
 foreach (_gotcha_hint "$ENV{gotcha_DIR}" "$ENV{GOTCHA_DIR}")
   if (_gotcha_hint)
@@ -41,7 +41,9 @@ if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.14")
     FIND_PACKAGE_ARGS NAMES gotcha GOTCHA
   )
   set(GOTCHA_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
+  set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
   FetchContent_MakeAvailable(gotcha)
+  set(CMAKE_WARN_DEPRECATED ON CACHE BOOL "" FORCE)
 
   # Add the generated include directory so gotcha_config.h can be found
   if (TARGET gotcha)
