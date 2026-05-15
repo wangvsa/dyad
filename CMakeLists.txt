@@ -471,6 +471,8 @@ install(FILES "${CMAKE_BINARY_DIR}/dyad_module.lua.install"
   DESTINATION
   "${DYAD_INSTALL_SYSCONFDIR}")
 
+include(Symlink)
+
 
 if (DYAD_ENABLE_TESTS)
     enable_testing()
