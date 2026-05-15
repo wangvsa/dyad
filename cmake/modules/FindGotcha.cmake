@@ -12,7 +12,8 @@
 
 #cmake_minimum_required(VERSION 3.0)
 
-foreach (_gotcha_hint "$ENV{gotcha_DIR}" "$ENV{GOTCHA_DIR}")
+foreach (_gotcha_hint "$ENV{gotcha_DIR}" "$ENV{GOTCHA_DIR}"
+                      "$ENV{gotcha_PATH}" "$ENV{GOTCHA_PATH}")
   if (_gotcha_hint)
     foreach (_suffix
              "lib/cmake/gotcha"   "lib/cmake/GOTCHA"
