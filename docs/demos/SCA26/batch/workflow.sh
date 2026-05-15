@@ -46,18 +46,18 @@ flux exec -r all flux module load ${DYAD_INSTALL_LIBDIR}/dyad.so #--mode="${DYAD
 for i_task in `seq 1 $n_tasks`
 do
     echo "Submitting Consumer job"
-    flux submit --nodes 1 --exclusive -t 10 \
-                --env=DYAD_KVS_NAMESPACE=${DYAD_KVS_NAMESPACE} \
-                --env=DYAD_DTL_MODE=${DYAD_DTL_MODE} \
+    flux submit --nodes 1 --exclusive -t 1 \
                 --env=DYAD_INSTALL_LIBDIR=${DYAD_INSTALL_LIBDIR} \
+                --output=out-cons-${i_task}.txt \
+                --error=err-cons-${i_task}.txt \
                 ${script_dir}/task_cons.sh ${i_task} ${mode}
     CONS_IDs="${CONS_IDs} $(flux job last)"
 
     echo "Submitting Producer job"
-    flux submit --nodes 1 --exclusive -t 10 \
-                --env=DYAD_KVS_NAMESPACE=${DYAD_KVS_NAMESPACE} \
-                --env=DYAD_DTL_MODE=${DYAD_DTL_MODE} \
+    flux submit --nodes 1 --exclusive -t 1 \
                 --env=DYAD_INSTALL_LIBDIR=${DYAD_INSTALL_LIBDIR} \
+                --output=out-prod-${i_task}.txt \
+                --error=err-prod-${i_task}.txt \
                 ${script_dir}/task_prod.sh ${i_task} ${mode}
     PROD_IDs="${PROD_IDs} $(flux job last)"
 done

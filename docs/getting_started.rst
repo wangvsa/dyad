@@ -157,9 +157,19 @@ There are several custom CMake options available to configure a DYAD build:
 
 .. note::
 
-   **mochi-margo** enables seamless adoption of various DTL types. Currently, DYAD
-   relies on it only for **libfabric**, but we plan to fully leverage the diverse
-   options it provides in the near future.
+   **mochi-margo** enables seamless adoption of various DTL types. When installed
+   via spack, it supports **libfabric** by default, but not UCX. To enable UCX with
+   Margo, Mercury (on which Margo depends) must be built with UCX support enabled.
+   One way to achieve this is to use a Spack environment.
+
+   .. code-block:: bash
+
+      spack env create dyad_margo
+      spack env activate dyad_margo
+      spack add mercury +ofi +ucx +sm
+      spack add mochi-margo
+      spack concretize --force
+      spack install
 
    To enable a specific DTL type, DYAD requires the environment variable
    ``DYAD_DTL_MODE`` to be set accordingly. At present, three values are
@@ -172,6 +182,7 @@ There are several custom CMake options available to configure a DYAD build:
    - When built with ``DYAD_ENABLE_UCX_DATA=ON``, data transfer is synchronous
      using UCX. In other words, the choice between synchronous and RMA-based UCX
      is mutually exclusive at compile time.
+   - For details on choosing a network protocol with MARGO, see :doc:`runtime_configuration`.
 
    However, the selection between ``MARGO``, ``UCX``, and ``FLUX_RPC`` can be
    made dynamically at launch time. Ensure that ``DYAD_DTL_MODE`` is set
