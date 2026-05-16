@@ -99,23 +99,28 @@ void dyad_stream_core::init (const bool reinit)
         return;
     }
 
-    if ((e = getenv (DYAD_PATH_CONSUMER_ENV))) {
-        m_is_cons = (strlen (e) != 0);
-    } else {
-        m_is_cons = false;
-    }
-    if ((e = getenv (DYAD_PATH_PRODUCER_ENV))) {
-        m_is_prod = (strlen (e) != 0);
-    } else {
-        m_is_prod = false;
-    }
-
     if (reinit || reinit_env || !(m_ctx = m_ctx_mutable = dyad_ctx_get ())) {
         dyad_ctx_init (DYAD_COMM_RECV, NULL);
         m_ctx = m_ctx_mutable = dyad_ctx_get ();
-        log_info ("Stream core is initialized by env variables.");
+        if (m_ctx != NULL) {
+            log_info ("Stream core is initialized by env variables.");
+        }
     } else {
+        // m_ctx is non-NULL (assigned in the condition above)
         log_info ("Stream core skips initialization as it has already been initialized.");
+    }
+
+    if (m_ctx != NULL) {
+        if ((e = getenv (DYAD_PATH_CONSUMER_ENV))) {
+            m_is_cons = (strlen (e) != 0);
+        } else {
+            m_is_cons = false;
+        }
+        if ((e = getenv (DYAD_PATH_PRODUCER_ENV))) {
+            m_is_prod = (strlen (e) != 0);
+        } else {
+            m_is_prod = false;
+        }
     }
 
     // TODO figure out if we want to error if init fails
