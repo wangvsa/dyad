@@ -127,3 +127,5 @@ tests/integration/dlio_benchmark/logs
 scripts/checkpoints
 scripts/logs
 tests/integration/dlio_benchmark/perf_analysis/.ipynb_checkpoints
+
+/CLAUDE.md
