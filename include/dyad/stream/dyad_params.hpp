@@ -17,6 +17,7 @@
 #error "no config"
 #endif
 
+#include <dyad/common/dyad_dtl.h>
 #include <string>
 
 namespace dyad
@@ -61,7 +62,7 @@ struct dyad_params {
           m_key_depth (2u),
           m_key_bins (256u),
           m_service_mux (1u),
-          m_dtl_mode (0),
+          m_dtl_mode (DYAD_DTL_DEFAULT),
           m_kvs_namespace (""),
           m_cons_managed_path (""),
           m_prod_managed_path (""),
