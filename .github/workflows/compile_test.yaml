@@ -22,7 +22,7 @@ jobs:
       fail-fast: false
       matrix:
         flux: [ 0.73.0 ]
-        mode: ["UCX"]
+        mode: ["UCX", "FLUX_RPC", "MARGO"]
         os: [ ubuntu-24.04 ]
         compiler: [ gcc ]
         gcc: [ 14 ]
