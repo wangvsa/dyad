@@ -43,6 +43,7 @@ if (CMAKE_INSTALL_LIBDIR)
 else ()
    set(DYAD_INSTALL_BINDIR "${CMAKE_INSTALL_PREFIX}/bin")
    set(DYAD_INSTALL_LIBDIR "${CMAKE_INSTALL_PREFIX}/lib")
+   set(CMAKE_INSTALL_LIBDIR "lib")
    set(DYAD_INSTALL_INCLUDEDIR "${CMAKE_INSTALL_PREFIX}/include")
    set(DYAD_INSTALL_DOCDIR "${CMAKE_INSTALL_PREFIX}/doc")
    set(DYAD_INSTALL_SYSCONFDIR "${CMAKE_INSTALL_PREFIX}/etc/modulefiles")
@@ -80,9 +81,7 @@ endif ()
 #------------------------------------------------------------------------------
 # Build options
 #------------------------------------------------------------------------------
-# option(ENABLE_DYAD_DEBUG "Include debugging prints and logging" OFF) # This is not needed as we have CMAKE_BUILD_TYPE
 # This is verbose, maybe an alternate might help simplify
-#option(BUILD_URPC "Build DYAD's URPC code" OFF)
 #option(ENABLE_PERFFLOW "Build with PerfFlow Aspect support" OFF)
 #option(ENABLE_UCX_DTL "Build DYAD's UCX data transport layer" OFF)
 
@@ -229,19 +228,21 @@ if (${JANSSON_FOUND})  # Note: this find_package does not properly name its '_FO
 else ()
     message(FATAL_ERROR "-- [${PROJECT_NAME}] Jansson is needed for ${PROJECT_NAME} build")
 endif ()
+find_package(Gotcha REQUIRED)
+if (${gotcha_FOUND})
+    message(STATUS "[${PROJECT_NAME}] found gotcha at ${gotcha_INCLUDE_DIRS}")
+    include_directories(${gotcha_INCLUDE_DIRS})
+else ()
+    message(FATAL_ERROR "-- [${PROJECT_NAME}] gotcha is needed for ${PROJECT_NAME} build")
+endif ()
 
 # Optional Dependencies
 # =============================================================================
 if (DYAD_LOGGER STREQUAL "CPP_LOGGER")
-    find_package(cpp-logger REQUIRED
-                 HINTS ${CPP_LOGGER_DIR} ${cpp-logger_DIR}
-                       ${CPP_LOGGER_PATH} ${cpp-logger_PATH}
-                       $ENV{CPP_LOGGER_DIR} $ENV{cpp-logger_DIR}
-                       $ENV{CPP_LOGGER_PATH} $ENV{cpp-logger_PATH})
+    find_package(CppLogger REQUIRED)
     if (${cpp-logger_FOUND})
         message(STATUS "[${PROJECT_NAME}] found cpp-logger at ${CPP_LOGGER_INCLUDE_DIRS}")
         include_directories(${CPP_LOGGER_INCLUDE_DIRS})
-        set(DEPENDENCY_LIB ${DEPENDENCY_LIB} ${CPP_LOGGER_LIBRARIES})
     else ()
         message(FATAL_ERROR "-- [${PROJECT_NAME}] cpp-logger is not found but selected in cmake options for ${PROJECT_NAME} build")
     endif ()
@@ -258,7 +259,6 @@ elseif(DYAD_PROFILER STREQUAL "DFTRACER")
     if (${DFTRACER_FOUND})
         message(STATUS "[${PROJECT_NAME}] found dftracer at ${DFTRACER_INCLUDE_DIRS}")
         include_directories(${DFTRACER_INCLUDE_DIRS})
-        set(DEPENDENCY_LIB ${DEPENDENCY_LIB} ${DFTRACER_LIBRARIES})
     else ()
         message(FATAL_ERROR "-- [${PROJECT_NAME}] dftracer is not found but selected in cmake options ${PROJECT_NAME} build")
     endif ()

@@ -69,7 +69,7 @@ const struct dyad_ctx dyad_ctx_default = {
     false   // relative_to_managed_path
 };
 
-DYAD_DLL_EXPORTED dyad_ctx_t *dyad_ctx_get ()
+DYAD_DLL_EXPORTED dyad_ctx_t *dyad_ctx_get (void)
 {
     return ctx;
 }
@@ -98,7 +98,7 @@ DYAD_DLL_EXPORTED void dyad_ctx_init (const dyad_dtl_comm_mode_t dtl_comm_mode, 
     DYAD_C_FUNCTION_END ();
 }
 
-DYAD_DLL_EXPORTED void dyad_ctx_fini ()
+DYAD_DLL_EXPORTED void dyad_ctx_fini (void)
 {
     DYAD_C_FUNCTION_START ();
     if (ctx == NULL) {
@@ -113,7 +113,7 @@ dyad_wrapper_fini_done:;
 #endif
 }
 
-dyad_rc_t dyad_clear ();
+dyad_rc_t dyad_clear (void);
 
 DYAD_DLL_EXPORTED
 dyad_rc_t dyad_init (bool debug,
@@ -750,7 +750,7 @@ set_cons_path_region_finish:;
     return rc;
 }
 
-DYAD_DLL_EXPORTED dyad_rc_t dyad_clear ()
+DYAD_DLL_EXPORTED dyad_rc_t dyad_clear (void)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
@@ -796,7 +796,7 @@ clear_region_finish:;
     return rc;
 }
 
-DYAD_DLL_EXPORTED dyad_rc_t dyad_finalize ()
+DYAD_DLL_EXPORTED dyad_rc_t dyad_finalize (void)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;

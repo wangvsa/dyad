@@ -29,7 +29,15 @@ author = 'This page is maintained by the <a href="https://github.com/flux-framew
 # ones.
 extensions = [
     "sphinx.ext.autosectionlabel",
+    'myst_parser',
+    'rst2pdf.pdfbuilder',
 ]
+
+# This line explicitly tells Sphinx which parser to use for each extension
+source_suffix = {
+    '.rst': 'restructuredtext',
+    '.md': 'markdown',
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

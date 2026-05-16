@@ -42,24 +42,25 @@ DYAD_DLL_EXPORTED int gen_path_key (const char *restrict str,
 
     uint32_t seed = 57u;
     uint32_t hash[4] = {0u};  // Output for the hash
+    char buf[256] = {'\0'};
     size_t cx = 0ul;
     int n = 0;
+    const char *str_long = str;
+    size_t str_len = strlen (str);
+
     if (str == NULL || path_key == NULL || len == 0ul) {
         DYAD_C_FUNCTION_END ();
         return -1;
     }
-    size_t str_len = strlen (str);
     if (str_len == 0ul) {
         DYAD_C_FUNCTION_END ();
         return -1;
     }
-    const char *str_long = str;
 
     path_key[0] = '\0';
 
     // Just append the string so that it can be as large as 128 bytes.
     if (str_len < 128ul) {
-        char buf[256] = {'\0'};
         memcpy (buf, str, str_len);
         memset (buf + str_len, '@', 128ul - str_len);
         buf[128u] = '\0';
@@ -580,9 +581,7 @@ dyad_rc_t dyad_produce (dyad_ctx_t *restrict ctx, const char *restrict fname)
     // If the producer-managed path is NULL or empty, then the context is not
     // valid for a producer operation. So, return DYAD_BADMANAGEDPATH
     if (ctx->prod_managed_path == NULL) {
-        DYAD_LOG_ERROR (ctx,
-                        "DYAD CLIENT: No or empty producer managed path was found %s",
-                        ctx->prod_managed_path);
+        DYAD_LOG_ERROR (ctx, "DYAD CLIENT: No or empty producer managed path was found");
         rc = DYAD_RC_BADMANAGEDPATH;
         goto produce_done;
     }

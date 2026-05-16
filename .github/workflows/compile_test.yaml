@@ -82,7 +82,7 @@ jobs:
           sudo chmod 777 /usr -R
       - name: Install Spack
         run: |
-          git clone https://github.com/spack/spack.git ${SPACK_DIR}
+          git clone --depth=2  https://github.com/spack/spack.git ${SPACK_DIR}
       - name: Load existing dependencies
         run: |
           . ${SPACK_DIR}/share/spack/setup-env.sh
@@ -98,21 +98,6 @@ jobs:
               buildable: False
               externals:
                 - spec: "python@3.12.3"
-                  prefix: /usr
-            py-cffi:
-              buildable: False
-              externals:
-                - spec: "py-cffi@1.17.1"
-                  prefix: /usr
-            py-jsonschema:
-              buildable: False
-              externals:
-                - spec: "py-jsonschema@4.10.3"
-                  prefix: /usr
-            py-ply:
-              buildable: False
-              externals:
-                - spec: "py-ply@3.11"
                   prefix: /usr
             czmq:
               buildable: False
@@ -221,6 +206,7 @@ jobs:
           . ${SPACK_DIR}/share/spack/setup-env.sh
           spack install -j4 flux-core@${FLUX_VERSION}
           spack install -j4 mochi-margo
+          spack install -j4 gotcha
           if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
             spack install -j4 ucx@1.18.0
           fi
@@ -235,6 +221,7 @@ jobs:
           . ${SPACK_DIR}/share/spack/setup-env.sh
           spack load flux-core
           spack load mochi-margo
+          spack load gotcha
           if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
             spack load ucx@1.18.0
           fi
@@ -277,6 +264,7 @@ jobs:
           mkdir -m 775 -p $DYAD_PATH
           . ${SPACK_DIR}/share/spack/setup-env.sh
           spack load flux-core
+          spack load gotcha
           export PATH=${PATH}:${DYAD_INSTALL_PREFIX}/bin:${DYAD_INSTALL_PREFIX}/sbin
           export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${DYAD_INSTALL_PREFIX}/lib
           echo "Starting flux brokers"
@@ -287,6 +275,7 @@ jobs:
           mkdir -m 775 -p $DYAD_PATH
           . ${SPACK_DIR}/share/spack/setup-env.sh
           spack load flux-core
+          spack load gotcha
           export PATH=${PATH}:${DYAD_INSTALL_PREFIX}/bin:${DYAD_INSTALL_PREFIX}/sbin
           export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${DYAD_INSTALL_PREFIX}/lib
           echo "Starting flux brokers"
@@ -298,8 +287,10 @@ jobs:
           source ${DYAD_INSTALL_PREFIX}/bin/activate
           . ${SPACK_DIR}/share/spack/setup-env.sh
           spack load flux-core
+          spack load gotcha
           export PATH=${PATH}:${DYAD_INSTALL_PREFIX}/bin:${DYAD_INSTALL_PREFIX}/sbin
           export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${DYAD_INSTALL_PREFIX}/lib
+          export PYTHONPATH=${GITHUB_WORKSPACE}/pydyad:${PYTHONPATH}:${DYAD_INSTALL_PREFIX}/lib/python3*/site-packages
           echo "Starting flux brokers"
           flux start --test-size=2 /bin/bash ${GITHUB_WORKSPACE}/.github/prod-cons/dyad_prod_cons_test.sh "python"
       #- name: Test DYAD with DLIO benchmark

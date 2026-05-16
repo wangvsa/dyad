@@ -96,11 +96,11 @@ endmacro()
 
 dyad_add_cxx_flags(CMAKE_CXX_FLAGS
   -Wall -Wextra -pedantic -Wno-unused-parameter -Wnon-virtual-dtor
-  -Wno-deprecated-declarations)
+  -Wno-deprecated-declarations -Wno-nonnull-compare)
 
 dyad_add_c_flags(CMAKE_C_FLAGS
   -Wall -Wextra -pedantic -Wno-unused-parameter
-  -Wno-deprecated-declarations)
+  -Wno-deprecated-declarations -Wno-nonnull-compare)
 
 if (${GLIBC_VERSION} VERSION_GREATER_EQUAL "2.19")
   # to suppress usleep() warning
@@ -114,8 +114,8 @@ endif ()
 macro(dyad_add_werror_if_needed target)
   if (DYAD_WARNINGS_AS_ERRORS)
     target_compile_options(${target} PRIVATE 
-      $<$<COMPILER_LANGUAGE:CXX>:"-Werror">
-      $<$<COMPILER_LANGUAGE:C>:"-Werror">)
+      $<$<COMPILE_LANGUAGE:CXX>:-Werror>
+      $<$<COMPILE_LANGUAGE:C>:-Werror>)
   endif()
 endmacro(dyad_add_werror_if_needed target)
 
