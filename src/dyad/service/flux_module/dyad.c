@@ -205,13 +205,9 @@ dyad_fetch_request_cb (flux_t *h, flux_msg_handler_t *w, const flux_msg_t *msg, 
     file_size = get_file_size (fd);
     DYAD_LOG_DEBUG (mod_ctx->ctx, "DYAD_MOD: file %s has size %zd", fullpath, file_size);
     rc = mod_ctx->ctx->dtl_handle->get_buffer (mod_ctx->ctx, file_size, (void **)&inbuf);
-#ifdef DYAD_ENABLE_UCX_RMA
-    // To reduce the number of RMA calls, we are encoding file size at the start
-    // of the buffer
+    // Encode file size at the start of the buffer to reduce the number of RMA calls
     memcpy (inbuf, &file_size, sizeof (file_size));
-#endif
     if (file_size > 0l) {
-#ifdef DYAD_ENABLE_UCX_RMA
         if (file_size < DYAD_POSIX_TRANSFER_GRANULARITY) {
             inlen = read (fd, inbuf + sizeof (file_size), file_size);
         } else {
@@ -242,33 +238,6 @@ dyad_fetch_request_cb (flux_t *h, flux_msg_handler_t *w, const flux_msg_t *msg, 
             }
             inlen = read_data;
         }
-#else
-        if (file_size < DYAD_POSIX_TRANSFER_GRANULARITY) {
-            inlen = read (fd, inbuf, file_size);
-        } else {
-            ssize_t read_data = 0;
-            ssize_t granularity = DYAD_POSIX_TRANSFER_GRANULARITY;
-            while (read_data < file_size) {
-                ssize_t read_size =
-                    (file_size - read_data) > granularity ? granularity : (file_size - read_data);
-                inlen = read (fd, inbuf + read_data, read_size);
-                if (inlen < 0) {
-                    DYAD_LOG_ERROR (mod_ctx->ctx,
-                                    "DYAD_MOD: Failed to load file \"%s\" only read %zd of %zd. "
-                                    "with code %d:%s.",
-                                    fullpath,
-                                    inlen,
-                                    file_size,
-                                    errno,
-                                    strerror (errno));
-                    goto fetch_error;
-                }
-                read_data += inlen;
-            }
-            inlen = read_data;
-        }
-
-#endif
         if (inlen != file_size) {
             DYAD_LOG_ERROR (mod_ctx->ctx,
                             "DYAD_MOD: Failed to load file \"%s\" only read %zd of %zd. with code "
@@ -280,9 +249,7 @@ dyad_fetch_request_cb (flux_t *h, flux_msg_handler_t *w, const flux_msg_t *msg, 
                             strerror (errno));
             goto fetch_error;
         }
-#ifdef DYAD_ENABLE_UCX_RMA
         inlen = file_size + sizeof (file_size);
-#endif
         DYAD_C_FUNCTION_UPDATE_INT ("file_size", file_size);
         dyad_release_flock (mod_ctx->ctx, fd, &shared_lock);
         close (fd);

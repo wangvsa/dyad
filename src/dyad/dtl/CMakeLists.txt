@@ -27,7 +27,7 @@ list(APPEND DTL_PRIVATE_HEADERS ${FLUX_PRIVATE_HEADERS})
 list(APPEND DTL_PUBLIC_HEADERS ${FLUX_PUBLIC_HEADERS})
 
 # UCX: compile-time selection
-if(DYAD_ENABLE_UCX_DTL OR DYAD_ENABLE_UCX_DATA_RMA)
+if(DYAD_ENABLE_UCX_DTL)
     list(APPEND DTL_SRC ${UCX_DTL_SRC})
     list(APPEND DTL_PRIVATE_HEADERS ${UCX_PRIVATE_HEADERS})
     list(APPEND DTL_PUBLIC_HEADERS ${UCX_PUBLIC_HEADERS})
@@ -43,7 +43,7 @@ endif()
 add_library(${PROJECT_NAME}_dtl SHARED ${DTL_SRC} ${DTL_PUBLIC_HEADERS} ${DTL_PRIVATE_HEADERS})
 target_link_libraries(${PROJECT_NAME}_dtl PRIVATE ${PROJECT_NAME}_utils Jansson::Jansson flux::core flux::optparse)
 
-if(DYAD_ENABLE_UCX_DTL OR DYAD_ENABLE_UCX_DATA_RMA)
+if(DYAD_ENABLE_UCX_DTL)
     target_link_libraries(${PROJECT_NAME}_dtl PRIVATE ucx::ucp ucx::ucs)
     target_include_directories(${PROJECT_NAME}_dtl SYSTEM PUBLIC ${ucx_INCLUDE_DIRS})
 endif()

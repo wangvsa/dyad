@@ -13,7 +13,7 @@
 #include "margo_dtl.h"
 #endif  // defined (DYAD_ENABLE_MARGO_DTL)
 
-#if defined(DYAD_ENABLE_UCX_DTL) || defined(DYAD_ENABLE_UCX_DATA_RMA)
+#if defined(DYAD_ENABLE_UCX_DTL)
 #include "ucx_dtl.h"
 #endif  // defined (DYAD_ENABLE_UCX_DTL) || defined(DYAD_ENABLE_UCX_DATA_RMA)
 
