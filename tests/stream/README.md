@@ -27,12 +27,12 @@ g++ -std=c++14 -g -O0 \
 ```bash
 export DYAD_PATH=/tmp/${USER}/dyad
 flux start --test-size=2
-flux kvs namespace create test
 ```
 
-Inside the Flux session:
+Inside the Flux session, create the KVS namespace and start the DYAD service:
 
 ```bash
+flux kvs namespace create test
 dyad start -p ${DYAD_PATH}
 ```
 

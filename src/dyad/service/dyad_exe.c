@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #if defined(DYAD_HAS_CONFIG)
@@ -64,7 +65,7 @@ static void usage (int status)
     printf (
         "\n"
         "Command options for \"stop\":\n"
-        "   to be implemented...\n");
+        "    No additional options.\n");
 
     exit (status);
 }
@@ -113,39 +114,65 @@ static void parse_cmd_arguments (int argc, char** argv)
     }
 }
 
+static int fork_exec_wait (char* const argv[])
+{
+    pid_t pid = fork ();
+    if (pid < 0) {
+        perror ("fork");
+        return EXIT_FAILURE;
+    }
+    if (pid == 0) {
+        execvp (argv[0], argv);
+        perror ("execvp");
+        exit (EXIT_FAILURE);
+    }
+    int status;
+    if (waitpid (pid, &status, 0) < 0) {
+        perror ("waitpid");
+        return EXIT_FAILURE;
+    }
+    return WIFEXITED (status) ? WEXITSTATUS (status) : EXIT_FAILURE;
+}
+
 int dyad_start_service (dyad_cli_args_t* cli_args)
 {
     // DYAD_INSTALL_LIBDIR is defined in dyad_config.h.in
     char dyad_module_path[PATH_MAX + 1] = {0};
     sprintf (dyad_module_path, "%s/dyad.so", DYAD_INSTALL_LIBDIR);
-    // the second argument is the name in process table.
-    execlp ("flux",
-            "flux-dyad-module-load",
-            "exec",
-            "-r",
-            "all",
-            "flux",
-            "module",
-            "load",
-            dyad_module_path,
-            cli_args->prod_managed_path,
-            NULL);
-    return 0;
+
+    if (cli_args->dtl_mode != NULL) {
+        char* const argv[] = {"flux",
+                              "exec",
+                              "-r",
+                              "all",
+                              "flux",
+                              "module",
+                              "load",
+                              dyad_module_path,
+                              "--mode",
+                              cli_args->dtl_mode,
+                              cli_args->prod_managed_path,
+                              NULL};
+        return fork_exec_wait (argv);
+    }
+    char* const argv[] = {"flux",
+                          "exec",
+                          "-r",
+                          "all",
+                          "flux",
+                          "module",
+                          "load",
+                          dyad_module_path,
+                          cli_args->prod_managed_path,
+                          NULL};
+    return fork_exec_wait (argv);
 }
 
 int dyad_stop_service (dyad_cli_args_t* cli_args)
 {
-    execlp ("flux",
-            "flux-dyad-module-remove",
-            "exec",
-            "-r",
-            "all",
-            "flux",
-            "module",
-            "remove",
-            "dyad",
-            NULL);
-    return 0;
+    (void)cli_args;
+    char* const argv[] = {"flux", "exec", "-r", "all", "flux", "module", "remove", "dyad", NULL};
+    return fork_exec_wait (argv);
 }
 
 int main (int argc, char** argv)
@@ -173,16 +200,6 @@ int main (int argc, char** argv)
     }
 
     parse_cmd_arguments (argc, argv);
-
-    // Detect the job scheduler
-    /*
-    ret = dyad_detect_resources(&resource);
-
-    if (ret) {
-        fprintf(stderr, "ERROR: no supported resource manager detected\n");
-        return EXIT_FAILURE;
-    }
-    */
 
     if (action == ACT_START) {
         if (NULL == cli_args.prod_managed_path) {
