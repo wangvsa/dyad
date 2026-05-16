@@ -141,16 +141,27 @@ int dyad_start_service (dyad_cli_args_t* cli_args)
     sprintf (dyad_module_path, "%s/dyad.so", DYAD_INSTALL_LIBDIR);
 
     if (cli_args->dtl_mode != NULL) {
-        char* const argv[] = {"flux", "exec", "-r", "all",
-                              "flux", "module", "load",
+        char* const argv[] = {"flux",
+                              "exec",
+                              "-r",
+                              "all",
+                              "flux",
+                              "module",
+                              "load",
                               dyad_module_path,
-                              "--mode", cli_args->dtl_mode,
+                              "--mode",
+                              cli_args->dtl_mode,
                               cli_args->prod_managed_path,
                               NULL};
         return fork_exec_wait (argv);
     }
-    char* const argv[] = {"flux", "exec", "-r", "all",
-                          "flux", "module", "load",
+    char* const argv[] = {"flux",
+                          "exec",
+                          "-r",
+                          "all",
+                          "flux",
+                          "module",
+                          "load",
                           dyad_module_path,
                           cli_args->prod_managed_path,
                           NULL};
@@ -160,10 +171,7 @@ int dyad_start_service (dyad_cli_args_t* cli_args)
 int dyad_stop_service (dyad_cli_args_t* cli_args)
 {
     (void)cli_args;
-    char* const argv[] = {"flux", "exec", "-r", "all",
-                          "flux", "module", "remove",
-                          "dyad",
-                          NULL};
+    char* const argv[] = {"flux", "exec", "-r", "all", "flux", "module", "remove", "dyad", NULL};
     return fork_exec_wait (argv);
 }
 
