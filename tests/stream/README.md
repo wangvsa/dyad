@@ -1,56 +1,62 @@
-How to compile and run tests/stream
+# How to compile and run tests/stream
 
-  1. Build and install DYAD first
+## 1. Build and install DYAD
 
-  Make sure `DYAD_INSTALL` is set to the dyad install location
-  ```bash
-  export DYAD_INSTALL=/path/to/dyad/install/
-  ```
+Set `DYAD_INSTALL` to the DYAD install location and add the `dyad` binary to your PATH:
 
-  2. Compile test_stream manually
+```bash
+export DYAD_INSTALL=/path/to/dyad/install
+export PATH=${DYAD_INSTALL}/bin:${PATH}
+```
 
-  The test includes dyad_stream_api.hpp and links against the installed DYAD libraries:
+## 2. Compile test_stream
 
-  ```bash
-  cd tests/stream
-  g++ -std=c++14 -g -O0 \
-      -DDYAD_HAS_CONFIG \
-      -I${DYAD_INSTALL}/include \
-      test_stream.cpp \
-      -L${DYAD_INSTALL}/lib \
-      -ldyad_fstream \
-      -o test_stream
-  ```
+```bash
+cd tests/stream
+g++ -std=c++14 -g -O0 \
+    -DDYAD_HAS_CONFIG \
+    -I${DYAD_INSTALL}/include \
+    test_stream.cpp \
+    -L${DYAD_INSTALL}/lib \
+    -ldyad_fstream \
+    -o test_stream
+```
 
-  3. Set up Flux and start DYAD service
+## 3. Start a Flux session and the DYAD service
 
-  The test requires a running Flux instance with the DYAD Flux module loaded.
+```bash
+export DYAD_PATH=/tmp/${USER}/dyad
+flux start --test-size=2
+```
 
-  # run inside a flux session:
-  ```bash
-  export DYAD_PATH=/tmp/${USER}/dyad
-  flux start --test-size=2
-  dyad start -p ${DYAD_PATH}
-  ```
+Inside the Flux session:
 
-  4. Run the test
+```bash
+dyad start -p ${DYAD_PATH}
+```
 
-  test_stream takes 4 arguments: <dyad_path> <file> <write=1|read=0> <use_open_close=1|0>
+## 4. Run the test
 
-  # Producer (writer)
-  flux run -n 1 ./test_stream ${DYAD_PATH} ${DYAD_PATH}/test.txt 1 0
+`test_stream` takes 4 arguments: `<dyad_path> <file> <write=1|read=0> <use_open_close=1|0>`
 
-  # Consumer (reader) — run after producer
-  flux run -n 1 ./test_stream ${DYAD_PATH} ${DYAD_PATH}/test.txt 0 0
+```bash
+# Producer (writer)
+flux run -n 1 ./test_stream ${DYAD_PATH} ${DYAD_PATH}/test.txt 1 0
 
-  5. Stop the DYAD service
+# Consumer (reader) — run after producer
+flux run -n 1 ./test_stream ${DYAD_PATH} ${DYAD_PATH}/test.txt 0 0
+```
 
-  ```bash
-  dyad stop
-  exit # exit the Flux environment
-  ```
+## 5. Stop the DYAD service and exit
 
-  ---
-  Note: The stream tests are not integrated into CMake/ctest. They are manual integration tests that require a live Flux
-  environment with the DYAD module loaded. The combined_test.cpp and io_test.cpp files support test logic (not standalone
-  executables), while test_stream.cpp is the main entry point.
+```bash
+dyad stop
+exit
+```
+
+---
+
+**Note:** The stream tests are not integrated into CMake/ctest. They are manual
+integration tests that require a live Flux environment with the DYAD module loaded.
+`combined_test.cpp` and `io_test.cpp` support test logic (not standalone executables),
+while `test_stream.cpp` is the main entry point.
