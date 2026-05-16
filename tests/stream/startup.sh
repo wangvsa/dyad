@@ -11,12 +11,13 @@
 #!/bin/bash
 
 
-DYAD_MODULE=../../modules/dyad.so
+DYAD_MODULE=${DYAD_INSTALL}/lib/dyad.so
 DYAD_PATH=/tmp/${USER}/dyad
 DYAD_KVS_NS="test"
 RESET_KVS=
 
 # Clean up the dyad directory
+mkdir -p $DYAD_PATH
 pushd `dirname ${DYAD_PATH}` > /dev/null
 rm -rf ${DYAD_PATH} 2> /dev/null
 mkdir -p ${DYAD_PATH} 2> /dev/null

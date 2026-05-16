@@ -142,17 +142,21 @@ void dyad_stream_core::init (const dyad_params &p)
                               dyad_dtl_mode_name[static_cast<dyad_dtl_mode_t> (p.m_dtl_mode)],
                               DYAD_COMM_RECV,
                               NULL);
+    m_ctx = m_ctx_mutable = dyad_ctx_get ();
+    if (!DYAD_IS_ERROR (rc) && m_ctx != NULL) {
+        m_is_prod = !p.m_prod_managed_path.empty ();
+        m_is_cons = !p.m_cons_managed_path.empty ();
 #if defined(DYAD_HAS_STD_FSTREAM_FD)
-    m_ctx_mutable->use_fs_locks = true;
+        m_ctx_mutable->use_fs_locks = true;
 #else
-    // Rely on the KVS-based synchronization and disable checking for fs lock
-    // based logic.
-    m_ctx_mutable->use_fs_locks = false;
+        // Rely on the KVS-based synchronization and disable checking for fs lock
+        // based logic.
+        m_ctx_mutable->use_fs_locks = false;
 #endif
-    (void)rc;
+        log_info ("Stream core is initialized by parameters");
+    }
     // TODO figure out if we want to error if init fails
     m_initialized = true;
-    log_info ("Stream core is initialized by parameters");
 }
 
 void dyad_stream_core::log_info (const std::string &msg_head) const

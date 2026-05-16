@@ -11,7 +11,7 @@
 #include <iostream>
 //#include <filesystem>
 //#include <experimental/filesystem>
-#include "dyad_stream_api.hpp"
+#include "dyad/stream/dyad_stream_api.hpp"
 
 void producer_open (dyad::dyad_stream_core& dyad, const std::string& filename)
 {
