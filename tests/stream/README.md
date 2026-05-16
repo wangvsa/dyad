@@ -27,6 +27,7 @@ g++ -std=c++14 -g -O0 \
 ```bash
 export DYAD_PATH=/tmp/${USER}/dyad
 flux start --test-size=2
+flux kvs namespace create test
 ```
 
 Inside the Flux session:
@@ -50,6 +51,7 @@ flux run -n 1 ./test_stream ${DYAD_PATH} ${DYAD_PATH}/test.txt 0 0
 ## 5. Stop the DYAD service and exit
 
 ```bash
+flux kvs namespace remove test
 dyad stop
 exit
 ```
