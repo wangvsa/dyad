@@ -78,7 +78,7 @@ jobs:
                               sqlite3
           pip3 --version && python3 --version
           gcc --version
-          sudo pip3 install jsonschema cffi ply pyyaml
+          sudo pip3 install jsonschema cffi ply pyyaml numpy
           sudo chmod 777 /usr -R
       - name: Install Spack
         run: |
@@ -287,7 +287,8 @@ jobs:
           spack load gotcha
           export PATH=${PATH}:${DYAD_INSTALL_PREFIX}/bin:${DYAD_INSTALL_PREFIX}/sbin
           export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${DYAD_INSTALL_PREFIX}/lib
-          export PYTHONPATH=${GITHUB_WORKSPACE}/pydyad:${PYTHONPATH}:${DYAD_INSTALL_PREFIX}/lib/python3*/site-packages
+          PYTHON_VER=$(python3 -c "import sys; print(f'python{sys.version_info.major}.{sys.version_info.minor}')")
+          export PYTHONPATH=${GITHUB_WORKSPACE}/pydyad:${PYTHONPATH}:${DYAD_INSTALL_PREFIX}/lib/${PYTHON_VER}/site-packages
           echo "Starting flux brokers"
           flux start --test-size=2 /bin/bash ${GITHUB_WORKSPACE}/.github/prod-cons/dyad_prod_cons_test.sh "python"
       #- name: Test DYAD with DLIO benchmark
