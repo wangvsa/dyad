@@ -15,7 +15,7 @@
 
 #if defined(DYAD_ENABLE_UCX_DTL)
 #include "ucx_dtl.h"
-#endif  // defined (DYAD_ENABLE_UCX_DTL) || defined(DYAD_ENABLE_UCX_DATA_RMA)
+#endif  // defined (DYAD_ENABLE_UCX_DTL)
 
 dyad_rc_t dyad_dtl_init (dyad_ctx_t* ctx,
                          dyad_dtl_mode_t mode,
@@ -33,11 +33,11 @@ dyad_rc_t dyad_dtl_init (dyad_ctx_t* ctx,
 
     ctx->dtl_handle->mode = mode;
     // clang-format off
-#if defined (DYAD_ENABLE_UCX_DTL) || defined(DYAD_ENABLE_UCX_DATA_RMA)
+#if defined (DYAD_ENABLE_UCX_DTL)
     if (mode == DYAD_DTL_UCX) {
         rc = dyad_dtl_ucx_init (ctx, mode, comm_mode, debug);
     } else
-#endif //defined (DYAD_ENABLE_UCX_DTL) || defined(DYAD_ENABLE_UCX_DATA_RMA)
+#endif  // defined (DYAD_ENABLE_UCX_DTL)
 #if defined (DYAD_ENABLE_MARGO_DTL)
     if (mode == DYAD_DTL_MARGO) {
         rc = dyad_dtl_margo_init (ctx, mode, comm_mode, debug);
@@ -68,13 +68,13 @@ dyad_rc_t dyad_dtl_finalize (dyad_ctx_t* ctx)
         goto dtl_finalize_done;
     }
     // clang-format off
-#if defined (DYAD_ENABLE_UCX_DTL) || defined(DYAD_ENABLE_UCX_DATA_RMA)
+#if defined (DYAD_ENABLE_UCX_DTL)
     if ((ctx->dtl_handle)->mode == DYAD_DTL_UCX) {
         if ((ctx->dtl_handle)->private_dtl.ucx_dtl_handle != NULL) {
             rc = dyad_dtl_ucx_finalize (ctx);
         }
     } else
-#endif //defined (DYAD_ENABLE_UCX_DTL) || defined(DYAD_ENABLE_UCX_DATA_RMA)
+#endif  // defined (DYAD_ENABLE_UCX_DTL)
 #if defined (DYAD_ENABLE_MARGO_DTL)
     if ((ctx->dtl_handle)->mode == DYAD_DTL_MARGO) {
         rc = dyad_dtl_margo_finalize (ctx);

@@ -99,7 +99,6 @@ endif (DYAD_USE_CLANG_LIBCXX)
 option (DYAD_ENABLE_UCX_DATA "Enable UCX data transport layer (always uses RMA)" OFF)
 if (DYAD_ENABLE_UCX_DATA)
     set (DYAD_ENABLE_UCX_DTL 1)
-    set (DYAD_ENABLE_UCX_RMA 1)
 endif ()
 
 option (DYAD_ENABLE_MARGO_DATA "Allow to dynamically select Margo for DYAD's Data Plane" OFF)
