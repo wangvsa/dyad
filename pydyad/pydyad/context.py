@@ -4,8 +4,14 @@ from contextlib import contextmanager
 import io
 from pathlib import Path
 
-from dftracer.python import dft_fn 
-dft_log = dft_fn("DYAD_PY")
+try:
+    from dftracer.python import dft_fn
+    dft_log = dft_fn("DYAD_PY")
+except ImportError:
+    class _NoopLog:
+        def log(self, fn):
+            return fn
+    dft_log = _NoopLog()
 DYAD_IO = None
 
 
