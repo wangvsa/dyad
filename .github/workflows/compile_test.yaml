@@ -78,7 +78,7 @@ jobs:
                               sqlite3
           pip3 --version && python3 --version
           gcc --version
-          sudo pip3 install jsonschema cffi ply pyyaml numpy
+          sudo pip3 install jsonschema cffi ply pyyaml
           sudo chmod 777 /usr -R
       - name: Install Spack
         run: |
