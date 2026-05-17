@@ -3,9 +3,18 @@ from ctypes.util import find_library
 import enum
 from pathlib import Path
 import warnings
-from dftracer.python import dftracer, dft_fn
-
-dft_log = dft_fn("DYAD_PY")
+try:
+    from dftracer.python import dftracer, dft_fn
+    dft_log = dft_fn("DYAD_PY")
+except ImportError:
+    class _NoopLog:
+        def log(self, fn):
+            return fn
+    class _NoopDftracer:
+        def initialize_log(self, **kwargs):
+            return None
+    dftracer = _NoopDftracer()
+    dft_log = _NoopLog()
 
 DYAD_LIB_DIR = None
 
