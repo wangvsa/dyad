@@ -242,6 +242,7 @@ jobs:
       - name: Install PyDYAD
         run: |
           source ${DYAD_INSTALL_PREFIX}/bin/activate
+          pip install numpy
           cd ${GITHUB_WORKSPACE}/pydyad
           pip install -v -e .
           cd ${GITHUB_WORKSPACE}
