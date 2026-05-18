@@ -1,8 +1,7 @@
 #!/bin/bash
 
-this_script_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
-
-source ${this_script_dir}/prod_cons_argparse.sh
+mode="$1"
+valid_modes=("c" "cpp" "python")
 
 mkdir -m 775 -p ${DYAD_PATH_CONSUMER}
 
