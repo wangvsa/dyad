@@ -1,7 +1,5 @@
 #!/bin/bash
 
-this_script_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
-
 if test "$#" -ne 1; then
     echo "Invalid number of arguments to $0"
     exit 1
