@@ -6,9 +6,6 @@ source $this_script_dir/prod_cons_argparse.sh
 
 mkdir -m 775 -p ${DYAD_PATH_PRODUCER}
 
-echo "Starting DYAD service"
-dyad start -p ${DYAD_PATH_PRODUCER}
-
 if [ -d "${DYAD_INSTALL_PREFIX}/lib64" ]; then
     DYAD_LIBDIR="${DYAD_INSTALL_PREFIX}/lib64"
 else
