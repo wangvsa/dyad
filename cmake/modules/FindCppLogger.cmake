@@ -39,7 +39,7 @@ if (NOT cpp-logger_FOUND AND CMAKE_VERSION VERSION_GREATER_EQUAL "3.14")
   FetchContent_Declare(
     cpp-logger
     GIT_REPOSITORY https://github.com/hariharan-devarajan/cpp-logger.git
-    GIT_TAG        6e451bb89f6d93ce7a90b04a3286096653c722ca
+    GIT_TAG        v0.0.7
   )
 
   set(CPP_LOGGER_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
