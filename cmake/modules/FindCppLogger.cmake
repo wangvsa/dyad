@@ -39,11 +39,7 @@ if (NOT cpp-logger_FOUND AND CMAKE_VERSION VERSION_GREATER_EQUAL "3.14")
   FetchContent_Declare(
     cpp-logger
     GIT_REPOSITORY https://github.com/hariharan-devarajan/cpp-logger.git
-    GIT_TAG        v0.0.6
-    PATCH_COMMAND  ${CMAKE_COMMAND} -E echo "Applying cpp-logger patch..."
-              COMMAND patch -p1 --forward --input=${CMAKE_CURRENT_LIST_DIR}/cpp-logger-fix-export.patch
-    # cpp-logger CMakeLists.txt has a bug that exports target twice and 
-    # misuses CMAKE_BINARY_DIR where it should be CMAKE_CURRENT_BINARY_DIR.
+    GIT_TAG        6e451bb89f6d93ce7a90b04a3286096653c722ca
   )
 
   set(CPP_LOGGER_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
