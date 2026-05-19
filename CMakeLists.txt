@@ -96,15 +96,9 @@ if (DYAD_USE_CLANG_LIBCXX)
     set (GCC_TOOLCHAIN "")
 endif (DYAD_USE_CLANG_LIBCXX)
 
-option (DYAD_ENABLE_UCX_DATA "Allow to dynamically select UCX for DYAD's Data Plane" OFF)
+option (DYAD_ENABLE_UCX_DATA "Enable UCX data transport layer (always uses RMA)" OFF)
 if (DYAD_ENABLE_UCX_DATA)
     set (DYAD_ENABLE_UCX_DTL 1)
-else ()
-    option (DYAD_ENABLE_UCX_DATA_RMA "Use UCX's RMA for DYAD's Data Plane" OFF)
-endif ()
-
-if (DYAD_ENABLE_UCX_DATA_RMA)
-    set (DYAD_ENABLE_UCX_RMA 1)
 endif ()
 
 option (DYAD_ENABLE_MARGO_DATA "Allow to dynamically select Margo for DYAD's Data Plane" OFF)
@@ -263,7 +257,7 @@ elseif(DYAD_PROFILER STREQUAL "DFTRACER")
         message(FATAL_ERROR "-- [${PROJECT_NAME}] dftracer is not found but selected in cmake options ${PROJECT_NAME} build")
     endif ()
 endif()
-if(DYAD_ENABLE_UCX_DATA OR DYAD_ENABLE_UCX_DATA_RMA)
+if(DYAD_ENABLE_UCX_DATA)
     find_package(ucx 1.6 REQUIRED)
     if (${ucx_FOUND})
         message(STATUS "[${PROJECT_NAME}] found ucx at ${ucx_INCLUDE_DIRS}")
@@ -432,8 +426,6 @@ append_str_tf(_str
   DYAD_GNU_LINUX
   DYAD_ENABLE_MARGO_DATA
   DYAD_ENABLE_UCX_DATA
-  DYAD_ENABLE_UCX_DATA_RMA
-  DYAD_ENABLE_MARGO_DATA
   DYAD_LIBDIR_AS_LIB
   DYAD_USE_CLANG_LIBCXX
   DYAD_WARNINGS_AS_ERRORS

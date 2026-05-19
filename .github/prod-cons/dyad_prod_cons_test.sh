@@ -1,19 +1,39 @@
 #!/bin/bash
 
-this_script_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
+if test "$#" -ne 1; then
+    echo "Invalid number of arguments to $0"
+    exit 1
+fi
 
-source $this_script_dir/prod_cons_argparse.sh
+mode="$1"
+valid_modes=("c" "cpp" "python")
+
+mode_is_valid=0
+for vm in "${valid_modes[@]}"; do
+    if [[ "$mode" == "$vm" ]]; then
+        mode_is_valid=1
+        break
+    fi
+done
+
+if [[ $mode_is_valid -eq 0 ]]; then
+    echo "Invalid mode: $mode (expected one of: ${valid_modes[*]})"
+    exit 2
+fi
 
 echo "Creating KVS namespace ${DYAD_KVS_NAMESPACE}"
 flux kvs namespace create ${DYAD_KVS_NAMESPACE}
-
-flux resource list
 
 if [ "${DYAD_PATH}" == "" ]; then
     DYAD_PATH="dir"
 fi
 export DYAD_PATH_CONSUMER=${DYAD_PATH}_consumer
 export DYAD_PATH_PRODUCER=${DYAD_PATH}_producer
+
+echo "Starting DYAD service"
+echo "  -- producer managed dir:" ${DYAD_PATH_PRODUCER}
+dyad start -p ${DYAD_PATH_PRODUCER}
+flux resource list
 
 echo "Submitting consumer job"
 flux submit --nodes 1 --exclusive -t 10 \
@@ -33,6 +53,6 @@ flux jobs -a
 flux job attach $PROD_JOB
 flux job attach $CONS_JOB
 
-flux exec -r all rm -rf ${DYAD_PATH_CONSUMER} ${DYAD_PATH_PRODUCER}
-flux kvs namespace remove ${DYAD_KVS_NAMESPACE}
 dyad stop
+flux kvs namespace remove ${DYAD_KVS_NAMESPACE}
+flux exec -r all rm -rf ${DYAD_PATH_CONSUMER} ${DYAD_PATH_PRODUCER}

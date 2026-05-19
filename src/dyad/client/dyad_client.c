@@ -453,7 +453,9 @@ get_done:;
             rc = DYAD_RC_BADRPC;
         }
     }
-#ifdef DYAD_ENABLE_UCX_RMA
+#ifdef DYAD_ENABLE_UCX_DTL
+    // For UCX RMA, file_size was prepended to the buffer by the server; extract it
+    // here to get the true data length and advance past the prefix.
     ctx->dtl_handle->get_buffer (ctx, 0, (void **)file_data);
     ssize_t read_len = 0l;
     memcpy (&read_len, *file_data, sizeof (read_len));
@@ -465,8 +467,8 @@ get_done:;
         *file_len = (size_t)read_len;
     }
     *file_data = ((char *)*file_data) + sizeof (read_len);
-    DYAD_LOG_DEBUG (ctx, "DYAD CLIENT: Read %zd bytes from %s file", *file_len, mdata->fpath);
 #endif
+    DYAD_LOG_DEBUG (ctx, "DYAD CLIENT: Read %zd bytes from %s file", *file_len, mdata->fpath);
     DYAD_LOG_DEBUG (ctx, "DYAD CLIENT: Destroy the Flux future for the RPC.");
     flux_future_destroy (f);
     DYAD_C_FUNCTION_END ();
