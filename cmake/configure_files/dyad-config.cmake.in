@@ -192,10 +192,4 @@ get_filename_component(DYAD_DIR ${_first_include}/.. ABSOLUTE)
 unset(_first_include)
 set(DYAD_ROOT_DIR "${DYAD_DIR}")
 
-if (NOT _dyad_target STREQUAL "")
-    set_property(TARGET ${_dyad_target} APPEND PROPERTY
-        INTERFACE_COMPILE_DEFINITIONS "@DYAD_INTERFACE_COMPILE_DEFINITIONS@"
-    )
-endif ()
-
 unset(_dyad_target)

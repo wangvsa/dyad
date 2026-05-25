@@ -295,10 +295,6 @@ include_directories(${CMAKE_SOURCE_DIR}/include)  # public header
 add_subdirectory(src/dyad)
 #cmake_policy(SET CMP0079 NEW) # In case that we need more control over the target building order
 
-# In CMakeLists.txt, collect all PUBLIC compile definitions
-get_target_property(_dyad_defs dyad INTERFACE_COMPILE_DEFINITIONS)
-set(DYAD_INTERFACE_COMPILE_DEFINITIONS "${_dyad_defs}")
-
 # Write the configure file
 configure_file("${CMAKE_SOURCE_DIR}/cmake/configure_files/dyad_config.hpp.in"
                "${CMAKE_INCLUDE_OUTPUT_DIRECTORY}/dyad/dyad_config.hpp" @ONLY)
