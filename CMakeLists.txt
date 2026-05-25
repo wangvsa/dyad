@@ -273,6 +273,7 @@ if (DYAD_ENABLE_MARGO_DTL)
   find_package(json-c CONFIG)
   pkg_check_modules (MARGO REQUIRED IMPORTED_TARGET margo)
 endif()
+set(DYAD_PKG_CONFIG_PATH "$ENV{PKG_CONFIG_PATH}")
 
 function(dyad_install_headers public_headers current_dir)
     message("-- [${PROJECT_NAME}] " "installing headers ${public_headers}")
@@ -294,6 +295,10 @@ include_directories(${CMAKE_SOURCE_DIR}/include)  # public header
 add_subdirectory(src/dyad)
 #cmake_policy(SET CMP0079 NEW) # In case that we need more control over the target building order
 
+# In CMakeLists.txt, collect all PUBLIC compile definitions
+get_target_property(_dyad_defs dyad INTERFACE_COMPILE_DEFINITIONS)
+set(DYAD_INTERFACE_COMPILE_DEFINITIONS "${_dyad_defs}")
+
 # Write the configure file
 configure_file("${CMAKE_SOURCE_DIR}/cmake/configure_files/dyad_config.hpp.in"
                "${CMAKE_INCLUDE_OUTPUT_DIRECTORY}/dyad/dyad_config.hpp" @ONLY)
@@ -310,18 +315,18 @@ set(DYAD_INSTALL_TMP_CMAKE_DIR "${CMAKE_BINARY_DIR}/install_cmake_scripts")
 
 # Write the version file. This is independent of build/install tree.
 write_basic_package_version_file(
-  ${DYAD_BUILD_CMAKE_DIR}/DYADConfigVersion.cmake
+  ${DYAD_BUILD_CMAKE_DIR}/dyad-config-version.cmake
   VERSION "${DYAD_PACKAGE_VERSION}"
   COMPATIBILITY SameMajorVersion)
-file(COPY ${DYAD_BUILD_CMAKE_DIR}/DYADConfigVersion.cmake
+file(COPY ${DYAD_BUILD_CMAKE_DIR}/dyad-config-version.cmake
   DESTINATION ${DYAD_INSTALL_TMP_CMAKE_DIR})
 
 # This is for the build tree
 set(EXTRA_CMAKE_MODULE_DIR "${CMAKE_SOURCE_DIR}/cmake/modules")
 set(INCLUDE_INSTALL_DIRS ${CMAKE_INCLUDE_OUTPUT_DIRECTORY})
 set(LIB_INSTALL_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
-configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/configure_files/DYADConfig.cmake.in
-  "${DYAD_BUILD_CMAKE_DIR}/DYADConfig.cmake"
+configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/configure_files/dyad-config.cmake.in
+  "${DYAD_BUILD_CMAKE_DIR}/dyad-config.cmake"
   INSTALL_DESTINATION "${DYAD_BUILD_CMAKE_DIR}"
   PATH_VARS INCLUDE_INSTALL_DIRS LIB_INSTALL_DIR)
 
@@ -329,15 +334,15 @@ configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/configure_files/
 set(EXTRA_CMAKE_MODULE_DIR "")
 set(INCLUDE_INSTALL_DIRS "${DYAD_INSTALL_INCLUDEDIR}")
 set(LIB_INSTALL_DIR "${DYAD_INSTALL_LIBDIR}")
-configure_package_config_file(cmake/configure_files/DYADConfig.cmake.in
-  "${DYAD_INSTALL_TMP_CMAKE_DIR}/DYADConfig.cmake"
+configure_package_config_file(cmake/configure_files/dyad-config.cmake.in
+  "${DYAD_INSTALL_TMP_CMAKE_DIR}/dyad-config.cmake"
   INSTALL_DESTINATION "${DYAD_INSTALL_CMAKE_DIR}"
   PATH_VARS INCLUDE_INSTALL_DIRS LIB_INSTALL_DIR)
 
 # Install export
-install(EXPORT ${DYAD_EXPORTED_TARGETS} # DYADTargets
-        NAMESPACE DYAD::
-        FILE DYADTargets.cmake
+install(EXPORT ${DYAD_EXPORTED_TARGETS} # dyad-targets
+        NAMESPACE dyad::
+        FILE dyad-targets.cmake
         DESTINATION "${DYAD_INSTALL_CMAKE_DIR}")
 
 # Install the cmake stuff
