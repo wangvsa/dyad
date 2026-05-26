@@ -207,10 +207,15 @@ jobs:
           spack install -j4 flux-core@${FLUX_VERSION}
           spack install -j4 gotcha
           if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
-            spack install -j4 ucx@1.18.0
+            spack install -j4 ucx@1.20.0 +thread_multiple+cma
           fi
           if [[ $DYAD_DTL_MODE == 'MARGO' ]]; then
-            spack install -j4 mochi-margo
+            if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
+              spack install -j4 mercury +ofi +ucx +sm
+              spack install -j4 mochi-margo ^mercury+ofi+ucx+sm
+            else
+              spack install -j4 mochi-margo
+            fi
           fi
       - name: Compile DYAD
         run: |
@@ -222,6 +227,9 @@ jobs:
             spack load ucx@1.18.0
           fi
           if [[ $DYAD_DTL_MODE == 'MARGO' ]]; then
+            if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
+              spack load mercury
+            fi
             spack load mochi-margo
           fi
           echo "Install DYAD"
