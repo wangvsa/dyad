@@ -44,6 +44,8 @@
 #
 # Requires CMake >= 3.14 for FetchContent fallback.
 
+include_guard(GLOBAL)
+
 #cmake_minimum_required(VERSION 3.14)
 
 macro(_fetch_package_debug_vars dbg_target_name dbg_libs dbg_includes)
