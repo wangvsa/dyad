@@ -4,8 +4,8 @@ if (MPI_FOUND)
     set(DYAD_TEST_SHUFFLE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/shuffle.cpp
                               ${CMAKE_CURRENT_SOURCE_DIR}/worker.cpp)
     set(DYAD_TEST_SHUFFLE_PRIVATE_HEADERS  ${CMAKE_CURRENT_SOURCE_DIR}/worker.hpp
-                                           ${CMAKE_CURRENT_SOURCE_DIR}/../src/dyad/utils/utils.h
-                                           ${CMAKE_CURRENT_SOURCE_DIR}/../src/dyad/utils/read_all.h)
+                                           ${CMAKE_CURRENT_SOURCE_DIR}/../../src/dyad/utils/utils.h
+                                           ${CMAKE_CURRENT_SOURCE_DIR}/../../src/dyad/utils/read_all.h)
     set(DYAD_TEST_SHUFFLE_PUBLIC_HEADERS)
     
     

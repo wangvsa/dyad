@@ -14,12 +14,15 @@
 #include <list>
 #include <sstream>
 #include <vector>
+#include <limits>
 
 #include <dyad/utils/read_all.h>
 #include <dyad/utils/utils.h>
 #include "worker.hpp"
+#include "cli_args.hpp"
 
 using std::cout;
+using std::cerr;
 using std::endl;
 
 int read_list (const std::string& flist_name, std::vector<std::string>& flist)
@@ -42,6 +45,79 @@ int read_list (const std::string& flist_name, std::vector<std::string>& flist)
                   std::make_move_iterator (fnames.end ()));
 
     return EXIT_SUCCESS;
+}
+
+void bcast_string_vector (const std::string& flist_name,
+                          std::vector<std::string>& flist,
+                          int root,
+                          MPI_Comm comm)
+{
+    int count = 0;
+    int rc = EXIT_SUCCESS;
+    int rank;
+
+    MPI_Comm_rank (comm, &rank);
+
+    // Step 1: Load the file list
+    if (rank == root) {
+        rc = read_list (flist_name, flist);
+        if (rc != EXIT_SUCCESS) {
+            cerr << "Failed to read '" << flist_name << "'" << endl;
+            MPI_Abort (comm, EXIT_FAILURE);
+        }
+        count = static_cast<int> (flist.size ());
+    }
+
+    // Step 2: Broadcast count
+    rc = MPI_Bcast (&count, 1, MPI_INT, root, comm);
+    if (rc != MPI_SUCCESS) {
+        MPI_Abort (comm, rc);
+    }
+
+    // Step 3: Build and broadcast lengths
+    std::vector<int> lengths (count);
+    if (rank == root) {
+        for (int i = 0; i < count; ++i) {
+            lengths[i] = static_cast<int> (flist[i].size ());
+        }
+    }
+    rc = MPI_Bcast (lengths.data (), count, MPI_INT, root, comm);
+    if (rc != MPI_SUCCESS) {
+        MPI_Abort (comm, rc);
+    }
+
+    // Step 4: Build and broadcast flat buffer
+    int total_chars = 0;
+    for (int l : lengths) {
+        if (l > (std::numeric_limits<int>::max() - total_chars)) {
+            cerr << "Total length of file names is too big for int type argumgnet of MPI_Bcast" << endl;
+            MPI_Abort (comm, EXIT_FAILURE);
+        }
+        total_chars += l;
+    }
+
+    std::string flat;
+    if (rank == root) {
+        flat.reserve (static_cast<size_t> (total_chars));
+        for (const auto& s : flist)
+            flat += s;
+    } else {
+        flat.resize (static_cast<size_t> (total_chars));
+    }
+    rc = MPI_Bcast (flat.data (), total_chars, MPI_CHAR, root, comm);
+    if (rc != MPI_SUCCESS) {
+        MPI_Abort (comm, rc);
+    }
+
+    // Step 5: Non-root ranks reconstruct
+    if (rank != root) {
+        flist.resize (count);
+        size_t offset = 0ul;
+        for (int i = 0; i < count; ++i) {
+            flist[i] = flat.substr (offset, static_cast<size_t> (lengths[i]));
+            offset += static_cast<size_t> (lengths[i]);
+        }
+    }
 }
 
 void create_local_files (const std::string& managed_dir,
@@ -77,9 +153,7 @@ void create_local_files (const std::string& managed_dir,
     }
 }
 
-void read_files (const std::string& managed_dir,
-                 const Worker& worker,
-                 const bool validate = false)
+void read_files (const std::string& managed_dir, const Worker& worker, const bool validate = false)
 {
     auto range = worker.get_iterator ();
     auto it = range.first;
@@ -115,66 +189,36 @@ int main (int argc, char** argv)
 {
     int rank;
     int n_ranks;
-    bool is_managed_local = false;
-    unsigned seed = 0u;
-    unsigned n_epochs = 3u;
-    int rc = 0;
-    std::string list_name;
-    std::string managed_dir;
+    int rc = EXIT_SUCCESS;
 
-    if ((argc < 4) || (argc > 6)) {
-        cout << "usage: " << argv[0] << " list_file managed_dir is_local [n_epochs [seed]]"
-             << endl;
-        cout << "   list_file: constains a list of files to be generated and used," << endl
-             << "              one per line, without managed_dir prefix." << endl;
-        cout << "   is_local: indicates if the managed_dir is local (1) or shared (0)" << endl;
-        cout << "   seed: if not given, a random seed is used" << endl;
-        return EXIT_SUCCESS;
+    ProgramOptions opts;
+
+    rc = parse_args(argc, argv, opts);
+    if (rc != EXIT_SUCCESS) {
+        return rc;
     }
-
-    list_name = argv[1];
-    managed_dir = argv[2];
-    is_managed_local = static_cast<bool> (atoi (argv[3]));
-
-    if (argc > 4) {
-        n_epochs = static_cast<unsigned> (atoi (argv[4]));
-    }
-
-    if (argc > 5) {
-        seed = static_cast<unsigned> (atoi (argv[5]));
-    }
-
-    std::vector<std::string> flist;
-    // TODO: root can broadcast
-    rc = read_list (list_name, flist);
 
     MPI_Init (&argc, &argv);
     MPI_Comm_rank (MPI_COMM_WORLD, &rank);
     MPI_Comm_size (MPI_COMM_WORLD, &n_ranks);
 
-    if (rc != EXIT_SUCCESS) {
-        if (rank == 0) {
-            cout << "Failed to read '" << list_name << "'" << endl;
-        }
-        MPI_Abort (MPI_COMM_WORLD, errno);
-        return rc;
-    }
+    std::vector<std::string> flist;
+    bcast_string_vector (opts.list_file, flist, 0, MPI_COMM_WORLD);
 
-    if (is_managed_local) { // if directory is local, everyone should create
+    if (opts.is_local) {  // if directory is local, everyone should create
         mode_t m = (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH | S_ISGID);
-        int c = mkdir_as_needed (managed_dir.c_str (), m);
+        int c = mkdir_as_needed (opts.managed_dir.c_str (), m);
         if (c < 0) {
-            cout << "Rank " << rank
-                 << " could not create directory: '" << managed_dir << "'" << endl;
+            cout << "Rank " << rank << " could not create directory: '" << opts.managed_dir << "'"
+                 << endl;
             MPI_Abort (MPI_COMM_WORLD, errno);
             return EXIT_FAILURE;
         }
-    }
-    else if (rank == 0) {
+    } else if (rank == 0) {
         mode_t m = (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH | S_ISGID);
-        int c = mkdir_as_needed (managed_dir.c_str (), m);
+        int c = mkdir_as_needed (opts.managed_dir.c_str (), m);
         if (c < 0) {
-            cout << "Could not create directory: '" << managed_dir << "'" << endl;
+            cout << "Could not create directory: '" << opts.managed_dir << "'" << endl;
             MPI_Abort (MPI_COMM_WORLD, errno);
             return EXIT_FAILURE;
         }
@@ -182,7 +226,7 @@ int main (int argc, char** argv)
     MPI_Barrier (MPI_COMM_WORLD);
 
     Worker worker;
-    worker.set_seed (seed);
+    worker.set_seed (opts.seed);
     worker.set_rank (rank);
     worker.set_file_list (flist);
     worker.split (n_ranks);
@@ -200,11 +244,11 @@ int main (int argc, char** argv)
     if (rank == 0) {
         cout << "Preparing local files under the managed directory" << endl;
     }
-    create_local_files (managed_dir, worker, 0644);
+    create_local_files (opts.managed_dir, worker, 0644);
 
     MPI_Barrier (MPI_COMM_WORLD);
 
-    for (unsigned i = 0u; i < n_epochs; ++i) {
+    for (unsigned i = 0u; i < opts.n_epochs; ++i) {
         if (rank == 0) {
             cout << "------ Shuffling ... -------" << endl << std::flush;
         }
@@ -212,7 +256,7 @@ int main (int argc, char** argv)
 
         worker.shuffle ();
         // cout << i << ' ' << worker.get_my_list_str() << endl << std::flush;
-        read_files (managed_dir, worker);
+        read_files (opts.managed_dir, worker);
         MPI_Barrier (MPI_COMM_WORLD);
     }
 
