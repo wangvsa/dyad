@@ -21,7 +21,7 @@ struct ProgramOptions {
     // File handling
     bool generate = false;
     std::string shared_dir;
-    size_t size = 4096;
+    size_t fsize = 4096;
 
     // Run options
     unsigned n_epochs = 1u;
@@ -43,19 +43,31 @@ void print_usage (const char* prog, std::ostream& os)
        << "  --help,       -h          print this message\n";
 }
 
-bool parse_size(const char* str, size_t& out)
+bool parse_size (const char* str, size_t& out)
 {
     char* end;
-    long long val = strtoll(str, &end, 10);
+    long long val = strtoll (str, &end, 10);
     if (val <= 0 || end == str)
         return false;
 
     switch (*end) {
-        case 'K': case 'k': out = static_cast<size_t>(val) * 1024ULL;                    break;
-        case 'M': case 'm': out = static_cast<size_t>(val) * 1024ULL * 1024ULL;          break;
-        case 'G': case 'g': out = static_cast<size_t>(val) * 1024ULL * 1024ULL * 1024ULL; break;
-        case '\0':          out = static_cast<size_t>(val);                               break;
-        default: return false;  // unrecognized suffix
+        case 'K':
+        case 'k':
+            out = static_cast<size_t> (val) * 1024ULL;
+            break;
+        case 'M':
+        case 'm':
+            out = static_cast<size_t> (val) * 1024ULL * 1024ULL;
+            break;
+        case 'G':
+        case 'g':
+            out = static_cast<size_t> (val) * 1024ULL * 1024ULL * 1024ULL;
+            break;
+        case '\0':
+            out = static_cast<size_t> (val);
+            break;
+        default:
+            return false;  // unrecognized suffix
     }
     return true;
 }
@@ -68,7 +80,7 @@ int parse_args (int argc, char** argv, ProgramOptions& opts)
                                            {"is-local", required_argument, nullptr, 'i'},
                                            {"generate", no_argument, nullptr, 'g'},
                                            {"shared-dir", required_argument, nullptr, 'S'},
-                                           { "size", required_argument, nullptr, 'z' },
+                                           {"size", required_argument, nullptr, 'z'},
                                            {"epochs", required_argument, nullptr, 'e'},
                                            {"seed", required_argument, nullptr, 's'},
                                            {"help", no_argument, nullptr, 'h'},
@@ -98,7 +110,7 @@ int parse_args (int argc, char** argv, ProgramOptions& opts)
                 opts.shared_dir = optarg;
                 break;
             case 'z':
-                if (!parse_size(optarg, opts.size)) {
+                if (!parse_size (optarg, opts.fsize)) {
                     std::cerr << "error: invalid --size value '" << optarg
                               << "'; expected a positive integer with optional suffix K, M, or G\n";
                     return EXIT_FAILURE;
@@ -185,7 +197,7 @@ int parse_args (int argc, char** argv, ProgramOptions& opts)
     }
 
     // --size is only valid when generating
-    if (opts.size != 4096 && !opts.generate) {
+    if (opts.fsize != 4096 && !opts.generate) {
         std::cerr << "error: --size is only applicable when files are being generated\n";
         return EXIT_FAILURE;
     }
