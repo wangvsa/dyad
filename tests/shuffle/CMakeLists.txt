@@ -2,15 +2,17 @@ find_package(MPI)
 
 if (MPI_FOUND)
     set(DYAD_TEST_SHUFFLE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/shuffle.cpp
+                              ${CMAKE_CURRENT_SOURCE_DIR}/utils.cpp
                               ${CMAKE_CURRENT_SOURCE_DIR}/worker.cpp)
     set(DYAD_TEST_SHUFFLE_PRIVATE_HEADERS  ${CMAKE_CURRENT_SOURCE_DIR}/worker.hpp
-                                           ${CMAKE_CURRENT_SOURCE_DIR}/../../src/dyad/utils/utils.h
-                                           ${CMAKE_CURRENT_SOURCE_DIR}/../../src/dyad/utils/read_all.h)
+                                           ${CMAKE_CURRENT_SOURCE_DIR}/utils.hpp
+                                           ${CMAKE_CURRENT_SOURCE_DIR}/cli_args.hpp
+                                           ${CMAKE_CURRENT_SOURCE_DIR}/../../src/dyad/utils/utils.h)
+                                           #${CMAKE_CURRENT_SOURCE_DIR}/../../src/dyad/utils/read_all.h)
     set(DYAD_TEST_SHUFFLE_PUBLIC_HEADERS)
     
     
-    add_executable(shuffle ${CMAKE_CURRENT_SOURCE_DIR}/shuffle.cpp
-                           ${CMAKE_CURRENT_SOURCE_DIR}/worker.cpp)
+    add_executable(shuffle ${DYAD_TEST_SHUFFLE_SRC})
     target_compile_definitions(shuffle PUBLIC DYAD_HAS_CONFIG)
     target_include_directories(shuffle PUBLIC
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src>
