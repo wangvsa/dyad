@@ -14,7 +14,7 @@ struct ProgramOptions {
     std::string list_file;
 
     // Directory options
-    std::string managed_dir;
+    std::string work_dir;
     bool is_local = false;
     bool is_local_set = false;
 
@@ -31,11 +31,11 @@ struct ProgramOptions {
 
 void print_usage (const char* prog, std::ostream& os)
 {
-    os << "usage: " << prog << " [options]\n"
+    os << "usage: " << prog << " --work-dir <path> [options]\n"
        << "  --count,      -c <N>      number of sample files to auto-generate\n"
        << "  --list,       -l <file>   file containing list of filenames, one per line\n"
-       << "  --dir,        -d <path>   DYAD managed directory\n"
-       << "  --is-local,   -i <0|1>    1 if managed_dir is local, 0 if shared\n"
+       << "  --work-dir,   -d <path>   working data directory\n"
+       << "  --is-local,   -i <0|1>    1 if work_dir is local, 0 if shared\n"
        << "  --generate,   -g          generate files (default: off)\n"
        << "  --shared-dir, -S <path>   shared storage path to stage files from\n"
        << "  --epochs,     -e <n>      number of epochs (default: 1)\n"
@@ -76,7 +76,7 @@ int parse_args (int argc, char** argv, ProgramOptions& opts)
 {
     static struct option long_options[] = {{"count", required_argument, nullptr, 'c'},
                                            {"list", required_argument, nullptr, 'l'},
-                                           {"dir", required_argument, nullptr, 'd'},
+                                           {"work-dir", required_argument, nullptr, 'd'},
                                            {"is-local", required_argument, nullptr, 'i'},
                                            {"generate", no_argument, nullptr, 'g'},
                                            {"shared-dir", required_argument, nullptr, 'S'},
@@ -97,7 +97,7 @@ int parse_args (int argc, char** argv, ProgramOptions& opts)
                 opts.list_file = optarg;
                 break;
             case 'd':
-                opts.managed_dir = optarg;
+                opts.work_dir = optarg;
                 break;
             case 'i':
                 opts.is_local = strtol (optarg, nullptr, 10) != 0;
@@ -144,9 +144,9 @@ int parse_args (int argc, char** argv, ProgramOptions& opts)
         return EXIT_FAILURE;
     }
 
-    // --dir and --is-local always required
-    if (opts.managed_dir.empty ()) {
-        std::cerr << "error: --dir is required\n";
+    // --work-dir and --is-local always required
+    if (opts.work_dir.empty ()) {
+        std::cerr << "error: --work-dir is required\n";
         return EXIT_FAILURE;
     }
     if (!opts.is_local_set) {
@@ -163,7 +163,7 @@ int parse_args (int argc, char** argv, ProgramOptions& opts)
 
         if (!opts.is_local && !opts.shared_dir.empty ()) {
             std::cerr << "error: --shared-dir is not applicable when generating files into shared "
-                         "managed_dir\n";
+                         "work_dir\n";
             return EXIT_FAILURE;
         }
 
@@ -172,7 +172,7 @@ int parse_args (int argc, char** argv, ProgramOptions& opts)
     }
 
     if (opts.generate && !opts.is_local && !opts.shared_dir.empty ()) {
-        std::cerr << "error:  --shared-dir is not useful when generating into shared managed_dir\n";
+        std::cerr << "error:  --shared-dir is not useful when generating into shared work_dir\n";
         return EXIT_FAILURE;
     }
 
@@ -189,7 +189,7 @@ int parse_args (int argc, char** argv, ProgramOptions& opts)
             // With is_local=false: --shared-dir is not applicable
             if (!opts.shared_dir.empty ()) {
                 std::cerr << "error: --shared-dir is not applicable when files exist on shared "
-                             "managed_dir\n";
+                             "work_dir\n";
                 return EXIT_FAILURE;
             }
             // --generate is optional; default is files already exist

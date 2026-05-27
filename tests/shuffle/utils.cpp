@@ -230,7 +230,7 @@ bool read_file (const std::string& base_dir,
     return true;
 }
 
-void create_files (const std::string& managed_dir, const Worker& worker, const mode_t md)
+void create_files (const Worker& worker, const mode_t md)
 {
     auto range = worker.get_iterator ();
     auto it = range.first;
@@ -238,6 +238,7 @@ void create_files (const std::string& managed_dir, const Worker& worker, const m
     // const auto rank = worker.get_rank ();
     const auto& flist = worker.get_file_list ();
     const auto fsize = worker.get_file_size ();
+    const std::string work_dir = worker.get_work_dir ();
     const bool validate = worker.get_validate ();
     const std::string rank = std::to_string (worker.get_rank ());
 
@@ -246,13 +247,13 @@ void create_files (const std::string& managed_dir, const Worker& worker, const m
         if (fn.empty ()) {
             continue;
         }
-        if (!generate_file (managed_dir, fn, fsize, md, validate, rank)) {
+        if (!generate_file (work_dir, fn, fsize, md, validate, rank)) {
             break;
         }
     }
 }
 
-void read_files (const std::string& managed_dir, const Worker& worker)
+void read_files (const Worker& worker)
 {
     auto range = worker.get_iterator ();
     auto it = range.first;
@@ -260,6 +261,7 @@ void read_files (const std::string& managed_dir, const Worker& worker)
     // const auto rank = worker.get_rank ();
     const auto& flist = worker.get_file_list ();
     const auto fsize = worker.get_file_size ();
+    const std::string work_dir = worker.get_work_dir ();
     const bool validate = worker.get_validate ();
 
     for (; it != it_end; ++it) {
@@ -267,7 +269,7 @@ void read_files (const std::string& managed_dir, const Worker& worker)
         if (fn.empty ()) {
             continue;
         }
-        if (!read_file (managed_dir, fn, fsize, validate)) {
+        if (!read_file (work_dir, fn, fsize, validate)) {
             break;
         }
     }

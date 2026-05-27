@@ -44,18 +44,18 @@ int main (int argc, char** argv)
 
     if (opts.is_local) {  // if directory is local, everyone should create
         mode_t m = (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH | S_ISGID);
-        int c = mkdir_as_needed (opts.managed_dir.c_str (), m);
+        int c = mkdir_as_needed (opts.work_dir.c_str (), m);
         if (c < 0) {
-            cout << "Rank " << rank << " could not create directory: '" << opts.managed_dir << "'"
+            cout << "Rank " << rank << " could not create directory: '" << opts.work_dir << "'"
                  << endl;
             MPI_Abort (MPI_COMM_WORLD, errno);
             return EXIT_FAILURE;
         }
     } else if (rank == 0) {
         mode_t m = (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH | S_ISGID);
-        int c = mkdir_as_needed (opts.managed_dir.c_str (), m);
+        int c = mkdir_as_needed (opts.work_dir.c_str (), m);
         if (c < 0) {
-            cout << "Could not create directory: '" << opts.managed_dir << "'" << endl;
+            cout << "Could not create directory: '" << opts.work_dir << "'" << endl;
             MPI_Abort (MPI_COMM_WORLD, errno);
             return EXIT_FAILURE;
         }
@@ -71,6 +71,7 @@ int main (int argc, char** argv)
     worker.set_rank (rank);
     worker.set_file_list (flist);
     worker.set_file_size (opts.fsize);
+    worker.set_work_dir (opts.work_dir);
     worker.split (n_ranks);
 
     /*
@@ -84,9 +85,9 @@ int main (int argc, char** argv)
     */
 
     if (rank == 0) {
-        cout << "Preparing local files under the managed directory" << endl;
+        cout << "Preparing local files under the working data directory" << endl;
     }
-    create_files (opts.managed_dir, worker, 0644);
+    create_files (worker, 0644);
 
     MPI_Barrier (MPI_COMM_WORLD);
 
@@ -98,7 +99,7 @@ int main (int argc, char** argv)
 
         worker.shuffle ();
         // cout << i << ' ' << worker.get_my_list_str() << endl << std::flush;
-        read_files (opts.managed_dir, worker);
+        read_files (worker);
         MPI_Barrier (MPI_COMM_WORLD);
     }
 

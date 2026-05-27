@@ -20,6 +20,7 @@ class Worker
     size_t m_begin;                    ///< starting position of m_fidx partition for this worker
     size_t m_end;                      ///< end position of m_fidx partition for this worker
     size_t m_fsize;                    ///< size of a file to generate
+    std::string m_work_dir;            ///< directory where working files are
     bool m_validate;                   ///< validate if a file read matches the one written
 
    public:
@@ -34,6 +35,8 @@ class Worker
     const std::vector<std::string>& get_file_list () const;
     void set_file_size (const size_t sz);
     size_t get_file_size () const;
+    void set_work_dir (const std::string& wd);
+    std::string get_work_dir () const;
     void set_validate ();
     void unset_validate ();
     bool get_validate () const;

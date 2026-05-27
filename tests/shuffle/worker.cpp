@@ -76,6 +76,16 @@ size_t Worker::get_file_size () const
     return m_fsize;
 }
 
+void Worker::set_work_dir (const std::string& wd)
+{
+    m_work_dir = wd;
+}
+
+std::string Worker::get_work_dir () const
+{
+    return m_work_dir;
+}
+
 void Worker::set_validate ()
 {
     m_validate = true;
