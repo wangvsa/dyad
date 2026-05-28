@@ -7,7 +7,14 @@
 
 #include "worker.hpp"
 
-Worker::Worker () : m_rank (0u), m_seed (0u), m_begin (0ul), m_end (0ul), m_fsize (0ul)
+Worker::Worker ()
+    : m_rank (0u),
+      m_seed (0u),
+      m_begin (0ul),
+      m_end (0ul),
+      m_fsize (0ul),
+      m_work_dir ("."),
+      m_validate (false)
 {
 }
 
@@ -71,6 +78,8 @@ void Worker::set_file_size (const size_t sz)
     m_fsize = sz;
 }
 
+/** Returns the size of a file if generated. Otherwise, return 0.
+ *  In that case, acurrate file size should be obtained via fstat. */
 size_t Worker::get_file_size () const
 {
     return m_fsize;
@@ -78,7 +87,7 @@ size_t Worker::get_file_size () const
 
 void Worker::set_work_dir (const std::string& wd)
 {
-    m_work_dir = wd;
+    m_work_dir = (wd.empty () ? "." : wd);
 }
 
 std::string Worker::get_work_dir () const

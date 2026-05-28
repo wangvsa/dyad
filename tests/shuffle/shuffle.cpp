@@ -84,10 +84,22 @@ int main (int argc, char** argv)
     cout << worker.get_my_list_str() << endl << std::flush;
     */
 
-    if (rank == 0) {
-        cout << "Preparing local files under the working data directory" << endl;
+    if (opts.generate) {
+        /* --is-local  --shared-dir  Behavior
+         * 1 (local)    not given    Generate files directly into local work_dir
+         * 1 (local)    given        Generate files into shared_dir, then stage into local work_dir
+         * 0 (shared)   not given    Generate files directly into shared work_dir */
+        if (rank == 0) {
+            cout << "Preparing local files under the working data directory" << endl;
+        }
+        create_files (worker, 0644, opts.shared_dir);
     }
-    create_files (worker, 0644);
+
+    if (opts.is_local && !opts.shared_dir.empty ()) {
+        /* Perform staging here. DYAD should detect file writes to the managed
+         * directory, and populated the KVS entry */
+        stage_files (worker, opts.shared_dir, opts.generate, 0644);
+    }
 
     MPI_Barrier (MPI_COMM_WORLD);
 

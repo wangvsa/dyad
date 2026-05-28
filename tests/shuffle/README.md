@@ -51,6 +51,7 @@ files are either generated into it or assumed to already exist there.
 | `--size` | `-z` | `<n>[K\|M\|G]` | Size of each generated file (default: `4096`); suffix optional |
 | `--epochs` | `-e` | `<n>` | Number of epochs (default: `1`) |
 | `--seed` | `-s` | `<n>` | Random seed (default: random) |
+| `--validate` | `-v` | — | Validate file contents after reading (default: off); requires `--generate` |
 | `--help` | `-h` | — | Print usage message |
 
 Either `--count` or `--list` is required, but not both.

@@ -1,9 +1,14 @@
 #include "utils.hpp"
-#include <fcntl.h>  // open
+#include <dyad/utils/utils.h>  // get_file_size
+#include <fcntl.h>             // open
 #include <mpi.h>
-#include <unistd.h>
+#include <sys/sendfile.h>  // sendfile
+#include <sys/stat.h>      // fstat, struct stat
+#include <unistd.h>        // close
+#include <cerrno>          // errno
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>  // strerror
 #include <fstream>
 #include <functional>
 #include <iostream>
@@ -51,6 +56,8 @@ int read_file_list (const std::string& flist_name, std::vector<std::string>& fli
     }
 
     while (std::getline (flist_file, line)) {
+        if (line.empty ())
+            continue;
         fnames.emplace_back (line);
         // std::cout << "file: " << line << std::endl;
     }
@@ -195,6 +202,14 @@ bool read_file (const std::string& base_dir,
         return false;
     }
 
+    // In case that the file is not generated, obtain the file size
+    if (expected_size == 0ul) {
+        expected_size = static_cast<size_t> (get_file_size (fd));
+        if (errno != 0) {
+            std::cerr << "error: could not fstat '" << path << "': " << strerror (errno) << "\n";
+            close (fd);
+        }
+    }
     const size_t name_hash = fnv1a (relpath);
 
     std::vector<uint8_t> buf (std::min (CHUNK, expected_size));
@@ -230,7 +245,7 @@ bool read_file (const std::string& base_dir,
     return true;
 }
 
-void create_files (const Worker& worker, const mode_t md)
+void create_files (const Worker& worker, const mode_t md, std::string data_dir)
 {
     auto range = worker.get_iterator ();
     auto it = range.first;
@@ -238,16 +253,13 @@ void create_files (const Worker& worker, const mode_t md)
     // const auto rank = worker.get_rank ();
     const auto& flist = worker.get_file_list ();
     const auto fsize = worker.get_file_size ();
-    const std::string work_dir = worker.get_work_dir ();
+    data_dir = data_dir.empty () ? worker.get_work_dir () : data_dir;
     const bool validate = worker.get_validate ();
     const std::string rank = std::to_string (worker.get_rank ());
 
     for (; it != it_end; ++it) {
         auto& fn = flist[*it];
-        if (fn.empty ()) {
-            continue;
-        }
-        if (!generate_file (work_dir, fn, fsize, md, validate, rank)) {
+        if (!generate_file (data_dir, fn, fsize, md, validate, rank)) {
             break;
         }
     }
@@ -266,11 +278,68 @@ void read_files (const Worker& worker)
 
     for (; it != it_end; ++it) {
         auto& fn = flist[*it];
-        if (fn.empty ()) {
-            continue;
-        }
         if (!read_file (work_dir, fn, fsize, validate)) {
             break;
         }
     }
+}
+
+bool stage_files (const Worker& worker,
+                  const std::string& src_dir,
+                  bool is_generated,
+                  const mode_t md)
+{
+    const std::string dst_dir = worker.get_work_dir ();
+    auto range = worker.get_iterator ();
+    auto it = range.first;
+    auto it_end = range.second;
+    const auto& flist = worker.get_file_list ();
+    size_t fsize = worker.get_file_size ();
+    if (src_dir.empty () || src_dir == dst_dir) {
+        std::cerr << "error: stage_files called with invalid src_dir\n";
+        return false;
+    }
+
+    for (; it != it_end; ++it) {
+        auto& fname = flist[*it];
+        const std::string src = src_dir + "/" + fname;
+        const std::string dst = dst_dir + "/" + fname;
+
+        int src_fd = open (src.c_str (), O_RDONLY);
+        if (src_fd == -1) {
+            std::cerr << "error: could not open source file '" << src << "': " << strerror (errno)
+                      << "\n";
+            return false;
+        }
+
+        if (!is_generated || fsize == 0ul) {
+            fsize = get_file_size (src_fd);
+            if (errno != 0) {
+                std::cerr << "error: could not stat '" << src << "': " << strerror (errno) << "\n";
+                close (src_fd);
+                return false;
+            }
+        }
+
+        int dst_fd = open (dst.c_str (), O_WRONLY | O_CREAT | O_TRUNC, md);
+        if (dst_fd == -1) {
+            std::cerr << "error: could not open destination file '" << dst
+                      << "': " << strerror (errno) << "\n";
+            close (src_fd);
+            return false;
+        }
+
+        ssize_t rc = sendfile (dst_fd, src_fd, nullptr, fsize);
+        if (rc == -1 || static_cast<size_t> (rc) != fsize) {
+            std::cerr << "error: sendfile failed for '" << src << "' -> '" << dst
+                      << "': " << strerror (errno) << "\n";
+            close (src_fd);
+            close (dst_fd);
+            return false;
+        }
+
+        close (src_fd);
+        close (dst_fd);
+    }
+    return true;
 }

@@ -27,6 +27,7 @@ struct ProgramOptions {
     unsigned n_epochs = 1u;
     unsigned seed = static_cast<unsigned> (time (nullptr));
     bool seed_set = false;
+    bool validate = false;
 };
 
 void print_usage (const char* prog, std::ostream& os)
@@ -40,6 +41,7 @@ void print_usage (const char* prog, std::ostream& os)
        << "  --shared-dir, -S <path>   shared storage path to stage files from\n"
        << "  --epochs,     -e <n>      number of epochs (default: 1)\n"
        << "  --seed,       -s <n>      random seed (default: random)\n"
+       << "  --validate,   -v          validate the contents of files read\n"
        << "  --help,       -h          print this message\n";
 }
 
@@ -83,6 +85,7 @@ int parse_args (int argc, char** argv, ProgramOptions& opts)
                                            {"size", required_argument, nullptr, 'z'},
                                            {"epochs", required_argument, nullptr, 'e'},
                                            {"seed", required_argument, nullptr, 's'},
+                                           {"validate", no_argument, nullptr, 'v'},
                                            {"help", no_argument, nullptr, 'h'},
                                            {nullptr, 0, nullptr, 0}};
 
@@ -123,6 +126,9 @@ int parse_args (int argc, char** argv, ProgramOptions& opts)
                 opts.seed = static_cast<unsigned> (strtoul (optarg, nullptr, 10));
                 opts.seed_set = true;
                 break;
+            case 'v':
+                opts.validate = true;
+                break;
             case 'h':
                 print_usage (argv[0], std::cout);
                 return EXIT_SUCCESS;
@@ -151,6 +157,10 @@ int parse_args (int argc, char** argv, ProgramOptions& opts)
     }
     if (!opts.is_local_set) {
         std::cerr << "error: --is_local is required\n";
+        return EXIT_FAILURE;
+    }
+    if (opts.shared_dir == opts.work_dir) {
+        std::cerr << "error: shared_dir should not be the same as work_dir\n";
         return EXIT_FAILURE;
     }
 
@@ -199,6 +209,12 @@ int parse_args (int argc, char** argv, ProgramOptions& opts)
     // --size is only valid when generating
     if (opts.fsize != 4096 && !opts.generate) {
         std::cerr << "error: --size is only applicable when files are being generated\n";
+        return EXIT_FAILURE;
+    }
+
+    // --validate is only valid when generating
+    if (opts.validate && !opts.generate) {
+        std::cerr << "error: --validate requires --generate\n";
         return EXIT_FAILURE;
     }
 
