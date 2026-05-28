@@ -23,7 +23,6 @@ DYAD-managed directory.
 TODO: As local storage reaches its capacity limit, some files will need to be
 randomly evicted to make room for files that are not locally available and must
 otherwise be fetched from another worker’s local storage or from shared storage.
-TODO: staging in from shared storage to locally managed dir.
 
 # Program Usage
 
@@ -57,8 +56,6 @@ files are either generated into it or assumed to already exist there.
 Either `--count` or `--list` is required, but not both.
 `--is-local` is always required.
 `--size` is valid only when files are being generated (via `--count` or `--list --generate`); it is an error otherwise.
-
-TODO: --shared-dir, --generate
 
 ## Option Combinations
 

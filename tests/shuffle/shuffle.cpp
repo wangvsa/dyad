@@ -69,7 +69,7 @@ int main (int argc, char** argv)
         worker.set_seed_by_clock ();
     }
     worker.set_rank (rank);
-    worker.set_file_list (flist);
+    worker.set_file_list (std::move (flist));
     worker.set_file_size (opts.fsize);
     worker.set_work_dir (opts.work_dir);
     worker.split (n_ranks);

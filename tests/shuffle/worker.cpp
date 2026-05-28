@@ -28,20 +28,15 @@ unsigned int Worker::get_rank () const
     return m_rank;
 }
 
-void Worker::clear_seed ()
+void Worker::set_seed (const unsigned int s)
 {
-    m_seed = 0u;
+    m_seed = s;
+    seed ();
 }
 
 void Worker::set_seed_by_clock ()
 {
     m_seed = std::chrono::system_clock::now ().time_since_epoch ().count ();
-    seed ();
-}
-
-void Worker::set_seed (const unsigned int s)
-{
-    m_seed = s;
     seed ();
 }
 
