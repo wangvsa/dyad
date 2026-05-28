@@ -500,13 +500,13 @@ ssize_t get_file_size (int fd)
     return file_size;
 }
 #else
-ssize_t get_file_size(int fd)
+ssize_t get_file_size (int fd)
 {
     struct stat st;
-    if (fstat(fd, &st) == -1) {
+    if (fstat (fd, &st) == -1) {
         return 0l;  // errno already set by fstat
     }
-    return (ssize_t) (st.st_size);
+    return (ssize_t)(st.st_size);
 }
 #endif
 
