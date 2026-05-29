@@ -128,8 +128,8 @@ static inline int is_wronly (int fd)
 
 static __attribute__ ((constructor)) void dyad_wrapper_init (void)
 {
-    DYAD_C_FUNCTION_START ();
     dyad_ctx_init (DYAD_COMM_RECV, NULL);
+    DYAD_C_FUNCTION_START ();  // this is after initialization of profiler
     ctx = ctx_mutable = dyad_ctx_get ();
 
     gotcha_wrap (dyad_bindings,
@@ -149,8 +149,8 @@ static __attribute__ ((destructor)) void dyad_wrapper_fini (void)
 {
     DYAD_C_FUNCTION_START ();
     DYAD_LOG_DEBUG (ctx, "DYAD Wrapper: Finalized");
+    DYAD_C_FUNCTION_END ();  // this is before teardown of profiler
     dyad_ctx_fini ();
-    DYAD_C_FUNCTION_END ();
 }
 
 static int dyad_open_wrapper (const char *path, int oflag, ...)
