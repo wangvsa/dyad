@@ -76,13 +76,13 @@ DYAD_DLL_EXPORTED dyad_ctx_t *dyad_ctx_get (void)
 
 DYAD_DLL_EXPORTED void dyad_ctx_init (const dyad_dtl_comm_mode_t dtl_comm_mode, void *flux_handle)
 {
-#if DYAD_PROFILER == 3
-    DFTRACER_C_FINI ();
-#endif
-    DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
 
     rc = dyad_init_env (dtl_comm_mode, flux_handle);
+
+    // dftracer is initialized in dyad_init () as pydyad's entry point is
+    // dyad_init () or dyad_init_env (). The latter calls the former inside.
+    DYAD_C_FUNCTION_START ();
 
     if (DYAD_IS_ERROR (rc)) {
         fprintf (stderr, "Failed to initialize DYAD (code = %d)", rc);
@@ -100,17 +100,14 @@ DYAD_DLL_EXPORTED void dyad_ctx_init (const dyad_dtl_comm_mode_t dtl_comm_mode, 
 
 DYAD_DLL_EXPORTED void dyad_ctx_fini (void)
 {
+    // pydyad closes dyad by calling dyad_finalize ()
     DYAD_C_FUNCTION_START ();
     if (ctx == NULL) {
-        DYAD_C_FUNCTION_END ();
         goto dyad_wrapper_fini_done;
     }
+    DYAD_C_FUNCTION_END ();
     dyad_finalize ();
 dyad_wrapper_fini_done:;
-    DYAD_C_FUNCTION_END ();
-#if DYAD_PROFILER == 3
-    DFTRACER_C_FINI ();
-#endif
 }
 
 dyad_rc_t dyad_clear (void);
@@ -329,7 +326,6 @@ init_region_finish:;
 DYAD_DLL_EXPORTED dyad_rc_t dyad_init_env (const dyad_dtl_comm_mode_t dtl_comm_mode,
                                            void *flux_handle)
 {
-    DYAD_C_FUNCTION_START ();
     const char *e = NULL;
     bool debug = false;
     bool check = false;
@@ -447,6 +443,7 @@ DYAD_DLL_EXPORTED dyad_rc_t dyad_init_env (const dyad_dtl_comm_mode_t dtl_comm_m
                               dtl_mode,
                               dtl_comm_mode,
                               flux_handle);
+    DYAD_C_FUNCTION_START ();
     DYAD_C_FUNCTION_END ();
     return rc;
 }
@@ -783,9 +780,6 @@ DYAD_DLL_EXPORTED dyad_rc_t dyad_clear (void)
     rc = DYAD_RC_OK;
 clear_region_finish:;
     DYAD_C_FUNCTION_END ();
-#ifdef DYAD_PROFILER_DFTRACER
-    DFTRACER_C_FINI ();
-#endif
     return rc;
 }
 

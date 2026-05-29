@@ -126,11 +126,8 @@ static inline int is_wronly (int fd)
  *                                                                           *
  *****************************************************************************/
 
-void dyad_wrapper_init (void)
+static void dyad_wrapper_init (void) __attribute__ ((constructor))
 {
-#if DYAD_PROFILER == 3
-    DFTRACER_C_FINI ();
-#endif
     DYAD_C_FUNCTION_START ();
     dyad_ctx_init (DYAD_COMM_RECV, NULL);
     ctx = ctx_mutable = dyad_ctx_get ();
@@ -148,15 +145,12 @@ void dyad_wrapper_init (void)
     DYAD_C_FUNCTION_END ();
 }
 
-void dyad_wrapper_fini (void)
+static void dyad_wrapper_fini (void) __attribute__ ((destructor))
 {
     DYAD_C_FUNCTION_START ();
     DYAD_LOG_DEBUG (ctx, "DYAD Wrapper: Finalized");
     dyad_ctx_fini ();
     DYAD_C_FUNCTION_END ();
-#if DYAD_PROFILER == 3
-    DFTRACER_C_FINI ();
-#endif
 }
 
 static int dyad_open_wrapper (const char *path, int oflag, ...)
