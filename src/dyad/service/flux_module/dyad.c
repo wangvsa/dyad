@@ -521,14 +521,6 @@ DYAD_DLL_EXPORTED int mod_main (flux_t *h, int argc, char **argv)
     DYAD_LOGGER_INIT ();
     DYAD_LOG_STDOUT ("DYAD_MOD: Loading mod_main\n");
     dyad_mod_ctx_t *mod_ctx = NULL;
-
-    if (!h) {
-        DYAD_LOG_STDERR ("DYAD_MOD: Failed to get flux handle\n");
-        goto mod_done;
-    }
-
-    mod_ctx = get_mod_ctx (h);
-
     uint32_t broker_rank;
     flux_get_rank (h, &broker_rank);
 
@@ -538,6 +530,13 @@ DYAD_DLL_EXPORTED int mod_main (flux_t *h, int argc, char **argv)
 #endif
 
     DYAD_C_FUNCTION_START ();
+
+    if (!h) {
+        DYAD_LOG_STDERR ("DYAD_MOD: Failed to get flux handle\n");
+        goto mod_done;
+    }
+
+    mod_ctx = get_mod_ctx (h);
 
     opt_parse_out_t opt = {NULL, NULL, false, false};
 

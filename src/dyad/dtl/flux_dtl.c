@@ -183,6 +183,8 @@ dyad_rc_t dyad_dtl_flux_recv (const dyad_ctx_t* ctx, void** buf, size_t* buflen)
 {
     DYAD_C_FUNCTION_START ();
     int rc = 0;
+    void* tmp_buf = NULL;
+    size_t tmp_buflen = 0;
     dyad_rc_t dyad_rc = DYAD_RC_OK;
     errno = 0;
     dyad_dtl_flux_t* dtl_handle = ctx->dtl_handle->private_dtl.flux_dtl_handle;
@@ -193,8 +195,6 @@ dyad_rc_t dyad_dtl_flux_recv (const dyad_ctx_t* ctx, void** buf, size_t* buflen)
         dyad_rc = DYAD_RC_FLUXFAIL;
         goto finish_recv;
     }
-    void* tmp_buf;
-    size_t tmp_buflen = 0;
     rc = flux_rpc_get_raw (dtl_handle->f, (const void**)&tmp_buf, &tmp_buflen);
     if (FLUX_IS_ERROR (rc)) {
         DYAD_LOG_ERROR (ctx, "Could not get file data from Flux RPC");
