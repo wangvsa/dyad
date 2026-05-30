@@ -22,7 +22,7 @@ jobs:
       fail-fast: false
       matrix:
         flux: [ 0.73.0 ]
-        mode: ["UCX", "FLUX_RPC", "MARGO"]
+        mode: ["UCX", "FLUX_RPC", "MARGO", "MARGO_UCX" ]
         os: [ ubuntu-24.04 ]
         compiler: [ gcc ]
         gcc: [ 14 ]
@@ -209,13 +209,10 @@ jobs:
           if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
             spack install -j4 ucx@1.20.0 +thread_multiple+cma
           fi
-          if [[ $DYAD_DTL_MODE == 'MARGO' ]]; then
-            if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
-              spack install -j4 mercury +ofi +ucx +sm
-              spack install -j4 mochi-margo ^mercury+ofi+ucx+sm
-            else
-              spack install -j4 mochi-margo
-            fi
+          if [[ $DYAD_DTL_MODE == 'MARGO' || $DYAD_DTL_MODE == 'MARGO_UCX' ]]; then
+            spack install -j4 ucx@1.20.0 +thread_multiple+cma
+            spack install -j4 mercury +ofi +ucx +sm ^ucx@1.20.0
+            spack install -j4 mochi-margo ^mercury+ofi+ucx+sm
           fi
       - name: Compile DYAD
         run: |
@@ -226,10 +223,9 @@ jobs:
           if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
             spack load ucx@1.20.0
           fi
-          if [[ $DYAD_DTL_MODE == 'MARGO' ]]; then
-            if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
-              spack load mercury
-            fi
+          if [[ $DYAD_DTL_MODE == 'MARGO' || $DYAD_DTL_MODE == 'MARGO_UCX' ]]; then
+            spack load ucx@1.20.0
+            spack load mercury
             spack load mochi-margo
           fi
           echo "Install DYAD"
@@ -240,7 +236,7 @@ jobs:
           CONFIGURE_FLAGS="-DDYAD_PROFILER=NONE"
           if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
             CONFIGURE_FLAGS="-DDYAD_ENABLE_UCX_DATA=ON -DDYAD_PROFILER=NONE"
-          elif [[ $DYAD_DTL_MODE == 'MARGO' ]]; then
+          elif [[ $DYAD_DTL_MODE == 'MARGO' || $DYAD_DTL_MODE == 'MARGO_UCX' ]]; then
             CONFIGURE_FLAGS="-DDYAD_ENABLE_MARGO_DATA=ON -DDYAD_PROFILER=NONE"
           fi
           COMMON_FLAGS="-DDYAD_LIBDIR_AS_LIB=ON -DCMAKE_BUILD_TYPE=Debug -DDYAD_LOGGER=FLUX -DDYAD_LOGGER_LEVEL=INFO"
@@ -272,6 +268,9 @@ jobs:
           spack load gotcha
           export PATH=${PATH}:${DYAD_INSTALL_PREFIX}/bin:${DYAD_INSTALL_PREFIX}/sbin
           export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${DYAD_INSTALL_PREFIX}/lib
+          if [[ $DYAD_DTL_MODE == 'MARGO_UCX' ]] ; then
+            export DYAD_MARGO_PROTO="ucx+tcp"
+          fi
           echo "Starting flux brokers"
           flux start --test-size=2 /bin/bash ${GITHUB_WORKSPACE}/.github/prod-cons/dyad_prod_cons_test.sh "c"
       - name: Test DYAD with separate FS cpp
@@ -283,6 +282,9 @@ jobs:
           spack load gotcha
           export PATH=${PATH}:${DYAD_INSTALL_PREFIX}/bin:${DYAD_INSTALL_PREFIX}/sbin
           export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${DYAD_INSTALL_PREFIX}/lib
+          if [[ $DYAD_DTL_MODE == 'MARGO_UCX' ]] ; then
+            export DYAD_MARGO_PROTO="ucx+tcp"
+          fi
           echo "Starting flux brokers"
           flux start --test-size=2 /bin/bash ${GITHUB_WORKSPACE}/.github/prod-cons/dyad_prod_cons_test.sh "cpp"
       - name: Test DYAD with separate FS python
@@ -293,6 +295,9 @@ jobs:
           . ${SPACK_DIR}/share/spack/setup-env.sh
           spack load flux-core
           spack load gotcha
+          if [[ $DYAD_DTL_MODE == 'MARGO_UCX' ]] ; then
+            export DYAD_MARGO_PROTO="ucx+tcp"
+          fi
           export PATH=${PATH}:${DYAD_INSTALL_PREFIX}/bin:${DYAD_INSTALL_PREFIX}/sbin
           export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${DYAD_INSTALL_PREFIX}/lib
           PYTHON_VER=$(python3 -c "import sys; print(f'python{sys.version_info.major}.{sys.version_info.minor}')")
