@@ -43,10 +43,10 @@ static void data_ready_rpc (hg_handle_t h)
     margo_instance_id mid = margo_hg_handle_get_instance (h);
     margo_set_log_level (mid, MARGO_LOG_INFO);
 
-    const struct hg_info* info = margo_get_info (h);
+    const struct hg_info *info = margo_get_info (h);
     hg_addr_t producer_addr = info->addr;
 
-    dyad_dtl_margo_t* margo_handle = (dyad_dtl_margo_t*)margo_registered_data (mid, info->id);
+    dyad_dtl_margo_t *margo_handle = (dyad_dtl_margo_t *)margo_registered_data (mid, info->id);
 
     ret = margo_get_input (h, &in);
     assert (ret == HG_SUCCESS);
@@ -56,7 +56,7 @@ static void data_ready_rpc (hg_handle_t h)
 
     ret = margo_bulk_create (mid,
                              1,
-                             (void**)&margo_handle->recv_buffer,
+                             (void **)&margo_handle->recv_buffer,
                              &margo_handle->recv_len,
                              HG_BULK_WRITE_ONLY,
                              &local_bulk);
@@ -89,7 +89,7 @@ static void data_ready_rpc (hg_handle_t h)
 }
 DEFINE_MARGO_RPC_HANDLER (data_ready_rpc)
 
-dyad_rc_t dyad_dtl_margo_get_buffer (const dyad_ctx_t* ctx, size_t data_size, void** data_buf)
+dyad_rc_t dyad_dtl_margo_get_buffer (const dyad_ctx_t *ctx, size_t data_size, void **data_buf)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
@@ -115,7 +115,7 @@ margo_get_buf_done:
     return rc;
 }
 
-dyad_rc_t dyad_dtl_margo_return_buffer (const dyad_ctx_t* ctx, void** data_buf)
+dyad_rc_t dyad_dtl_margo_return_buffer (const dyad_ctx_t *ctx, void **data_buf)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
@@ -131,9 +131,9 @@ margo_ret_buf_done:
     return rc;
 }
 
-static dyad_rc_t validate_margo_protocol (const dyad_ctx_t* ctx, const char* protocol)
+static dyad_rc_t validate_margo_protocol (const dyad_ctx_t *ctx, const char *protocol)
 {
-    struct na_protocol_info* info = NULL;
+    struct na_protocol_info *info = NULL;
     na_return_t ret = NA_Get_protocol_info (protocol, &info);
 
     if (ret != NA_SUCCESS || info == NULL) {
@@ -143,6 +143,24 @@ static dyad_rc_t validate_margo_protocol (const dyad_ctx_t* ctx, const char* pro
                         "Check that the required libfabric provider is installed.",
                         protocol,
                         (int)ret);
+        if (info != NULL) {
+            NA_Free_protocol_info (info);
+            info = NULL;
+        }
+        ret = NA_Get_protocol_info (NULL, &info);
+        if (ret != NA_SUCCESS || info == NULL) {
+            DYAD_LOG_DEBUG (ctx, "[MARGO DTL] No NA protocol available\n");
+            return DYAD_RC_MARGO_BAD_PROTO;
+        }
+        struct na_protocol_info *p = info;
+        while (p != NULL) {
+            DYAD_LOG_DEBUG (ctx,
+                            "[MARGO DTL] class '%s' + protocol '%s' available\n",
+                            p->class_name,
+                            p->protocol_name);
+            p = p->next;
+        }
+        NA_Free_protocol_info (info);
         return DYAD_RC_MARGO_BAD_PROTO;
     }
 
@@ -156,7 +174,7 @@ static dyad_rc_t validate_margo_protocol (const dyad_ctx_t* ctx, const char* pro
     return DYAD_RC_OK;
 }
 
-dyad_rc_t dyad_dtl_margo_init (const dyad_ctx_t* ctx,
+dyad_rc_t dyad_dtl_margo_init (const dyad_ctx_t *ctx,
                                dyad_dtl_mode_t mode,
                                dyad_dtl_comm_mode_t comm_mode,
                                bool debug)
@@ -164,7 +182,7 @@ dyad_rc_t dyad_dtl_margo_init (const dyad_ctx_t* ctx,
     DYAD_C_FUNCTION_START ();
 
     // dyad_rc_t rc = DYAD_RC_OK;
-    dyad_dtl_margo_t* margo_handle = NULL;
+    dyad_dtl_margo_t *margo_handle = NULL;
 
     ctx->dtl_handle->private_dtl.margo_dtl_handle = malloc (sizeof (struct dyad_dtl_margo));
     if (ctx->dtl_handle->private_dtl.margo_dtl_handle == NULL) {
@@ -174,7 +192,7 @@ dyad_rc_t dyad_dtl_margo_init (const dyad_ctx_t* ctx,
     }
 
     margo_handle = ctx->dtl_handle->private_dtl.margo_dtl_handle;
-    margo_handle->h = (flux_t*)ctx->h;  // flux handle
+    margo_handle->h = (flux_t *)ctx->h;  // flux handle
     margo_handle->debug = debug;
     margo_handle->recv_ready = 0;
 
@@ -199,8 +217,8 @@ dyad_rc_t dyad_dtl_margo_init (const dyad_ctx_t* ctx,
     // Example:
     //   export DYAD_MARGO_NA_PROTOCOL="ofi+verbs"
 
-    const char* margo_na_protocol_env = getenv (DYAD_MARGO_PROTO_ENV);
-    const char* margo_na_protocol =
+    const char *margo_na_protocol_env = getenv (DYAD_MARGO_PROTO_ENV);
+    const char *margo_na_protocol =
         (margo_na_protocol_env != NULL && margo_na_protocol_env[0] != '\0') ? margo_na_protocol_env
                                                                             : "ofi+tcp";
 
@@ -287,15 +305,15 @@ error: __attribute__((unused));
 }
 
 /* Packing an RPC message in a json string */
-dyad_rc_t dyad_dtl_margo_rpc_pack (const dyad_ctx_t* ctx,
-                                   const char* restrict upath,
+dyad_rc_t dyad_dtl_margo_rpc_pack (const dyad_ctx_t *ctx,
+                                   const char *restrict upath,
                                    uint32_t producer_rank,
-                                   json_t** restrict packed_obj)
+                                   json_t **restrict packed_obj)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
 
-    dyad_dtl_margo_t* margo_handle = ctx->dtl_handle->private_dtl.margo_dtl_handle;
+    dyad_dtl_margo_t *margo_handle = ctx->dtl_handle->private_dtl.margo_dtl_handle;
 
     // send my address (me as consumer and margo server)
     char addr_str[128];
@@ -329,18 +347,18 @@ dtl_margo_rpc_pack_region_finish:;
     return rc;
 }
 
-dyad_rc_t dyad_dtl_margo_rpc_unpack (const dyad_ctx_t* ctx, const flux_msg_t* msg, char** upath)
+dyad_rc_t dyad_dtl_margo_rpc_unpack (const dyad_ctx_t *ctx, const flux_msg_t *msg, char **upath)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
 
     uint64_t tag_prod = 0;
     uint64_t pid = 0;
-    char* addr_str = NULL;
+    char *addr_str = NULL;
     size_t addr_str_size = 0;
     int errcode;
 
-    dyad_dtl_margo_t* margo_handle = ctx->dtl_handle->private_dtl.margo_dtl_handle;
+    dyad_dtl_margo_t *margo_handle = ctx->dtl_handle->private_dtl.margo_dtl_handle;
 
     // retrive and decode the consumer margo-server address
     errcode = flux_request_unpack (msg,
@@ -372,21 +390,21 @@ dtl_margo_rpc_unpack_region_finish:;
     return rc;
 }
 
-dyad_rc_t dyad_dtl_margo_rpc_respond (const dyad_ctx_t* ctx, const flux_msg_t* orig_msg)
+dyad_rc_t dyad_dtl_margo_rpc_respond (const dyad_ctx_t *ctx, const flux_msg_t *orig_msg)
 {
     DYAD_C_FUNCTION_START ();
     DYAD_C_FUNCTION_END ();
     return DYAD_RC_OK;
 }
 
-dyad_rc_t dyad_dtl_margo_rpc_recv_response (const dyad_ctx_t* ctx, flux_future_t* f)
+dyad_rc_t dyad_dtl_margo_rpc_recv_response (const dyad_ctx_t *ctx, flux_future_t *f)
 {
     DYAD_C_FUNCTION_START ();
     DYAD_C_FUNCTION_END ();
     return DYAD_RC_OK;
 }
 
-dyad_rc_t dyad_dtl_margo_establish_connection (const dyad_ctx_t* ctx)
+dyad_rc_t dyad_dtl_margo_establish_connection (const dyad_ctx_t *ctx)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
@@ -395,16 +413,16 @@ dyad_rc_t dyad_dtl_margo_establish_connection (const dyad_ctx_t* ctx)
 }
 
 /* provider (now flux broker) calls send */
-dyad_rc_t dyad_dtl_margo_send (const dyad_ctx_t* ctx, void* buf, size_t buflen)
+dyad_rc_t dyad_dtl_margo_send (const dyad_ctx_t *ctx, void *buf, size_t buflen)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
 
     DYAD_LOG_DEBUG (ctx, "[MARGO DTL] margo_send is called, buflen: %ld.", buflen);
-    dyad_dtl_margo_t* margo_handle = ctx->dtl_handle->private_dtl.margo_dtl_handle;
+    dyad_dtl_margo_t *margo_handle = ctx->dtl_handle->private_dtl.margo_dtl_handle;
 
     hg_size_t segment_sizes[1] = {buflen};
-    void* segment_ptrs[1] = {buf};
+    void *segment_ptrs[1] = {buf};
 
     // Register my local data
     // which will be pulled by the consumer
@@ -438,13 +456,13 @@ dyad_rc_t dyad_dtl_margo_send (const dyad_ctx_t* ctx, void* buf, size_t buflen)
 }
 
 /* consumer calls recv (which recvs from flux broker) */
-dyad_rc_t dyad_dtl_margo_recv (const dyad_ctx_t* ctx, void** buf, size_t* buflen)
+dyad_rc_t dyad_dtl_margo_recv (const dyad_ctx_t *ctx, void **buf, size_t *buflen)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
     DYAD_LOG_DEBUG (ctx, "[MARGO DTL] margo_recv is called, waiting for data.");
 
-    dyad_dtl_margo_t* margo_handle = ctx->dtl_handle->private_dtl.margo_dtl_handle;
+    dyad_dtl_margo_t *margo_handle = ctx->dtl_handle->private_dtl.margo_dtl_handle;
 
     while (!margo_handle->recv_ready) {
         usleep (100);
@@ -467,7 +485,7 @@ dyad_rc_t dyad_dtl_margo_recv (const dyad_ctx_t* ctx, void** buf, size_t* buflen
     return rc;
 }
 
-dyad_rc_t dyad_dtl_margo_close_connection (const dyad_ctx_t* ctx)
+dyad_rc_t dyad_dtl_margo_close_connection (const dyad_ctx_t *ctx)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
@@ -477,11 +495,11 @@ dyad_rc_t dyad_dtl_margo_close_connection (const dyad_ctx_t* ctx)
     return rc;
 }
 
-dyad_rc_t dyad_dtl_margo_finalize (const dyad_ctx_t* ctx)
+dyad_rc_t dyad_dtl_margo_finalize (const dyad_ctx_t *ctx)
 {
     DYAD_C_FUNCTION_START ();
 
-    dyad_dtl_margo_t* margo_handle;
+    dyad_dtl_margo_t *margo_handle;
     dyad_rc_t rc = DYAD_RC_OK;
 
     if (ctx->dtl_handle == NULL || ctx->dtl_handle->private_dtl.margo_dtl_handle == NULL) {
