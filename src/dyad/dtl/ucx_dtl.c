@@ -34,30 +34,30 @@ typedef struct ucx_request dyad_ucx_request_t;
 
 // Define a function that UCX will use to allocate and
 // initialize our request struct
-static void dyad_ucx_request_init (void* request)
+static void dyad_ucx_request_init (void *request)
 {
     DYAD_C_FUNCTION_START ();
-    dyad_ucx_request_t* real_request = NULL;
-    real_request = (dyad_ucx_request_t*)request;
+    dyad_ucx_request_t *real_request = NULL;
+    real_request = (dyad_ucx_request_t *)request;
     real_request->completed = 0;
     DYAD_C_FUNCTION_END ();
 }
 
 #if UCP_API_VERSION >= UCP_VERSION(1, 10)
-static void dyad_send_callback (void* req, ucs_status_t status, void* ctx)
+static void dyad_send_callback (void *req, ucs_status_t status, void *ctx)
 #else   // UCP_API_VERSION
-static void dyad_send_callback (void* req, ucs_status_t status)
+static void dyad_send_callback (void *req, ucs_status_t status)
 #endif  // UCP_API_VERSION
 {
     DYAD_C_FUNCTION_START ();
     DYAD_LOG_STDERR ("Calling send callback");
-    dyad_ucx_request_t* real_req = (dyad_ucx_request_t*)req;
+    dyad_ucx_request_t *real_req = (dyad_ucx_request_t *)req;
     real_req->completed = 1;
     DYAD_C_FUNCTION_END ();
 }
 
 // Simple function used to wait on the async receive
-static ucs_status_t dyad_ucx_request_wait (const dyad_ctx_t* ctx, dyad_ucx_request_t* request)
+static ucs_status_t dyad_ucx_request_wait (const dyad_ctx_t *ctx, dyad_ucx_request_t *request)
 {
     DYAD_C_FUNCTION_START ();
     ucs_status_t final_request_status = UCS_OK;
@@ -102,8 +102,8 @@ dtl_ucx_request_wait_region_finish:;
     return final_request_status;
 }
 
-static dyad_rc_t ucx_allocate_buffer (const dyad_ctx_t* ctx,
-                                      dyad_dtl_ucx_t* dtl_handle,
+static dyad_rc_t ucx_allocate_buffer (const dyad_ctx_t *ctx,
+                                      dyad_dtl_ucx_t *dtl_handle,
                                       dyad_dtl_comm_mode_t comm_mode)
 {
     DYAD_C_FUNCTION_START ();
@@ -167,10 +167,10 @@ ucx_allocate_done:;
     return rc;
 }
 
-static dyad_rc_t ucx_free_buffer (const dyad_ctx_t* ctx,
+static dyad_rc_t ucx_free_buffer (const dyad_ctx_t *ctx,
                                   ucp_context_h ucp_ctx,
                                   ucp_mem_h mem_handle,
-                                  void** buf)
+                                  void **buf)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
@@ -199,9 +199,9 @@ ucx_free_buf_done:;
     return rc;
 }
 
-static inline ucs_status_ptr_t ucx_send_no_wait (const dyad_ctx_t* ctx,
+static inline ucs_status_ptr_t ucx_send_no_wait (const dyad_ctx_t *ctx,
                                                  bool is_warmup,
-                                                 void* buf,
+                                                 void *buf,
                                                  size_t buflen)
 {
     /**
@@ -210,17 +210,17 @@ static inline ucs_status_ptr_t ucx_send_no_wait (const dyad_ctx_t* ctx,
     (void)is_warmup;
     DYAD_C_FUNCTION_START ();
     ucs_status_ptr_t stat_ptr = NULL;
-    dyad_dtl_ucx_t* dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
+    dyad_dtl_ucx_t *dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
     if (dtl_handle->ep == NULL) {
         DYAD_LOG_ERROR (ctx, "UCP endpoint was not created prior to invoking send!");
-        stat_ptr = (void*)UCS_ERR_NOT_CONNECTED;
+        stat_ptr = (void *)UCS_ERR_NOT_CONNECTED;
         goto ucx_send_no_wait_done;
     }
     ucs_status_t status =
         ucp_ep_rkey_unpack (dtl_handle->ep, dtl_handle->rkey_buf, &(dtl_handle->rkey));
     if (UCX_STATUS_FAIL (status)) {
         DYAD_LOG_ERROR (ctx, "ucp_ep_rkey_unpack failed");
-        stat_ptr = (void*)UCS_ERR_NOT_CONNECTED;
+        stat_ptr = (void *)UCS_ERR_NOT_CONNECTED;
         goto ucx_send_no_wait_done;
     }
     ucp_request_param_t params;
@@ -237,7 +237,7 @@ static inline ucs_status_ptr_t ucx_send_no_wait (const dyad_ctx_t* ctx,
                         "ucp_put_nbx() failed %s (%d)\n",
                         ucs_status_string (UCS_PTR_STATUS (stat_ptr)),
                         UCS_PTR_STATUS (stat_ptr));
-        stat_ptr = (void*)UCS_ERR_NOT_CONNECTED;
+        stat_ptr = (void *)UCS_ERR_NOT_CONNECTED;
         goto ucx_send_no_wait_done;
     }
     DYAD_LOG_INFO (ctx, "written data buf of length %lu", buflen);
@@ -246,14 +246,14 @@ ucx_send_no_wait_done:;
     return stat_ptr;
 }
 
-static inline ucs_status_ptr_t ucx_recv_no_wait (const dyad_ctx_t* ctx,
+static inline ucs_status_ptr_t ucx_recv_no_wait (const dyad_ctx_t *ctx,
                                                  bool is_warmup,
-                                                 void** buf,
-                                                 size_t* buflen)
+                                                 void **buf,
+                                                 size_t *buflen)
 {
     DYAD_C_FUNCTION_START ();
     ucs_status_ptr_t stat_ptr = NULL;
-    dyad_dtl_ucx_t* dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
+    dyad_dtl_ucx_t *dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
     ssize_t temp = 0l;
     int is_first = 1;
     do {
@@ -270,12 +270,12 @@ static inline ucs_status_ptr_t ucx_recv_no_wait (const dyad_ctx_t* ctx,
     return stat_ptr;
 }
 
-static dyad_rc_t ucx_warmup (const dyad_ctx_t* ctx)
+static dyad_rc_t ucx_warmup (const dyad_ctx_t *ctx)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
-    void* send_buf = NULL;
-    void* recv_buf = NULL;
+    void *send_buf = NULL;
+    void *recv_buf = NULL;
     ucs_status_ptr_t send_stat_ptr = NULL;
     ucs_status_t send_status = UCS_OK;
     ucs_status_t recv_status = UCS_OK;
@@ -335,7 +335,7 @@ warmup_region_done:;
     return rc;
 }
 
-dyad_rc_t dyad_dtl_ucx_init (const dyad_ctx_t* ctx,
+dyad_rc_t dyad_dtl_ucx_init (const dyad_ctx_t *ctx,
                              dyad_dtl_mode_t mode,
                              dyad_dtl_comm_mode_t comm_mode,
                              bool debug)
@@ -343,10 +343,10 @@ dyad_rc_t dyad_dtl_ucx_init (const dyad_ctx_t* ctx,
     DYAD_C_FUNCTION_START ();
     ucp_params_t ucx_params;
     ucp_worker_params_t worker_params;
-    ucp_config_t* config;
+    ucp_config_t *config;
     ucs_status_t status;
     dyad_rc_t rc = DYAD_RC_OK;
-    dyad_dtl_ucx_t* dtl_handle = NULL;
+    dyad_dtl_ucx_t *dtl_handle = NULL;
 
     ctx->dtl_handle->private_dtl.ucx_dtl_handle = malloc (sizeof (struct dyad_dtl_ucx));
     if (ctx->dtl_handle->private_dtl.ucx_dtl_handle == NULL) {
@@ -357,7 +357,7 @@ dyad_rc_t dyad_dtl_ucx_init (const dyad_ctx_t* ctx,
     dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
     // Allocation/Freeing of the Flux handle should be
     // handled by the DYAD context
-    dtl_handle->h = (flux_t*)ctx->h;
+    dtl_handle->h = (flux_t *)ctx->h;
     dtl_handle->comm_mode = comm_mode;
     dtl_handle->debug = debug;
     dtl_handle->ucx_ctx = NULL;
@@ -465,16 +465,16 @@ error:;
     DYAD_C_FUNCTION_END ();
     return DYAD_RC_UCXINIT_FAIL;
 }
-dyad_rc_t dyad_dtl_ucx_rpc_pack (const dyad_ctx_t* ctx,
-                                 const char* restrict upath,
+dyad_rc_t dyad_dtl_ucx_rpc_pack (const dyad_ctx_t *ctx,
+                                 const char *restrict upath,
                                  uint32_t producer_rank,
-                                 json_t** restrict packed_obj)
+                                 json_t **restrict packed_obj)
 {
     DYAD_C_FUNCTION_START ();
     DYAD_C_FUNCTION_UPDATE_STR ("upath", upath);
     DYAD_C_FUNCTION_UPDATE_INT ("producer_rank", producer_rank);
     DYAD_C_FUNCTION_UPDATE_INT ("pid", ctx->pid);
-    dyad_dtl_ucx_t* dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
+    dyad_dtl_ucx_t *dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
     /**
      * Reset the Buffer so that we can loop on it
      * as we expect a size_t lets put int -1 as a check.
@@ -483,7 +483,7 @@ dyad_rc_t dyad_dtl_ucx_rpc_pack (const dyad_ctx_t* ctx,
     memcpy (dtl_handle->net_buf, &temp, sizeof (temp));
     dyad_rc_t rc = DYAD_RC_OK;
     size_t cons_enc_len = 0;
-    char* cons_enc_buf = NULL;
+    char *cons_enc_buf = NULL;
     ssize_t cons_enc_size = 0;
 
     if (dtl_handle->local_address == NULL) {
@@ -507,7 +507,7 @@ dyad_rc_t dyad_dtl_ucx_rpc_pack (const dyad_ctx_t* ctx,
     cons_enc_size = base64_encode_using_maps (&base64_maps_rfc4648,
                                               cons_enc_buf,
                                               cons_enc_len + 1,
-                                              (const char*)dtl_handle->local_address,
+                                              (const char *)dtl_handle->local_address,
                                               dtl_handle->local_addr_len);
     if (cons_enc_size < 0) {
         DYAD_LOG_ERROR (ctx, "Unable to encode address\n");
@@ -519,7 +519,7 @@ dyad_rc_t dyad_dtl_ucx_rpc_pack (const dyad_ctx_t* ctx,
 
     DYAD_LOG_INFO (ctx, "Encode UCP rkey using base64\n");
     size_t rkey_enc_len = 0;
-    char* rkey_enc_buf = NULL;
+    char *rkey_enc_buf = NULL;
     ssize_t rkey_enc_size = 0;
     rkey_enc_len = base64_encoded_length (dtl_handle->rkey_size);
     // Add 1 to encoded length because the encoded buffer will be
@@ -536,7 +536,7 @@ dyad_rc_t dyad_dtl_ucx_rpc_pack (const dyad_ctx_t* ctx,
     rkey_enc_size = base64_encode_using_maps (&base64_maps_rfc4648,
                                               rkey_enc_buf,
                                               rkey_enc_len + 1,
-                                              (const char*)dtl_handle->rkey_buf,
+                                              (const char *)dtl_handle->rkey_buf,
                                               dtl_handle->rkey_size);
     if (rkey_enc_size < 0) {
         DYAD_LOG_ERROR (ctx, "Unable to encode rkey\n");
@@ -545,7 +545,7 @@ dyad_rc_t dyad_dtl_ucx_rpc_pack (const dyad_ctx_t* ctx,
         rc = DYAD_RC_BADPACK;
         goto dtl_ucx_rpc_pack_region_finish;
     }
-    char* tag_name = "cons_buf";
+    char *tag_name = "cons_buf";
     uint64_t tag_val = dtl_handle->cons_buf_ptr;
     char tag_val_buf[128];
     memset (tag_val_buf, 0x00, 128);
@@ -580,24 +580,24 @@ dtl_ucx_rpc_pack_region_finish:;
     return rc;
 }
 
-dyad_rc_t dyad_dtl_ucx_rpc_unpack (const dyad_ctx_t* ctx, const flux_msg_t* msg, char** upath)
+dyad_rc_t dyad_dtl_ucx_rpc_unpack (const dyad_ctx_t *ctx, const flux_msg_t *msg, char **upath)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
-    char* enc_addr = NULL;
+    char *enc_addr = NULL;
     size_t enc_addr_len = 0;
-    char* enc_rkey = NULL;
+    char *enc_rkey = NULL;
     size_t enc_rkey_len = 0;
     int errcode = 0;
     uint64_t tag_prod = 0;
     uint64_t tag_cons = 0;
     uint64_t pid = 0;
     ssize_t decoded_len = 0;
-    dyad_dtl_ucx_t* dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
+    dyad_dtl_ucx_t *dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
     DYAD_LOG_INFO (ctx, "Unpacking RPC payload\n");
     uint64_t tag_val;
-    char* tag_name = "cons_buf";
-    char* tag_value_str = NULL;
+    char *tag_name = "cons_buf";
+    char *tag_value_str = NULL;
     errcode = flux_request_unpack (msg,
                                    NULL,
                                    "{s:s, s:i, s:s, s:i, s:s%, s:s%}",
@@ -632,14 +632,14 @@ dyad_rc_t dyad_dtl_ucx_rpc_unpack (const dyad_ctx_t* ctx, const flux_msg_t* msg,
     DYAD_LOG_INFO (ctx, "Obtained UCP tag from RPC payload: %lu\n", dtl_handle->comm_tag);
     DYAD_LOG_INFO (ctx, "Decoding consumer UCP address using base64\n");
     dtl_handle->remote_addr_len = base64_decoded_length (enc_addr_len);
-    dtl_handle->remote_address = (ucp_address_t*)malloc (dtl_handle->remote_addr_len);
+    dtl_handle->remote_address = (ucp_address_t *)malloc (dtl_handle->remote_addr_len);
     if (dtl_handle->remote_address == NULL) {
         DYAD_LOG_ERROR (ctx, "Could not allocate memory for consumer address");
         rc = DYAD_RC_SYSFAIL;
         goto dtl_ucx_rpc_unpack_region_finish;
     }
     decoded_len = base64_decode_using_maps (&base64_maps_rfc4648,
-                                            (char*)dtl_handle->remote_address,
+                                            (char *)dtl_handle->remote_address,
                                             dtl_handle->remote_addr_len,
                                             enc_addr,
                                             enc_addr_len);
@@ -661,7 +661,7 @@ dyad_rc_t dyad_dtl_ucx_rpc_unpack (const dyad_ctx_t* ctx, const flux_msg_t* msg,
         goto dtl_ucx_rpc_unpack_region_finish;
     }
     decoded_len = base64_decode_using_maps (&base64_maps_rfc4648,
-                                            (char*)dtl_handle->rkey_buf,
+                                            (char *)dtl_handle->rkey_buf,
                                             dtl_handle->rkey_size,
                                             enc_rkey,
                                             enc_rkey_len);
@@ -679,25 +679,25 @@ dtl_ucx_rpc_unpack_region_finish:;
     return rc;
 }
 
-dyad_rc_t dyad_dtl_ucx_rpc_respond (const dyad_ctx_t* ctx, const flux_msg_t* orig_msg)
+dyad_rc_t dyad_dtl_ucx_rpc_respond (const dyad_ctx_t *ctx, const flux_msg_t *orig_msg)
 {
     DYAD_C_FUNCTION_START ();
     DYAD_C_FUNCTION_END ();
     return DYAD_RC_OK;
 }
 
-dyad_rc_t dyad_dtl_ucx_rpc_recv_response (const dyad_ctx_t* ctx, flux_future_t* f)
+dyad_rc_t dyad_dtl_ucx_rpc_recv_response (const dyad_ctx_t *ctx, flux_future_t *f)
 {
     DYAD_C_FUNCTION_START ();
     DYAD_C_FUNCTION_END ();
     return DYAD_RC_OK;
 }
 
-dyad_rc_t dyad_dtl_ucx_get_buffer (const dyad_ctx_t* ctx, size_t data_size, void** data_buf)
+dyad_rc_t dyad_dtl_ucx_get_buffer (const dyad_ctx_t *ctx, size_t data_size, void **data_buf)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
-    dyad_dtl_ucx_t* dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
+    dyad_dtl_ucx_t *dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
     DYAD_LOG_INFO (dtl_handle, "Validating data_buf in get_buffer");
     // TODO(Ian): the second part of this check is (for some reason) evaluating
     //            to true despite `data_buf` being a pointer to a NULL pointer.
@@ -726,7 +726,7 @@ ucx_get_buffer_done:;
     return rc;
 }
 
-dyad_rc_t dyad_dtl_ucx_return_buffer (const dyad_ctx_t* ctx, void** data_buf)
+dyad_rc_t dyad_dtl_ucx_return_buffer (const dyad_ctx_t *ctx, void **data_buf)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
@@ -740,11 +740,11 @@ dtl_ucx_return_buffer_done:;
     return rc;
 }
 
-dyad_rc_t dyad_dtl_ucx_establish_connection (const dyad_ctx_t* ctx)
+dyad_rc_t dyad_dtl_ucx_establish_connection (const dyad_ctx_t *ctx)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
-    dyad_dtl_ucx_t* dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
+    dyad_dtl_ucx_t *dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
     dyad_dtl_comm_mode_t comm_mode = dtl_handle->comm_mode;
     if (comm_mode == DYAD_COMM_SEND) {
         DYAD_LOG_INFO (ctx, "Create UCP endpoint for communication with consumer\n");
@@ -782,7 +782,7 @@ dtl_ucx_establish_connection_region_finish:;
     return rc;
 }
 
-dyad_rc_t dyad_dtl_ucx_send (const dyad_ctx_t* ctx, void* buf, size_t buflen)
+dyad_rc_t dyad_dtl_ucx_send (const dyad_ctx_t *ctx, void *buf, size_t buflen)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
@@ -803,7 +803,7 @@ dtl_ucx_send_region_finish:;
     return rc;
 }
 
-dyad_rc_t dyad_dtl_ucx_recv (const dyad_ctx_t* ctx, void** buf, size_t* buflen)
+dyad_rc_t dyad_dtl_ucx_recv (const dyad_ctx_t *ctx, void **buf, size_t *buflen)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
@@ -821,11 +821,11 @@ dyad_rc_t dyad_dtl_ucx_recv (const dyad_ctx_t* ctx, void** buf, size_t* buflen)
     return rc;
 }
 
-dyad_rc_t dyad_dtl_ucx_close_connection (const dyad_ctx_t* ctx)
+dyad_rc_t dyad_dtl_ucx_close_connection (const dyad_ctx_t *ctx)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
-    dyad_dtl_ucx_t* dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
+    dyad_dtl_ucx_t *dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
     dyad_dtl_comm_mode_t comm_mode = dtl_handle->comm_mode;
     if (comm_mode == DYAD_COMM_SEND) {
         if (dtl_handle != NULL) {
@@ -868,10 +868,10 @@ dyad_rc_t dyad_dtl_ucx_close_connection (const dyad_ctx_t* ctx)
     return rc;
 }
 
-dyad_rc_t dyad_dtl_ucx_finalize (const dyad_ctx_t* ctx)
+dyad_rc_t dyad_dtl_ucx_finalize (const dyad_ctx_t *ctx)
 {
     DYAD_C_FUNCTION_START ();
-    dyad_dtl_ucx_t* dtl_handle = NULL;
+    dyad_dtl_ucx_t *dtl_handle = NULL;
     dyad_rc_t rc = DYAD_RC_OK;
     if (ctx->dtl_handle == NULL || ctx->dtl_handle->private_dtl.ucx_dtl_handle == NULL) {
         rc = DYAD_RC_OK;
