@@ -443,8 +443,6 @@ DYAD_DLL_EXPORTED dyad_rc_t dyad_init_env (const dyad_dtl_comm_mode_t dtl_comm_m
                               dtl_mode,
                               dtl_comm_mode,
                               flux_handle);
-    DYAD_C_FUNCTION_START ();
-    DYAD_C_FUNCTION_END ();
     return rc;
 }
 
