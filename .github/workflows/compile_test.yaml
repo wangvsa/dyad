@@ -268,8 +268,24 @@ jobs:
           spack load gotcha
           export PATH=${PATH}:${DYAD_INSTALL_PREFIX}/bin:${DYAD_INSTALL_PREFIX}/sbin
           export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${DYAD_INSTALL_PREFIX}/lib
+          if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
+            spack load ucx@1.20.0
+          fi
+          if [[ $DYAD_DTL_MODE == 'MARGO' || $DYAD_DTL_MODE == 'MARGO_UCX' ]]; then
+            spack load ucx@1.20.0
+            spack load mercury
+            spack load mochi-margo
+          fi
           if [[ $DYAD_DTL_MODE == 'MARGO_UCX' ]] ; then
-            export DYAD_MARGO_PROTO="ucx+tcp"
+            margo-info | grep -i ucx | grep YES
+            proto=`margo-info | sed 's/\x1b\[[0-9;]*m//g' | grep -i ucx | grep YES | tail -n 1 | cut -d ':' -f 1`
+            if [ "$proto" != "" ] ; then
+              echo "Using DYAD_MARGO_PROTO=$proto"
+              export DYAD_MARGO_PROTO=$proto
+            else
+              echo 'No ucx support with MARGO. Using DYAD default "ofi+tcp"'
+              export DYAD_MARGO_PROTO="ofi+tcp"
+            fi
           fi
           echo "Starting flux brokers"
           flux start --test-size=2 /bin/bash ${GITHUB_WORKSPACE}/.github/prod-cons/dyad_prod_cons_test.sh "c"
@@ -282,8 +298,24 @@ jobs:
           spack load gotcha
           export PATH=${PATH}:${DYAD_INSTALL_PREFIX}/bin:${DYAD_INSTALL_PREFIX}/sbin
           export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${DYAD_INSTALL_PREFIX}/lib
+          if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
+            spack load ucx@1.20.0
+          fi
+          if [[ $DYAD_DTL_MODE == 'MARGO' || $DYAD_DTL_MODE == 'MARGO_UCX' ]]; then
+            spack load ucx@1.20.0
+            spack load mercury
+            spack load mochi-margo
+          fi
           if [[ $DYAD_DTL_MODE == 'MARGO_UCX' ]] ; then
-            export DYAD_MARGO_PROTO="ucx+tcp"
+            margo-info | grep -i ucx | grep YES
+            proto=`margo-info | sed 's/\x1b\[[0-9;]*m//g' | grep -i ucx | grep YES | tail -n 1 | cut -d ':' -f 1`
+            if [ "$proto" != "" ] ; then
+              echo "Using DYAD_MARGO_PROTO=$proto"
+              export DYAD_MARGO_PROTO=$proto
+            else
+              echo 'No ucx support with MARGO. Using DYAD default "ofi+tcp"'
+              export DYAD_MARGO_PROTO="ofi+tcp"
+            fi
           fi
           echo "Starting flux brokers"
           flux start --test-size=2 /bin/bash ${GITHUB_WORKSPACE}/.github/prod-cons/dyad_prod_cons_test.sh "cpp"
@@ -295,8 +327,24 @@ jobs:
           . ${SPACK_DIR}/share/spack/setup-env.sh
           spack load flux-core
           spack load gotcha
+          if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
+            spack load ucx@1.20.0
+          fi
+          if [[ $DYAD_DTL_MODE == 'MARGO' || $DYAD_DTL_MODE == 'MARGO_UCX' ]]; then
+            spack load ucx@1.20.0
+            spack load mercury
+            spack load mochi-margo
+          fi
           if [[ $DYAD_DTL_MODE == 'MARGO_UCX' ]] ; then
-            export DYAD_MARGO_PROTO="ucx+tcp"
+            margo-info | grep -i ucx | grep YES
+            proto=`margo-info | sed 's/\x1b\[[0-9;]*m//g' | grep -i ucx | grep YES | tail -n 1 | cut -d ':' -f 1`
+            if [ "$proto" != "" ] ; then
+              echo "Using DYAD_MARGO_PROTO=$proto"
+              export DYAD_MARGO_PROTO=$proto
+            else
+              echo 'No ucx support with MARGO. Using DYAD default "ofi+tcp"'
+              export DYAD_MARGO_PROTO="ofi+tcp"
+            fi
           fi
           export PATH=${PATH}:${DYAD_INSTALL_PREFIX}/bin:${DYAD_INSTALL_PREFIX}/sbin
           export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${DYAD_INSTALL_PREFIX}/lib
