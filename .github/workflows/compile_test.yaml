@@ -380,8 +380,18 @@ jobs:
           ls -l
           echo "=== Displaying flux.log ==="
           cat flux.log || echo "flux.log not found"
+          echo "------------------ err-cons.txt ------------------"
           cat err-cons.txt
+          echo "------------------ err-prod.txt ------------------"
           cat err-prod.txt
+          echo "------------------ dyad_mod_0.err ------------------"
+          cat dyad_mod_0.err
+          echo "------------------ dyad_mod_0.out ------------------"
+          cat dyad_mod_0.out
+          echo "------------------ dyad_mod_1.err ------------------"
+          cat dyad_mod_1.err
+          echo "------------------ dyad_mod_1.out ------------------"
+          cat dyad_mod_1.out
       - name: Upload logs on failure
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
