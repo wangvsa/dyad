@@ -15,7 +15,7 @@ at build time.
 
   ::
 
-     -DDYAD_LOGGER=FLUX|CPP_LOGGER -DDYAD_LOGGER_LEVEL=Debug
+     -DDYAD_LOGGER=FLUX|CPP_LOGGER -DDYAD_LOGGER_LEVEL=DEBUG
 
 - **For developers:** Treat all compiler warnings as errors:
 
@@ -35,11 +35,17 @@ at build time.
 Runtime Logging
 ===============
 
-Enable Flux logging when starting an instance to capture DYAD logs:
+- Enable Flux logging when starting an instance to capture DYAD logs:
 
 ::
 
    flux start -v -o,-S,log-filename=out.txt
+
+- Enable stdout and stderr forwarding with allocation (see `flux logging <https://flux-framework.readthedocs.io/projects/flux-core/en/stable/man7/flux-broker-attributes.html#logging>`_):
+
+::
+
+   flux alloc -N 2 --broker-opts=--setattr=log-filename="$PWD/flux-${USER}.log" --broker-opts=--setattr=log-level=7 --broker-opts=--setattr=log-forward-level=7 --broker-opts=--setattr=log-critical-level=7 --broker-opts=--setattr=log-stderr-level=7 --broker-opts=--setattr=log-syslog-enable=1 --broker-opts=--setattr=log-stderr-mode=leader
 
 
 Controlling Job Standard I/O
