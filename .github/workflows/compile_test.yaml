@@ -291,6 +291,8 @@ jobs:
           echo "Starting flux brokers"
           pwd
           flux start --test-size=2 -o,-S,log-filename=flux.log /bin/bash ${GITHUB_WORKSPACE}/.github/prod-cons/dyad_prod_cons_test.sh "c"
+          cat out-cons.txt
+          cat out-prod.txt
       - name: Test DYAD with separate FS cpp
         timeout-minutes: 2
         run: |
@@ -321,6 +323,8 @@ jobs:
           fi
           echo "Starting flux brokers"
           flux start --test-size=2 -o,-S,log-filename=flux.log /bin/bash ${GITHUB_WORKSPACE}/.github/prod-cons/dyad_prod_cons_test.sh "cpp"
+          cat out-cons.txt
+          cat out-prod.txt
       - name: Test DYAD with separate FS python
         timeout-minutes: 2
         run: |
@@ -354,6 +358,8 @@ jobs:
           export PYTHONPATH=${GITHUB_WORKSPACE}/pydyad:${PYTHONPATH}:${DYAD_INSTALL_PREFIX}/lib/${PYTHON_VER}/site-packages
           echo "Starting flux brokers"
           flux start --test-size=2 -o,-S,log-filename=flux.log /bin/bash ${GITHUB_WORKSPACE}/.github/prod-cons/dyad_prod_cons_test.sh "python"
+          cat out-cons.txt
+          cat out-prod.txt
       #- name: Test DYAD with DLIO benchmark
       #  timeout-minutes: 10
       #  run: |
@@ -374,6 +380,8 @@ jobs:
           ls -l
           echo "=== Displaying flux.log ==="
           cat flux.log || echo "flux.log not found"
+          cat err-cons.txt
+          cat err-prod.txt
       - name: Upload logs on failure
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
