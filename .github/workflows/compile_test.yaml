@@ -382,8 +382,8 @@ jobs:
         run: |
           pwd
           ls -l
-          echo "=== Displaying flux.log ==="
-          cat flux.log || echo "flux.log not found"
+          #echo "=== Displaying flux.log ==="
+          #cat flux.log || echo "flux.log not found"
           echo "------------------ err-cons.txt ------------------"
           cat err-cons.txt
           echo "------------------ err-prod.txt ------------------"
@@ -398,23 +398,23 @@ jobs:
           cat dyad_mod_1.out
           if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
             spack load ucx@1.20.0
-            echo "------------------ ucx_info ------------------"
-            ucx_info -v
-            ucx_info -d
-            echo "------------------ ${UCX_LOG_FILE} ------------------"
+            #echo "------------------ ucx_info ------------------"
+            ucx_info -v > ucx_info.txt
+            ucx_info -d >> ucx_info.txt
+            #echo "------------------ ${UCX_LOG_FILE} ------------------"
             cat ${UCX_LOG_FILE}
           fi
           if [[ $DYAD_DTL_MODE == 'MARGO' || $DYAD_DTL_MODE == 'MARGO_UCX' ]]; then
             spack load ucx@1.20.0
             spack load mercury
             spack load mochi-margo
-            echo "------------------ margo-info ------------------"
-            margo-info
+            #echo "------------------ margo-info ------------------"
+            margo-info > margo-info.txt
           fi
       - name: Upload logs on failure
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
-          name: flux.log
-          path: flux.log
+          name: prod-cons-test-workdir
+          path: /home/runner/work/dyad/dyad
           if-no-files-found: ignore
