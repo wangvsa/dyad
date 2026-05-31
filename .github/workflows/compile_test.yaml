@@ -283,9 +283,9 @@ jobs:
           fi
           if [[ $DYAD_DTL_MODE == 'MARGO_UCX' ]] ; then
             margo-info | grep -i ucx | grep YES
-            proto=`margo-info | sed 's/\x1b\[[0-9;]*m//g' | grep -i ucx | grep YES | tail -n 1 | cut -d ':' -f 1`
+            proto=`margo-info | sed 's/\x1b\[[0-9;]*m//g' | grep -i ucx | grep YES | head -n 1 | cut -d ':' -f 1`
             if [ "$proto" != "" ] ; then
-              echo "Using DYAD_MARGO_PROTO=$proto"
+              echo "Using DYAD_MARGO_PROTO=${proto}://"
               export DYAD_MARGO_PROTO=$proto
             else
               echo 'No ucx support with MARGO. Using DYAD default "ofi+tcp"'
@@ -317,9 +317,9 @@ jobs:
           fi
           if [[ $DYAD_DTL_MODE == 'MARGO_UCX' ]] ; then
             margo-info | grep -i ucx | grep YES
-            proto=`margo-info | sed 's/\x1b\[[0-9;]*m//g' | grep -i ucx | grep YES | tail -n 1 | cut -d ':' -f 1`
+            proto=`margo-info | sed 's/\x1b\[[0-9;]*m//g' | grep -i ucx | grep YES | head -n 1 | cut -d ':' -f 1`
             if [ "$proto" != "" ] ; then
-              echo "Using DYAD_MARGO_PROTO=$proto"
+              echo "Using DYAD_MARGO_PROTO=${proto}://"
               export DYAD_MARGO_PROTO=$proto
             else
               echo 'No ucx support with MARGO. Using DYAD default "ofi+tcp"'
@@ -349,9 +349,9 @@ jobs:
           fi
           if [[ $DYAD_DTL_MODE == 'MARGO_UCX' ]] ; then
             margo-info | grep -i ucx | grep YES
-            proto=`margo-info | sed 's/\x1b\[[0-9;]*m//g' | grep -i ucx | grep YES | tail -n 1 | cut -d ':' -f 1`
+            proto=`margo-info | sed 's/\x1b\[[0-9;]*m//g' | grep -i ucx | grep YES | head -n 1 | cut -d ':' -f 1`
             if [ "$proto" != "" ] ; then
-              echo "Using DYAD_MARGO_PROTO=$proto"
+              echo "Using DYAD_MARGO_PROTO=${proto}://"
               export DYAD_MARGO_PROTO=$proto
             else
               echo 'No ucx support with MARGO. Using DYAD default "ofi+tcp"'

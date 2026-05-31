@@ -139,8 +139,7 @@ static dyad_rc_t validate_margo_protocol (const dyad_ctx_t *ctx, const char *pro
     if (ret != NA_SUCCESS || info == NULL) {
         DYAD_LOG_ERROR (ctx,
                         "[MARGO DTL] NA protocol '%s' is not available "
-                        "(NA_Get_protocol_info returned %d). "
-                        "Check that the required libfabric provider is installed.",
+                        "(NA_Get_protocol_info returned %d). ",
                         protocol,
                         (int)ret);
         if (info != NULL) {
@@ -205,17 +204,17 @@ dyad_rc_t dyad_dtl_margo_init (const dyad_ctx_t *ctx,
     //   sm          – shared memory (single-node testing)
     //   na+sm       – shared memory (newer Margo)
     //
-    //   ucx         - auto (all);              let UCX pick, safe default for ucx
-    //   ucx+tcp     - TCP/IP;                  portable, works everywhere
-    //   ucx+rc_v    - InfiniBand RC (verbs);   low-latency IB
-    //   ucx+rc_mlx5 - InfiniBand RC (mlx5 optimized); Mellanox HCAs
-    //   ucx+ud_v    - InfiniBand UD (verbs);   scalable IB, less reliability overhead
-    //   ucx+dc_mlx5 - InfiniBand DC (mlx5);    large-scale IB (Frontier, Sierra)
-    //   ucx+cma     - Cross-Memory Attach;     intra-node shared memory (Linux)
-    //   ucx+sysv    - SysV shared memory;      intra-node only
+    //   ucx://         - auto (all);              let UCX pick, safe default for ucx
+    //   ucx+tcp::/     - TCP/IP;                  portable, works everywhere
+    //   ucx+rc_v::/    - InfiniBand RC (verbs);   low-latency IB
+    //   ucx+rc_mlx5::/ - InfiniBand RC (mlx5 optimized); Mellanox HCAs
+    //   ucx+ud_v://    - InfiniBand UD (verbs);   scalable IB, less reliability overhead
+    //   ucx+dc_mlx5:// - InfiniBand DC (mlx5);    large-scale IB (Frontier, Sierra)
+    //   ucx+cma://     - Cross-Memory Attach;     intra-node shared memory (Linux)
+    //   ucx+sysv://    - SysV shared memory;      intra-node only
     //
     // Example:
-    //   export DYAD_MARGO_NA_PROTOCOL="ofi+verbs"
+    //   export DYAD_MARGO_PROTO="ofi+verbs"
 
     const char *margo_na_protocol_env = getenv (DYAD_MARGO_PROTO_ENV);
     const char *margo_na_protocol =
