@@ -291,6 +291,7 @@ jobs:
               echo 'No ucx support with MARGO. Using DYAD default "ofi+tcp"'
               export DYAD_MARGO_PROTO="ofi+tcp"
             fi
+            export DYAD_DTL_MODE='MARGO'
           fi
           echo "Starting flux brokers"
           pwd
@@ -324,6 +325,7 @@ jobs:
               echo 'No ucx support with MARGO. Using DYAD default "ofi+tcp"'
               export DYAD_MARGO_PROTO="ofi+tcp"
             fi
+            export DYAD_DTL_MODE='MARGO'
           fi
           echo "Starting flux brokers"
           flux start --test-size=2 -o,-S,log-filename=flux.log /bin/bash ${GITHUB_WORKSPACE}/.github/prod-cons/dyad_prod_cons_test.sh "cpp"
@@ -355,6 +357,7 @@ jobs:
               echo 'No ucx support with MARGO. Using DYAD default "ofi+tcp"'
               export DYAD_MARGO_PROTO="ofi+tcp"
             fi
+            export DYAD_DTL_MODE='MARGO'
           fi
           export PATH=${PATH}:${DYAD_INSTALL_PREFIX}/bin:${DYAD_INSTALL_PREFIX}/sbin
           export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${DYAD_INSTALL_PREFIX}/lib
