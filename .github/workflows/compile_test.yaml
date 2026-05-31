@@ -38,6 +38,10 @@ jobs:
       DYAD_KVS_NAMESPACE: "test"
       DYAD_DTL_MODE: ${{ matrix.mode }}
       DYAD_PATH: "/home/runner/work/dyad/temp/"
+      UCX_LOG_LEVEL: debug
+      UCX_LOG_FILE: ucx_debug.log
+      #UCX_NET_DEVICES: 
+      #UCX_TLS: 
     steps:
       - name: Push checkout
         if: github.event_name == 'push'
@@ -392,6 +396,21 @@ jobs:
           cat dyad_mod_1.err
           echo "------------------ dyad_mod_1.out ------------------"
           cat dyad_mod_1.out
+          if [[ $DYAD_DTL_MODE == 'UCX' ]]; then
+            spack load ucx@1.20.0
+            echo "------------------ ucx_info ------------------"
+            ucx_info -v
+            ucx_info -d
+            echo "------------------ ${UCX_LOG_FILE} ------------------"
+            cat ${UCX_LOG_FILE}
+          fi
+          if [[ $DYAD_DTL_MODE == 'MARGO' || $DYAD_DTL_MODE == 'MARGO_UCX' ]]; then
+            spack load ucx@1.20.0
+            spack load mercury
+            spack load mochi-margo
+            echo "------------------ margo-info ------------------"
+            margo-info
+          fi
       - name: Upload logs on failure
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
