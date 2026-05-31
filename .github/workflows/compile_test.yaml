@@ -243,6 +243,7 @@ jobs:
           cmake --version
           cmake -DCMAKE_INSTALL_PREFIX=${DYAD_INSTALL_PREFIX} ${CONFIGURE_FLAGS} ${COMMON_FLAGS} ..
           make VERBOSE=1 install -j
+
       - name: Install PyDYAD
         run: |
           source ${DYAD_INSTALL_PREFIX}/bin/activate
@@ -290,7 +291,6 @@ jobs:
           echo "Starting flux brokers"
           pwd
           flux start --test-size=2 -o,-S,log-filename=flux.log /bin/bash ${GITHUB_WORKSPACE}/.github/prod-cons/dyad_prod_cons_test.sh "c"
-          ls -l
       - name: Test DYAD with separate FS cpp
         timeout-minutes: 2
         run: |
@@ -320,9 +320,7 @@ jobs:
             fi
           fi
           echo "Starting flux brokers"
-          pwd
           flux start --test-size=2 -o,-S,log-filename=flux.log /bin/bash ${GITHUB_WORKSPACE}/.github/prod-cons/dyad_prod_cons_test.sh "cpp"
-          ls -l
       - name: Test DYAD with separate FS python
         timeout-minutes: 2
         run: |
@@ -355,9 +353,7 @@ jobs:
           PYTHON_VER=$(python3 -c "import sys; print(f'python{sys.version_info.major}.{sys.version_info.minor}')")
           export PYTHONPATH=${GITHUB_WORKSPACE}/pydyad:${PYTHONPATH}:${DYAD_INSTALL_PREFIX}/lib/${PYTHON_VER}/site-packages
           echo "Starting flux brokers"
-          pwd
           flux start --test-size=2 -o,-S,log-filename=flux.log /bin/bash ${GITHUB_WORKSPACE}/.github/prod-cons/dyad_prod_cons_test.sh "python"
-          ls -l
       #- name: Test DYAD with DLIO benchmark
       #  timeout-minutes: 10
       #  run: |
@@ -371,4 +367,17 @@ jobs:
           #echo "Starting flux brokers"
           #cd ${GITHUB_WORKSPACE}/tests/integration/dlio_benchmark
           #flux start --test-size=2 /bin/bash ./script.sh ${GITHUB_WORKSPACE} ${DYAD_INSTALL_PREFIX}
-
+      - name: Print output file if failed
+        if: ${{ failure() }}
+        run: |
+          pwd
+          ls -l
+          echo "=== Displaying flux.log ==="
+          cat flux.log || echo "flux.log not found"
+      - name: Upload logs on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: flux.log
+          path: flux.log
+          if-no-files-found: ignore
