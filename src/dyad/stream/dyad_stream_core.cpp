@@ -283,7 +283,7 @@ int dyad_stream_core::file_lock_shared (int fd) const
 {
     struct flock shared_flock;
 
-    dyad_rc_t rc = dyad_excl_flock (m_ctx, fd, &shared_flock);
+    dyad_rc_t rc = dyad_shared_flock (m_ctx, fd, &shared_flock);
 
     if (DYAD_IS_ERROR (rc)) {
         dyad_release_flock (m_ctx, fd, &shared_flock);

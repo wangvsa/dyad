@@ -40,52 +40,219 @@ struct dyad_metadata {
 typedef struct dyad_metadata dyad_metadata_t;
 
 /**
- * @brief Wrapper function that performs all the common tasks needed
- *        of a producer
- * @param[in] ctx    the DYAD context for the operation
- * @param[in] fname  the name of the file being "produced"
+ * @brief Publishes a file under a DYAD-managed directory so it is available to consumers.
  *
- * @return An error code from dyad_rc.h
+ * @details
+ * If @p fname falls under the producer-managed path, this function publishes
+ * the file's metadata to the Flux KVS via @c dyad_commit(), signaling to
+ * consumers that the file is ready to be read.
+ *
+ * This function is the producer-side counterpart to @c dyad_consume(). It
+ * does not transfer file data directly; instead it notifies the DYAD
+ * infrastructure that the file has been written, allowing waiting consumers
+ * to proceed with retrieval.
+ *
+ * @param[in]     ctx    Pointer to the DYAD context. Must not be @c NULL and must
+ *                       have a valid @c prod_managed_path set.
+ * @param[in]     fname  Path to the file that has been written and is ready for
+ *                       consumption.
+ *
+ * @return @c dyad_rc_t return code indicating the outcome:
+ * @retval DYAD_RC_OK              The file was successfully published.
+ * @retval DYAD_RC_NOCTX           The context @p ctx or its Flux handle is @c NULL.
+ * @retval DYAD_RC_BADMANAGEDPATH  The producer-managed path in the context is @c NULL.
+ * @retval DYAD_RC_*               Any error code propagated from @c dyad_commit().
+ *
+ * @note The caller is responsible for ensuring the file has been fully written
+ *       and flushed to storage before calling this function, as consumers may
+ *       begin reading the file immediately upon notification.
+ *
+ * @warning The caller must ensure @p ctx remains valid for the duration of this call.
  */
 DYAD_PFA_ANNOTATE DYAD_DLL_EXPORTED dyad_rc_t dyad_produce (dyad_ctx_t *ctx, const char *fname);
 
 /**
- * @brief Obtain DYAD metadata for a file in the consumer-managed directory
- * @param[in]  ctx         the DYAD context for the operation
- * @param[in]  fname       the name of the file for which metadata is obtained
- * @param[in]  should_wait if true, wait for the file to be produced before
- * returning
- * @param[out] mdata       a dyad_metadata_t object containing the metadata for
- * the file
+ * @brief Retrieves metadata for a file under a DYAD-managed directory.
  *
- * @return An error code from dyad_rc.h
+ * @details
+ * Resolves @p fname to a path relative to the consumer-managed directory and
+ * populates @p mdata with the file's metadata. This is used by the Python API
+ * and is intended to be paired with @c dyad_consume_w_metadata(), which uses
+ * the populated metadata to perform the actual data transfer.
+ *
+ * If the file already exists locally, metadata is constructed directly from
+ * the local file without consulting the Flux KVS. Otherwise, the metadata is
+ * looked up from the KVS, optionally blocking until the producer publishes it.
+ *
+ * Unlike @c dyad_consume(), files outside the consumer-managed path are not
+ * silently ignored — @c DYAD_RC_UNTRACKED is returned instead, allowing the
+ * caller to distinguish between a managed file that is not yet available and
+ * a file that DYAD is not responsible for.
+ *
+ * On error, any partially allocated @p mdata is freed before returning.
+ *
+ * @param[in]     ctx          Pointer to the DYAD context. Must not be @c NULL.
+ * @param[in]     fname        Path to the file whose metadata is to be retrieved.
+ *                             Must not be @c NULL or empty. May be an absolute path
+ *                             or, if @c ctx->relative_to_managed_path is set, a path
+ *                             relative to @c ctx->cons_managed_path.
+ * @param[in]     should_wait  If @c true, block until the producer publishes the
+ *                             file's metadata to the KVS. If @c false, return
+ *                             immediately if the metadata is not yet available.
+ * @param[out]    mdata        Address of a @c dyad_metadata_t pointer to be populated.
+ *                             Must not be @c NULL. If @c *mdata is already allocated,
+ *                             it is reused; otherwise a new object is allocated.
+ *                             The caller is responsible for freeing it via
+ *                             @c dyad_free_metadata() when no longer needed.
+ *
+ * @return @c dyad_rc_t return code indicating the outcome:
+ * @retval DYAD_RC_OK        Metadata was successfully retrieved.
+ * @retval DYAD_RC_UNTRACKED @p fname is not under the consumer-managed path.
+ * @retval DYAD_RC_NOTFOUND  The file exists locally but @p mdata is @c NULL.
+ * @retval DYAD_RC_BADFIO    @p fname is an empty string.
+ * @retval DYAD_RC_SYSFAIL   Memory allocation for the metadata object failed.
+ * @retval DYAD_RC_*         Any error code propagated from @c dyad_kvs_read().
+ *
+ * @note This function temporarily sets @c ctx->reenter to @c false during
+ *       execution to prevent re-entrant interception, restoring it to @c true
+ *       before returning.
  */
 DYAD_PFA_ANNOTATE DYAD_DLL_EXPORTED dyad_rc_t dyad_get_metadata (dyad_ctx_t *ctx,
                                                                  const char *fname,
                                                                  bool should_wait,
                                                                  dyad_metadata_t **mdata);
 
+/**
+ * @brief Frees a @c dyad_metadata_t object allocated by @c dyad_get_metadata().
+ *
+ * @details
+ * Releases all memory associated with @p mdata, including the internal file
+ * path string, and sets @c *mdata to @c NULL. If @p mdata or @c *mdata is
+ * @c NULL, the function returns @c DYAD_RC_OK without taking any action.
+ *
+ * @param[in]     mdata  Address of the @c dyad_metadata_t pointer to free.
+ *                       Set to @c NULL on return.
+ *
+ * @return @c dyad_rc_t return code indicating the outcome:
+ * @retval DYAD_RC_OK  The metadata was successfully freed, or was already @c NULL.
+ */
 DYAD_PFA_ANNOTATE DYAD_DLL_EXPORTED dyad_rc_t dyad_free_metadata (dyad_metadata_t **mdata);
 
 /**
- * @brief Wrapper function that performs all the common tasks needed
- *        of a consumer
- * @param[in] ctx    the DYAD context for the operation
- * @param[in] fname  the name of the file being "consumed"
+ * @brief Ensures a file under a DYAD-managed directory is ready to be read.
  *
- * @return An error code from dyad_rc.h
+ * @details
+ * If @p fname falls under the consumer-managed path, this function ensures the
+ * file is fully available before the caller proceeds to read it.
+ *
+ * If @p fname is not under the consumer-managed path, the function returns
+ * @c DYAD_RC_OK immediately without taking any action.
+ *
+ * The behavior depends on the underlying storage configuration:
+ *
+ * - **Shared storage** (e.g., a parallel or network filesystem visible across
+ *   multiple nodes): The file is visible to all consumers if it exists. An
+ *   exclusive lock is acquired to synchronize access. A file size of zero
+ *   indicates the producer has not yet written the file, so the lock is
+ *   released and the function waits for the file to be published via the
+ *   Flux KVS before returning. No data transfer is performed since the file
+ *   is directly accessible once available.
+ *
+ * - **Node-local storage**: The file being empty means it is either not yet
+ *   produced or not yet visible locally. While holding the exclusive lock, the
+ *   function waits for the file to be published via the Flux KVS. Since the
+ *   producer does not participate in locking, it may write the file during
+ *   this wait. When metadata is returned by @c dyad_fetch_metadata(), if the
+ *   file has local visibility (e.g., the producer is on the same node and has
+ *   already written the file), @c dyad_fetch_metadata() frees and nulls the
+ *   metadata object to signal that no remote transfer is needed. Otherwise,
+ *   the file data is retrieved from the remote producer's Flux broker via
+ *   @c dyad_get_data(), written to local disk, and the lock is released.
+ *
+ *
+ * An exclusive lock is acquired to synchronize among concurrent consumers
+ * racing to check and potentially fetch the same file. Because POSIX @c fcntl
+ * locks are cooperative, the producer — which does not acquire any lock — is
+ * unaffected and may write the file regardless of any consumer lock held.
+ *
+ * @param[in]     ctx    Pointer to the DYAD context. Must not be @c NULL and must
+ *                       have a valid @c cons_managed_path set.
+ * @param[in]     fname  Path to the file to be checked and made ready. May be an
+ *                       absolute path or, if @c ctx->relative_to_managed_path is
+ *                       set, a path relative to @c ctx->cons_managed_path.
+ *
+ * @return @c dyad_rc_t return code indicating the outcome:
+ * @retval DYAD_RC_OK              The file is ready to read, was already available,
+ *                                 or is not under the managed path (no action needed).
+ * @retval DYAD_RC_NOCTX           The context @p ctx or its Flux handle is @c NULL.
+ * @retval DYAD_RC_BADMANAGEDPATH  The consumer-managed path in the context is @c NULL.
+ * @retval DYAD_RC_BADFIO          A file I/O error occurred (open or close failed).
+ * @retval DYAD_RC_*               Any error code propagated from @c dyad_excl_flock(),
+ *                                 @c dyad_fetch_metadata(), @c dyad_get_data(), or
+ *                                 @c dyad_cons_store().
+ *
+ * @note This function temporarily sets @c ctx->reenter to @c false during execution
+ *       to prevent re-entrant interception, restoring it to @c true before returning.
+ *
+ * @warning The caller must ensure @p ctx remains valid for the duration of this call.
  */
 DYAD_PFA_ANNOTATE DYAD_DLL_EXPORTED dyad_rc_t dyad_consume (dyad_ctx_t *ctx, const char *fname);
 
 /**
- * @brief Wrapper function that performs all the common tasks needed
- *        of a consumer
- * @param[in] ctx    the DYAD context for the operation
- * @param[in] fname  the name of the file being "consumed"
- * @param[in] mdata  a dyad_metadata_t object containing the metadata for the
- * file User is responsible for deallocating this object
+ * @brief Ensures a file is ready to be read using caller-supplied metadata.
  *
- * @return An error code from dyad_rc.h
+ * @details
+ * This is a variant of @c dyad_consume() intended for use by the Python API,
+ * where metadata is managed manually by the caller. Instead of resolving the
+ * file path and consulting the Flux KVS itself, this function accepts a
+ * pre-populated @c dyad_metadata_t object obtained from a prior call to
+ * @c dyad_get_metadata().
+ *
+ * If @p mdata is @c NULL, the file is assumed to be already available locally
+ * and the function returns @c DYAD_RC_OK without taking any action. Otherwise,
+ * if the file is empty (not yet fetched), the function retrieves the file data
+ * from the producer's Flux broker via @c dyad_get_data() and writes it to
+ * local disk via @c dyad_cons_store().
+ *
+ * As with @c dyad_consume(), an exclusive lock is acquired for consumer-to-consumer
+ * synchronization. Because POSIX @c fcntl locks are cooperative, the producer —
+ * which does not acquire any lock — is unaffected and may write the file
+ * regardless of any consumer lock held.
+ *
+ * The typical usage pattern from Python is:
+ *  1. Call @c dyad_get_metadata() to obtain @p mdata, optionally waiting for
+ *     the producer to publish the file.
+ *  2. Pass @p mdata to this function to ensure the file is locally available.
+ *  3. Read the file.
+ *  4. Free @p mdata via @c dyad_free_metadata().
+ *
+ * @param[in]     ctx    Pointer to the DYAD context. Must not be @c NULL and must
+ *                       have a valid @c cons_managed_path set.
+ * @param[in]     fname  Path to the file to be checked and made ready. Must not
+ *                       be @c NULL.
+ * @param[in]     mdata  Metadata for the file, previously obtained via
+ *                       @c dyad_get_metadata() or manually constructed by the
+ *                       caller. If @c NULL, the file is assumed to be locally
+ *                       available and no transfer is performed. The caller retains
+ *                       ownership and is responsible for freeing this object after
+ *                       this function returns.
+ *
+ * @return @c dyad_rc_t return code indicating the outcome:
+ * @retval DYAD_RC_OK              The file is ready to read, or @p mdata was
+ *                                 @c NULL indicating the file is already local.
+ * @retval DYAD_RC_NOCTX           The context @p ctx or its Flux handle is @c NULL.
+ * @retval DYAD_RC_BADMANAGEDPATH  The consumer-managed path in the context is @c NULL.
+ * @retval DYAD_RC_BADFIO          A file I/O error occurred (open or close failed).
+ * @retval DYAD_RC_*               Any error code propagated from @c dyad_excl_flock(),
+ *                                 @c dyad_get_data(), or @c dyad_cons_store().
+ *
+ * @note This function temporarily sets @c ctx->reenter to @c false during execution
+ *       to prevent re-entrant interception, restoring it to @c true before returning.
+ *
+ * @warning The caller must ensure @p ctx remains valid for the duration of this call.
+ * @warning Unlike @c dyad_consume(), this function does not support shared storage;
+ *          it always attempts to fetch and store the file locally when the file
+ *          is empty and @p mdata is non-@c NULL.
  */
 DYAD_PFA_ANNOTATE DYAD_DLL_EXPORTED dyad_rc_t
 dyad_consume_w_metadata (dyad_ctx_t *ctx, const char *fname, const dyad_metadata_t *mdata);

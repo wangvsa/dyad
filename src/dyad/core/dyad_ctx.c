@@ -34,39 +34,39 @@ static __thread dyad_ctx_t *ctx = NULL;
 
 const struct dyad_ctx dyad_ctx_default = {
     // Internal
-    NULL,   // h
-    NULL,   // dtl_handle
-    NULL,   // fname
-    false,  // use_fs_locks
-    NULL,   // prod_real_path
-    NULL,   // cons_real_path
-    0u,     // prod_managed_len
-    0u,     // cons_managed_len
-    0u,     // prod_real_len
-    0u,     // cons_real_len
-    0u,     // prod_managed_hash
-    0u,     // cons_managed_hash
-    0u,     // prod_real_hash
-    0u,     // cons_real_hash
-    0u,     // delim_len
+    NULL,   ///< h
+    NULL,   ///< dtl_handle
+    NULL,   ///< fname
+    false,  ///< use_fs_locks
+    NULL,   ///< prod_real_path
+    NULL,   ///< cons_real_path
+    0u,     ///< prod_managed_len
+    0u,     ///< cons_managed_len
+    0u,     ///< prod_real_len
+    0u,     ///< cons_real_len
+    0u,     ///< prod_managed_hash
+    0u,     ///< cons_managed_hash
+    0u,     ///< prod_real_hash
+    0u,     ///< cons_real_hash
+    0u,     ///< delim_len
     // User facing
-    false,  // debug
-    false,  // check
-    false,  // reenter
-    true,   // initialized
-    false,  // shared_storage
-    false,  // async_publish
-    false,  // fsync_write
-    3u,     // key_depth
-    1024u,  // key_bins
-    0u,     // rank
-    1u,     // service_mux
-    0u,     // node_idx
-    -1,     // pid
-    NULL,   // kvs_namespace
-    NULL,   // prod_managed_path
-    NULL,   // cons_managed_path
-    false   // relative_to_managed_path
+    false,  ///< debug
+    false,  ///< check
+    false,  ///< reenter
+    true,   ///< initialized
+    false,  ///< shared_storage
+    false,  ///< async_publish
+    false,  ///< fsync_write
+    3u,     ///< key_depth
+    1024u,  ///< key_bins
+    0u,     ///< rank
+    1u,     ///< service_mux
+    0u,     ///< node_idx
+    -1,     ///< pid
+    NULL,   ///< kvs_namespace
+    NULL,   ///< prod_managed_path
+    NULL,   ///< cons_managed_path
+    false   ///< relative_to_managed_path
 };
 
 DYAD_DLL_EXPORTED dyad_ctx_t *dyad_ctx_get (void)

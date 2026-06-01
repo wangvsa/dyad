@@ -126,6 +126,18 @@ static inline int is_wronly (int fd)
  *                                                                           *
  *****************************************************************************/
 
+/**
+ * @brief Initializes the DYAD GOTCHA wrapper.
+ *
+ * @details
+ * Initializes the DYAD context via @c dyad_ctx_init(), which internally
+ * calls @c dyad_init_env() to read configuration from environment variables,
+ * which in turn calls @c dyad_init() to set up the full DYAD context.
+ * After initialization, registers the GOTCHA bindings in @c dyad_bindings
+ * and optionally sets the GOTCHA interception priority from the
+ * @c DYAD_GOTCHA_PRIORITY environment variable. Called automatically at
+ * library load time via a constructor attribute.
+ */
 void dyad_wrapper_init (void)
 {
 #if DYAD_PROFILER == 3
@@ -148,6 +160,16 @@ void dyad_wrapper_init (void)
     DYAD_C_FUNCTION_END ();
 }
 
+/**
+ * @brief Finalizes the DYAD GOTCHA wrapper.
+ *
+ * @details
+ * Finalizes the DYAD context via @c dyad_ctx_fini(), which internally calls
+ * @c dyad_finalize() to flush and release DYAD resources, which in turn
+ * calls @c dyad_clear() to free the context and reset it to its initial
+ * state. Called automatically at library unload time via a destructor
+ * attribute.
+ */
 void dyad_wrapper_fini (void)
 {
     DYAD_C_FUNCTION_START ();
@@ -159,6 +181,49 @@ void dyad_wrapper_fini (void)
 #endif
 }
 
+/**
+ * @brief GOTCHA wrapper for @c open() that integrates DYAD synchronization
+ *        and data transfer.
+ *
+ * @details
+ * Intercepts @c open() calls and performs DYAD consumer or producer-side
+ * operations before delegating to the real @c open().
+ *
+ * On the consumer side, if the context is valid and the re-entrancy guard is
+ * not active, calls @c dyad_consume() which ensures the file is ready,
+ * potentially triggering a data transfer from the producer if the file is
+ * not yet locally available.
+ *
+ * On the producer side, after a successful @c open() in write or append mode
+ * on a file under the producer-managed path, acquires an exclusive lock to
+ * protect the file from consumers that may have direct visibility (e.g. via
+ * shared storage or co-location on the same node). No data transfer is
+ * performed on the producer side at open time; that is handled by
+ * @c dyad_close_wrapper() when the file is closed.
+ *
+ * The following cases bypass synchronization and go directly to the real
+ * @c open():
+ *  - The file is a directory, or is not opened read-only — consumer sync
+ *    is not applicable.
+ *  - The DYAD context is invalid or the re-entrancy guard is active,
+ *    indicating this call originated from within a DYAD operation and
+ *    must not be intercepted again.
+ *
+ * @param[in] path   Path to the file to open.
+ * @param[in] oflag  Open flags passed to @c open(). If @c O_CREAT is set,
+ *                   the @p mode argument is extracted from the variadic list.
+ * @param[in] ...    Optional @c mode_t permission bits, required when
+ *                   @c O_CREAT is set in @p oflag.
+ *
+ * @return int
+ * @retval >=0  File descriptor returned by the real @c open().
+ * @retval -1   The GOTCHA wrappee could not be retrieved (@c errno set to
+ *              @c ENOSYS), or the real @c open() failed (@c errno set by
+ *              @c open()).
+ *
+ * @note This function is registered with GOTCHA and is not intended to be
+ *       called directly.
+ */
 static int dyad_open_wrapper (const char *path, int oflag, ...)
 {
     DYAD_C_FUNCTION_START ();
@@ -223,6 +288,15 @@ real_call:;
     return ret;
 }
 
+/**
+ * @brief GOTCHA wrapper for @c fopen() that integrates DYAD synchronization.
+ *
+ * @details
+ * Functionally equivalent to @c dyad_open_wrapper() but intercepts
+ * @c fopen() instead of @c open().
+ *
+ * @see dyad_open_wrapper()
+ */
 static FILE *dyad_fopen_wrapper (const char *path, const char *mode)
 {
     DYAD_C_FUNCTION_START ();
@@ -280,6 +354,40 @@ real_call:;
     return fh;
 }
 
+/**
+ * @brief GOTCHA wrapper for @c close() that integrates DYAD producer-side
+ *        synchronization.
+ *
+ * @details
+ * Intercepts @c close() calls to notify consumers that a file is ready via
+ * @c dyad_produce(). Unlike @c dyad_open_wrapper(), which may trigger data
+ * transfer on the consumer side, this wrapper is purely about signaling —
+ * it publishes the file's metadata to the Flux KVS so that waiting consumers
+ * can proceed, but does not perform any data transfer itself.
+ *
+ * If the file descriptor is valid, the context is valid, the re-entrancy
+ * guard is not active, the descriptor does not refer to a directory, and the
+ * file was opened for writing, the wrapper:
+ *  1. Optionally calls @c fsync() and @c dyad_sync_directory() if
+ *     @c ctx->fsync_write is enabled.
+ *  2. Releases the exclusive lock acquired during @c dyad_open_wrapper().
+ *  3. Calls the real @c close().
+ *  4. Calls @c dyad_produce() to publish the file metadata to the Flux KVS
+ *
+ * If any of the preconditions are not met, or the file was not opened for
+ * writing, the real @c close() is called directly without synchronization.
+ *
+ * @param[in] fd  File descriptor to close.
+ *
+ * @return int
+ * @retval  0  The file was successfully closed.
+ * @retval -1  The GOTCHA wrappee could not be retrieved (@c errno set to
+ *             @c ENOSYS), or the real @c close() failed (@c errno set by
+ *             @c close()).
+ *
+ * @note This function is registered with GOTCHA and is not intended to be
+ *       called directly.
+ */
 static int dyad_close_wrapper (int fd)
 {
     DYAD_C_FUNCTION_START ();
@@ -366,6 +474,15 @@ real_call:;  // semicolon here to avoid the error
     return rc;
 }
 
+/**
+ * @brief GOTCHA wrapper for @c fclose() that integrates DYAD synchronization.
+ *
+ * @details
+ * Functionally equivalent to @c dyad_close_wrapper() but intercepts
+ * @c fclose() instead of @c close().
+ *
+ * @see dyad_close_wrapper()
+ */
 static int dyad_fclose_wrapper (FILE *fp)
 {
     DYAD_C_FUNCTION_START ();
@@ -451,6 +568,16 @@ real_call:;
     return rc;
 }
 
+/**
+ * @brief GOTCHA wrapper for @c open64() that integrates DYAD synchronization
+ *        and data transfer.
+ *
+ * @details
+ * Functionally equivalent to @c dyad_open_wrapper() but intercepts
+ * @c open64() instead of @c open().
+ *
+ * @see dyad_open_wrapper()
+ */
 static int dyad_open64_wrapper (const char *path, int oflag, ...)
 {
     DYAD_C_FUNCTION_START ();
@@ -515,6 +642,16 @@ real_call:;
     return ret;
 }
 
+/**
+ * @brief GOTCHA wrapper for @c fopen64() that integrates DYAD synchronization
+ *        and data transfer.
+ *
+ * @details
+ * Functionally equivalent to @c dyad_open_wrapper() but intercepts
+ * @c fopen64() instead of @c open().
+ *
+ * @see dyad_fopen_wrapper()
+ */
 static FILE *dyad_fopen64_wrapper (const char *path, const char *mode)
 {
     DYAD_C_FUNCTION_START ();
@@ -572,6 +709,15 @@ real_call:;
     return fh;
 }
 
+/**
+ * @brief GOTCHA wrapper for @c close64() that integrates DYAD synchronization.
+ *
+ * @details
+ * Functionally equivalent to @c dyad_close_wrapper() but intercepts
+ * @c close64() instead of @c close().
+ *
+ * @see dyad_close_wrapper()
+ */
 static int dyad_close64_wrapper (int fd)
 {
     DYAD_C_FUNCTION_START ();
@@ -658,6 +804,21 @@ real_call:;  // semicolon here to avoid the error
     return rc;
 }
 
+/**
+ * @brief GOTCHA wrapper for @c fclose64() that integrates DYAD synchronization.
+ *
+ * @details
+ * Functionally equivalent to @c dyad_close_wrapper() but intercepts
+ * @c fclose64() instead of @c close().
+ *
+ * @note @c fclose64() is not a standard POSIX function unlike the other
+ *       64-bit variants (@c open64(), @c fopen64(), @c close64()). It is
+ *       provided here for symmetry and platform-specific compatibility.
+ *       On most systems @c fclose() already handles large files and
+ *       @c fclose64() is simply an alias for it.
+ *
+ * @see dyad_fclose_wrapper()
+ */
 static int dyad_fclose64_wrapper (FILE *fp)
 {
     DYAD_C_FUNCTION_START ();
