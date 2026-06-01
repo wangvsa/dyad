@@ -1,4 +1,7 @@
-Sphinx<7.0.0
+Sphinx
 sphinx-rtd-theme
 myst-parser
+roman
+roman-numerals-py
 rst2pdf
+breathe

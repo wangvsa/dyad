@@ -30,8 +30,14 @@ author = 'This page is maintained by the <a href="https://github.com/flux-framew
 extensions = [
     "sphinx.ext.autosectionlabel",
     'myst_parser',
-    'rst2pdf.pdfbuilder',
 ]
+
+# Try to load rst2pdf for PDF output
+try:
+    import rst2pdf
+    extensions.append('rst2pdf.pdfbuilder')
+except (ImportError, Exception):
+    pass
 
 # This line explicitly tells Sphinx which parser to use for each extension
 source_suffix = {
@@ -59,3 +65,25 @@ html_theme = 'sphinx_rtd_theme'
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+
+
+# -- Options for Breathe  ---------------------------------------------------
+
+# Conditionally enable Breathe to bridge Doxygen XML into Sphinx
+
+try:
+    import breathe
+    import os
+    xml_path = os.path.join(os.path.dirname(__file__), "doxygen/xml")
+    print(f"Breathe found. XML path: {xml_path}")
+    print(f"XML exists: {os.path.exists(os.path.join(xml_path, 'index.xml'))}")
+    if os.path.exists(os.path.join(xml_path, "index.xml")):
+        extensions.append('breathe')
+        breathe_projects = {"dyad": xml_path}
+        breathe_default_project = "dyad"
+        tags.add('has_breathe')
+        print("Breathe enabled.")
+    else:
+        print("Warning: Doxygen XML not found, skipping API doc generation.")
+except ImportError:
+    print("Breathe not installed, skipping API doc generation.")

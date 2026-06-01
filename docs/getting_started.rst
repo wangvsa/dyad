@@ -145,6 +145,7 @@ There are several custom CMake options available to configure a DYAD build:
    * - DYAD_WARNINGS_AS_ERRORS
      - ON, **OFF**
      - Turn compiler warnings into errors
+   * - **Dependency Path**
      -
      -
    * - FLUX_CORE_PREFIX

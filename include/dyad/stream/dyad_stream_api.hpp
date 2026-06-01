@@ -379,6 +379,9 @@ void unlock_fstream (std::basic_fstream<_CharT, _Traits>& os, const dyad_stream_
         core.file_unlock (fd);
     }
 }
+//----------------------------------------------------------------------
+#endif  // DYAD_HAS_STD_FSTREAM_FD
+//----------------------------------------------------------------------
 
 /**
  * @defgroup dyad_cpp_lock_macros DYAD C++ stream locking macros
@@ -417,10 +420,7 @@ void unlock_fstream (std::basic_fstream<_CharT, _Traits>& os, const dyad_stream_
 #define DYAD_UNLOCK_CPP_OFSTREAM(_os_, _core_) unlock_ofstream (_os_, _core_)
 #define DYAD_UNLOCK_CPP_IFSTREAM(_os_, _core_) unlock_ifstream (_os_, _core_)
 #define DYAD_UNLOCK_CPP_FSTREAM(_os_, _core_) unlock_fstream (_os_, _core_)
-/** @} */
-
 #else  // DYAD_HAS_STD_FSTREAM_FD
-
 #define DYAD_EXCLUSIVE_LOCK_CPP_OFSTREAM(_os_, _core_)
 #define DYAD_EXCLUSIVE_LOCK_CPP_FSTREAM(_os_, _core_)
 #define DYAD_SHARED_LOCK_CPP_IFSTREAM(_os_, _core_)
@@ -428,9 +428,8 @@ void unlock_fstream (std::basic_fstream<_CharT, _Traits>& os, const dyad_stream_
 #define DYAD_UNLOCK_CPP_OFSTREAM(_os_, _core_)
 #define DYAD_UNLOCK_CPP_IFSTREAM(_os_, _core_)
 #define DYAD_UNLOCK_CPP_FSTREAM(_os_, _core_)
-//----------------------------------------------------------------------
 #endif  // DYAD_HAS_STD_FSTREAM_FD
-//----------------------------------------------------------------------
+/** @} */
 
 //=============================================================================
 // basic_ifstream_dyad (std::basic_ifstream wrapper)

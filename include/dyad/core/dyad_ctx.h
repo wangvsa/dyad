@@ -198,7 +198,7 @@ DYAD_DLL_EXPORTED dyad_rc_t dyad_init_env (const dyad_dtl_comm_mode_t dtl_comm_m
  * @brief Switches the DYAD Data Transport Layer (DTL) to a new mode.
  *
  * @details
- * Resolves @p dtl_name to a @c dyad_dtl_mode_t value, finalizes the current
+ * Resolves @p dtl_mode_name to a @c dyad_dtl_mode_t value, finalizes the current
  * DTL handle via @c dyad_dtl_finalize(), and reinitializes it with the new
  * mode via @c dyad_dtl_init(). This allows the DTL to be changed at runtime
  * without reinitializing the full DYAD context.
@@ -207,14 +207,14 @@ DYAD_DLL_EXPORTED dyad_rc_t dyad_init_env (const dyad_dtl_comm_mode_t dtl_comm_m
  * @c DYAD_DTL_DEFAULT, @c DYAD_DTL_UCX, @c DYAD_DTL_MARGO, and
  * @c DYAD_DTL_FLUX_RPC.
  *
- * @param[in] dtl_name       Name of the DTL mode to switch to. Must not be
+ * @param[in] dtl_mode_name  Name of the DTL mode to switch to. Must not be
  *                           @c NULL and must match one of the supported mode
  *                           name strings.
  * @param[in] dtl_comm_mode  Communication mode for the new DTL instance.
  *
  * @return @c dyad_rc_t return code indicating the outcome:
  * @retval DYAD_RC_OK          The DTL was successfully switched and initialized.
- * @retval DYAD_RC_BADDTLMODE  @p dtl_name is @c NULL or does not match any
+ * @retval DYAD_RC_BADDTLMODE  @p dtl_mode_name is @c NULL or does not match any
  *                             supported DTL mode name.
  * @retval DYAD_RC_*           Any error code propagated from
  *                             @c dyad_dtl_finalize() or @c dyad_dtl_init().
@@ -247,7 +247,7 @@ DYAD_DLL_EXPORTED dyad_rc_t dyad_set_and_init_dtl_mode (const char *dtl_mode_nam
  * The re-entrancy guard (@c ctx->reenter) is disabled for the duration
  * of this call and restored before returning.
  *
- * @param[in] prod_managed_path  Path to the producer-managed directory.
+ * @param[in] path               Path to the producer-managed directory.
  *                               May be @c NULL to clear the producer path.
  *
  * @return @c dyad_rc_t return code indicating the outcome:
@@ -272,7 +272,7 @@ DYAD_DLL_EXPORTED dyad_rc_t dyad_set_prod_path (const char *path);
  * Functionally equivalent to @c dyad_set_prod_path() but sets the
  * consumer-managed directory path (@c ctx->cons_managed_path).
  *
- * @param[in] cons_managed_path  Path to the consumer-managed directory.
+ * @param[in] path               Path to the consumer-managed directory.
  *                               May be @c NULL to clear the consumer path.
  *
  * @return @c dyad_rc_t return code indicating the outcome. See

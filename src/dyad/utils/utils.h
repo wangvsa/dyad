@@ -328,7 +328,7 @@ int mkdir_as_needed (const char *path, const mode_t m);
  * @brief Resolves the file path associated with an open file descriptor.
  *
  * @details
- * Reads the symbolic link @c /proc/self/fd/<fd> via @c readlink() to obtain
+ * Reads the symbolic link @c /proc/self/fd/ followed by @p fd via @c readlink() to obtain
  * the path of the file currently open on @p fd, and writes the result into
  * @p path. This is a Linux-specific mechanism and requires @c /proc to be
  * mounted.
@@ -494,6 +494,7 @@ dyad_rc_t dyad_shared_flock (const dyad_ctx_t *__restrict__ ctx,
  * If @p lock is @c NULL, the function returns without taking any action.
  *
  * @return @c dyad_rc_t Return code indicating the outcome:
+ * @param[in]     ctx   DYAD context.
  * @param[in]     fd    File descriptor of the open file to unlock.
  * @param[in,out] lock  Pointer to the @c flock structure previously populated
  *                      by @c dyad_excl_flock() or @c dyad_shared_flock().

@@ -1,0 +1,36 @@
+GENERATE_XML = YES
+XML_OUTPUT   = xml
+OUTPUT_DIRECTORY = doxygen
+INPUT = ../include/dyad/client \
+        ../include/dyad/common \
+        ../include/dyad/core \
+        ../include/dyad/stream \
+        ../src/dyad/client \
+        ../src/dyad/common \
+        ../src/dyad/core \
+        ../src/dyad/dtl \
+        ../src/dyad/service \
+        ../src/dyad/service/flux_module \
+        ../src/dyad/stream \
+        ../src/dyad/utils \
+        ../src/dyad/wrapper
+
+PREDEFINED = DYAD_DLL_EXPORTED= \
+             DYAD_PFA_ANNOTATE= \
+             DYAD_CORE_FUNC_MODS= \
+             DYAD_DLL_EXPORTED= \
+             __restrict__= \
+             restrict= \
+             DYAD_SYNC_DIR=1
+
+MACRO_EXPANSION = YES
+EXPAND_ONLY_PREDEF = YES
+EXTRACT_ALL    = YES
+EXTRACT_STATIC = YES
+INTERNAL_DOCS  = YES
+FILE_PATTERNS  = *.c *.h *.cpp *.hpp
+
+WARN_IF_UNDOCUMENTED = YES
+WARN_NO_PARAMDOC     = YES
+WARN_IF_DOC_ERROR    = YES
+WARN_LOGFILE         = doxygen_warnings.log
