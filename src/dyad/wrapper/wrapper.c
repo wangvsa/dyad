@@ -146,6 +146,8 @@ void dyad_wrapper_init (void)
     DYAD_C_FUNCTION_START ();
     dyad_ctx_init (DYAD_COMM_RECV, NULL);
     ctx = ctx_mutable = dyad_ctx_get ();
+    // See dyad_consume () in dyad_client.c
+    ctx_mutable->use_fs_locks = true;
 
     gotcha_wrap (dyad_bindings,
                  sizeof (dyad_bindings) / sizeof (struct gotcha_binding_t),
@@ -196,9 +198,9 @@ void dyad_wrapper_fini (void)
  *
  * On the producer side, after a successful @c open() in write or append mode
  * on a file under the producer-managed path, acquires an exclusive lock to
- * protect the file from consumers that may have direct visibility (e.g. via
- * shared storage or co-location on the same node). No data transfer is
- * performed on the producer side at open time; that is handled by
+ * prevent consumers, who have direct visibility (e.g. via shared storage or
+ * co-location on the same node), from reading partially written file. No data
+ * transfer is performed on the producer side at open time; that is handled by
  * @c dyad_close_wrapper() when the file is closed.
  *
  * The following cases bypass synchronization and go directly to the real
@@ -268,8 +270,8 @@ static int dyad_open_wrapper (const char *path, int oflag, ...)
 real_call:;
     int ret = (func_ptr (path, oflag, mode));
 
-    // This lock is to protect the file being produced by a producer
-    // from a consumer that has direct access to the file. For example,
+    // This lock is to prevent consumers that has direct access to the file
+    // from reading the file being produced by a producer. For example,
     // either the file is on a shared storage or the consumer is on
     // the same node as where the producer is.
     if ((ret > 0) && (mode == O_WRONLY || mode == O_APPEND) && !is_path_dir (path)) {
@@ -333,8 +335,8 @@ static FILE *dyad_fopen_wrapper (const char *path, const char *mode)
 real_call:;
     FILE *fh = (func_ptr (path, mode));
 
-    // This lock is to protect the file being produced by a producer
-    // from a consumer that has direct access to the file. For example,
+    // This lock is to prevent consumers that has direct access to the file
+    // from reading the file being produced by a producer. For example,
     // either the file is on a shared storage or the consumer is on
     // the same node as where the producer is.
     if ((fh != NULL) && ((strcmp (mode, "w") == 0) || (strcmp (mode, "a") == 0))
@@ -622,8 +624,8 @@ static int dyad_open64_wrapper (const char *path, int oflag, ...)
 real_call:;
     int ret = (func_ptr (path, oflag, mode));
 
-    // This lock is to protect the file being produced by a producer
-    // from a consumer that has direct access to the file. For example,
+    // This lock is to prevent consumers that has direct access to the file
+    // from reading the file being produced by a producer. For example,
     // either the file is on a shared storage or the consumer is on
     // the same node as where the producer is.
     if ((ret > 0) && (mode == O_WRONLY || mode == O_APPEND) && !is_path_dir (path)) {
@@ -688,8 +690,8 @@ static FILE *dyad_fopen64_wrapper (const char *path, const char *mode)
 real_call:;
     FILE *fh = (func_ptr (path, mode));
 
-    // This lock is to protect the file being produced by a producer
-    // from a consumer that has direct access to the file. For example,
+    // This lock is to prevent consumers that has direct access to the file
+    // from reading the file being produced by a producer. For example,
     // either the file is on a shared storage or the consumer is on
     // the same node as where the producer is.
     if ((fh != NULL) && ((strcmp (mode, "w") == 0) || (strcmp (mode, "a") == 0))

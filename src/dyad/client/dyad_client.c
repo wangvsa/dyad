@@ -609,7 +609,7 @@ DYAD_CORE_FUNC_MODS dyad_rc_t dyad_fetch_metadata (const dyad_ctx_t *restrict ct
     // skipped
     DYAD_C_FUNCTION_UPDATE_INT ("owner_rank", (*mdata)->owner_rank);
     DYAD_C_FUNCTION_UPDATE_INT ("node_idx", ctx->node_idx);
-    //if (ctx->shared_storage || ((*mdata)->owner_rank / ctx->service_mux) == ctx->node_idx) {
+    // if (ctx->shared_storage || ((*mdata)->owner_rank / ctx->service_mux) == ctx->node_idx) {
     if (((*mdata)->owner_rank / ctx->service_mux) == ctx->node_idx) {
         DYAD_LOG_INFO (ctx,
                        "Either shared-storage is indicated or the producer rank (%u) is the"
@@ -1139,7 +1139,14 @@ dyad_rc_t dyad_consume (dyad_ctx_t *restrict ctx, const char *restrict fname)
             }
         }
     } else {
-        if (file_size <= 0) {
+        // When use_fs_locks is false, filesystem locking is unavailable
+        // (e.g. DYAD_HAS_STD_FSTREAM_FD is not defined for C++ streams),
+        // so we cannot rely on file size alone to determine if the file is
+        // fully written as producer cannot lock the file it is still writting.
+        // In that case, always fetch metadata from KVS to ensure correctness,
+        // as in the shared storage path. For the C GOTCHA wrapper path,
+        // use_fs_locks is irrelevant and should always be true.
+        if (!ctx->use_fs_locks || file_size <= 0) {
             DYAD_LOG_INFO (ctx,
                            "[node %u rank %u pid %d] File (%s with lock_fd %d) is not "
                            "fetched yet",

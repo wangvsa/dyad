@@ -169,11 +169,15 @@ DYAD_PFA_ANNOTATE DYAD_DLL_EXPORTED dyad_rc_t dyad_free_metadata (dyad_metadata_
  *   the file data is retrieved from the remote producer's Flux broker via
  *   @c dyad_get_data(), written to local disk, and the lock is released.
  *
- *
- * An exclusive lock is acquired to synchronize among concurrent consumers
- * racing to check and potentially fetch the same file. Because POSIX @c fcntl
- * locks are cooperative, the producer — which does not acquire any lock — is
- * unaffected and may write the file regardless of any consumer lock held.
+ *  * An exclusive lock is acquired to serve two purposes. First, the producer
+ * acquires the lock in @c dyad_open_wrapper() to prevent consumers with
+ * direct file visibility (e.g. via shared storage or co-location on the
+ * same node) from reading a partially written file, and releases it in
+ * @c dyad_close_wrapper() once the file is fully written. Second, the
+ * consumer acquires the lock here to ensure that only one consumer performs
+ * the data fetch at a time, with other consumers blocking until the lock is
+ * released. Because POSIX @c fcntl locks are cooperative, these guarantees
+ * only hold between processes that also participate in locking.
  *
  * @param[in]     ctx    Pointer to the DYAD context. Must not be @c NULL and must
  *                       have a valid @c cons_managed_path set.

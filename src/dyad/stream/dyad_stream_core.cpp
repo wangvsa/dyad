@@ -154,8 +154,11 @@ void dyad_stream_core::init (const dyad_params &p)
 #if defined(DYAD_HAS_STD_FSTREAM_FD)
         m_ctx_mutable->use_fs_locks = true;
 #else
-        // Rely on the KVS-based synchronization and disable checking for fs lock
-        // based logic.
+        // Without DYAD_HAS_STD_FSTREAM_FD, the file descriptor cannot be
+        // extracted from the C++ stream object, so local filesystem locking
+        // is unavailable. Falling back to KVS-based synchronization only,
+        // which will perform worse than local locking for files on shared
+        // storage or between co-located producer and consumer.
         m_ctx_mutable->use_fs_locks = false;
 #endif
         log_info ("Stream core is initialized by parameters");
