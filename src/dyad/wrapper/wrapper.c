@@ -137,6 +137,16 @@ static inline int is_wronly (int fd)
  * and optionally sets the GOTCHA interception priority from the
  * @c DYAD_GOTCHA_PRIORITY environment variable. Called automatically at
  * library load time via a constructor attribute.
+ *
+ * Sets @c ctx->use_fs_locks to @c true since the C GOTCHA wrapper always
+ * has direct access to file descriptors and filesystem locking is always
+ * available. See @c dyad_consume() for where this flag is checked.
+ *
+ * @todo If the C GOTCHA wrapper and the C++ stream wrapper ever co-exist
+ *       in the same process, @c use_fs_locks should become context-dependent
+ *       rather than a single global value, since the C++ stream wrapper path
+ *       requires @c DYAD_HAS_STD_FSTREAM_FD to be defined for filesystem
+ *       locking to be available.
  */
 void dyad_wrapper_init (void)
 {
@@ -147,6 +157,8 @@ void dyad_wrapper_init (void)
     dyad_ctx_init (DYAD_COMM_RECV, NULL);
     ctx = ctx_mutable = dyad_ctx_get ();
     // See dyad_consume () in dyad_client.c
+    // TODO: In case that the wrapper and c++ stream wrapper class co-exist
+    // this variable should be context dependent.
     ctx_mutable->use_fs_locks = true;
 
     gotcha_wrap (dyad_bindings,

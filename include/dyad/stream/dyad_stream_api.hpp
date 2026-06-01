@@ -380,6 +380,36 @@ void unlock_fstream (std::basic_fstream<_CharT, _Traits>& os, const dyad_stream_
     }
 }
 
+/**
+ * @defgroup dyad_cpp_lock_macros DYAD C++ stream locking macros
+ * @{
+ *
+ * @brief Macros for acquiring and releasing locks on C++ stream objects.
+ *
+ * @details
+ * When @c DYAD_HAS_STD_FSTREAM_FD is defined (determined automatically by
+ * CMake at configure time by testing whether the file descriptor can be
+ * extracted from a @c std::basic_filebuf via the GCC/libstdc++ internal
+ * @c _M_file.fd()), these macros expand to the corresponding lock functions:
+ *  - @c DYAD_EXCLUSIVE_LOCK_CPP_OFSTREAM  → @c lock_exclusive_ofstream()
+ *  - @c DYAD_EXCLUSIVE_LOCK_CPP_FSTREAM   → @c lock_exclusive_fstream()
+ *  - @c DYAD_SHARED_LOCK_CPP_IFSTREAM     → @c lock_shared_ifstream()
+ *  - @c DYAD_SHARED_LOCK_CPP_FSTREAM      → @c lock_shared_fstream()
+ *  - @c DYAD_UNLOCK_CPP_OFSTREAM          → @c unlock_ofstream()
+ *  - @c DYAD_UNLOCK_CPP_IFSTREAM          → @c unlock_ifstream()
+ *  - @c DYAD_UNLOCK_CPP_FSTREAM           → @c unlock_fstream()
+ *
+ * When @c DYAD_HAS_STD_FSTREAM_FD is not defined, all macros expand to
+ * nothing. Filesystem locking is silently disabled and synchronization
+ * falls back to KVS-based coordination only, which may perform worse for
+ * co-located producers and consumers on node-local storage since the
+ * producer cannot lock the file it is writing.
+ *
+ * @see dyad_stream_core::init(const dyad_params&) where @c use_fs_locks
+ *      is set accordingly.
+ */
+#if defined(DYAD_HAS_STD_FSTREAM_FD)
+#define DYAD_EXCLUSIVE_LOCK_CPP_OFSTREAM(_os_, _core_) lock_exclusive_ofstream (_os_, _core_)
 #define DYAD_EXCLUSIVE_LOCK_CPP_OFSTREAM(_os_, _core_) lock_exclusive_ofstream (_os_, _core_)
 #define DYAD_EXCLUSIVE_LOCK_CPP_FSTREAM(_os_, _core_) lock_exclusive_fstream (_os_, _core_)
 #define DYAD_SHARED_LOCK_CPP_IFSTREAM(_os_, _core_) lock_shared_ifstream (_os_, _core_)
@@ -387,6 +417,7 @@ void unlock_fstream (std::basic_fstream<_CharT, _Traits>& os, const dyad_stream_
 #define DYAD_UNLOCK_CPP_OFSTREAM(_os_, _core_) unlock_ofstream (_os_, _core_)
 #define DYAD_UNLOCK_CPP_IFSTREAM(_os_, _core_) unlock_ifstream (_os_, _core_)
 #define DYAD_UNLOCK_CPP_FSTREAM(_os_, _core_) unlock_fstream (_os_, _core_)
+/** @} */
 
 #else  // DYAD_HAS_STD_FSTREAM_FD
 
