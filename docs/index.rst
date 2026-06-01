@@ -70,7 +70,7 @@ In resolving these challenges, DYAD aims to provide the following to users:
 
 .. toctree::
    :maxdepth: 2
-   :caption: API Reference
+   :caption: Developer API Reference
 
    api/core
    api/stream

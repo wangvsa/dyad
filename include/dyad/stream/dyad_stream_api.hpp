@@ -413,7 +413,6 @@ void unlock_fstream (std::basic_fstream<_CharT, _Traits>& os, const dyad_stream_
  */
 #if defined(DYAD_HAS_STD_FSTREAM_FD)
 #define DYAD_EXCLUSIVE_LOCK_CPP_OFSTREAM(_os_, _core_) lock_exclusive_ofstream (_os_, _core_)
-#define DYAD_EXCLUSIVE_LOCK_CPP_OFSTREAM(_os_, _core_) lock_exclusive_ofstream (_os_, _core_)
 #define DYAD_EXCLUSIVE_LOCK_CPP_FSTREAM(_os_, _core_) lock_exclusive_fstream (_os_, _core_)
 #define DYAD_SHARED_LOCK_CPP_IFSTREAM(_os_, _core_) lock_shared_ifstream (_os_, _core_)
 #define DYAD_SHARED_LOCK_CPP_FSTREAM(_os_, _core_) lock_shared_fstream (_os_, _core_)
