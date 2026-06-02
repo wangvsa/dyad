@@ -75,6 +75,7 @@ In resolving these challenges, DYAD aims to provide the following to users:
    api/core
    api/stream
    api/utility
+   api/service
 
 Indices and tables
 ==================

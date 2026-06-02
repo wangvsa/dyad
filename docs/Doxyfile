@@ -21,7 +21,8 @@ PREDEFINED = DYAD_DLL_EXPORTED= \
              DYAD_DLL_EXPORTED= \
              __restrict__= \
              restrict= \
-             DYAD_SYNC_DIR=1
+             DYAD_SYNC_DIR=1 \
+             "MOD_NAME(x)="
 
 MACRO_EXPANSION = YES
 EXPAND_ONLY_PREDEF = YES

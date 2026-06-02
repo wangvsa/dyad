@@ -41,6 +41,16 @@ namespace dyad
  * A single instance is typically embedded in a stream wrapper object. The
  * context may be initialized either from environment variables via
  * @c init(bool) or from explicit parameters via @c init(const dyad_params&).
+ *
+ * @note @c dyad_stream_core does not initialize the DYAD context
+ *       automatically in its constructor, nor does it tear it down in its
+ *       destructor. Initialization and teardown are costly operations, and
+ *       C++ objects may trigger many implicit copy constructions and
+ *       destructions. The caller is responsible for explicitly calling
+ *       @c dyad_stream_core::init() once and managing the context lifetime.
+ *       stream wrapper classes only performs shallow copy of dyad_stream_core
+ *       object as deep copying is not only costly but also can be desruptive
+ *       by running routines that are supposed to run only once during the run.
  */
 class dyad_stream_core
 {
@@ -57,8 +67,10 @@ class dyad_stream_core
      * @details
      * Retrieves an existing DYAD context via @c dyad_ctx_get() or initializes
      * a new one if none exists, if @p reinit is @c true, or if the
-     * @c DYAD_REINIT environment variable is set. The existence of environment
-     * variables @c DYAD_PATH_PRODUCER and @c DYAD_PATH_CONSUMER limits the
+     * @c DYAD_REINIT environment variable is set. In case of (re)initialization,
+     * it relies on the environment variable-based method, @c dyad_init_env()
+     * which reads configuration from environment variables. The existence of
+     * environment variables @c DYAD_PATH_PRODUCER and @c DYAD_PATH_CONSUMER limits the
      * potential producer and consumer roles role of the enclosing stream wrapper
      * object. Has no effect if already initialized and neither @p reinit nor
      * the environment variable @c DYAD_REINIT is set.

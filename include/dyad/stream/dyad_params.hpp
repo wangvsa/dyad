@@ -22,6 +22,34 @@
 
 namespace dyad
 {
+/**
+ * @brief Configuration parameters for explicit DYAD context initialization.
+ *
+ * @details
+ * Aggregates all configuration options for DYAD into a single object that
+ * can be passed to @c dyad_stream_core::init(const dyad_params&) to
+ * initialize the DYAD context programmatically, bypassing environment
+ * variable-based configuration.
+ *
+ * This is the preferred initialization method when configuration must be
+ * set explicitly in code rather than through environment variables, for
+ * example in applications that manage their own configuration systems or
+ * in testing scenarios where environment variables are not practical.
+ *
+ * Default values are set by the default constructor and reflect a minimal,
+ * no-op configuration — no managed paths, no debug output, default DTL,
+ * and conservative key depth and bin counts. Override only the fields
+ * relevant to your use case.
+ *
+ * @note @c dyad_stream_core does not initialize the DYAD context
+ *       automatically in its constructor, nor does it tear it down in its
+ *       destructor. Initialization and teardown are costly operations, and
+ *       C++ objects may trigger many implicit copy constructions and
+ *       destructions. The caller is responsible for explicitly calling
+ *       @c dyad_stream_core::init() once and managing the context lifetime.
+ *
+ * @see dyad_stream_core::init(const dyad_params&) for explicit initialization.
+ */
 struct dyad_params {
     bool m_debug;
     /** Indicate if the storage associated with the managed path is shared
@@ -53,6 +81,16 @@ struct dyad_params {
     /// A relative path is relative to a managed path
     bool m_relative_to_managed_path;
 
+    /**
+     * @brief Constructs a @c dyad_params object with safe default values.
+     *
+     * @details
+     * All boolean flags default to @c false, managed paths default to empty
+     * strings (disabling producer and consumer operations), key depth and
+     * bins default to conservative values (2 and 256), service multiplexer
+     * defaults to 1 (one broker per node), and the DTL defaults to
+     * @c DYAD_DTL_DEFAULT.
+     */
     dyad_params ()
         : m_debug (false),
           m_shared_storage (false),
