@@ -22,7 +22,7 @@ target_link_libraries(${DYAD_FLUX_MODULE} PRIVATE Jansson::Jansson)
 target_link_libraries(${DYAD_FLUX_MODULE} PRIVATE ${PROJECT_NAME}_dtl)
 target_link_libraries(${DYAD_FLUX_MODULE} PRIVATE ${PROJECT_NAME}_ctx)
 target_link_libraries(${DYAD_FLUX_MODULE} PRIVATE ${PROJECT_NAME}_utils)
-target_compile_definitions(${DYAD_FLUX_MODULE} PUBLIC BUILDING_DYAD=1)
+target_compile_definitions(${DYAD_FLUX_MODULE} PRIVATE BUILDING_DYAD=1)
 target_compile_definitions(${DYAD_FLUX_MODULE} PUBLIC DYAD_HAS_CONFIG)
 target_include_directories(${DYAD_FLUX_MODULE} PUBLIC
     $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/src>
