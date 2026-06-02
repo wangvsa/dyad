@@ -48,7 +48,7 @@ if(DYAD_LOGGER STREQUAL "CPP_LOGGER")
     target_link_libraries(test_cmp_canonical_path_prefix PRIVATE ${CPP_LOGGER_LIBRARIES})
 endif()
 if(DYAD_PROFILER STREQUAL "DFTRACER")
-    target_link_libraries(test_cmp_canonical_path_prefix PRIVATE ${DTRACER_LIBRARIES})
+    target_link_libraries(test_cmp_canonical_path_prefix PRIVATE ${DFTRACER_LIBRARIES})
 endif()
 
 dyad_add_werror_if_needed(${PROJECT_NAME}_utils)

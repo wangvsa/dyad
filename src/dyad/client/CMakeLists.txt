@@ -21,7 +21,7 @@ target_link_libraries(${PROJECT_NAME}_client PRIVATE ${PROJECT_NAME}_utils
                       ${PROJECT_NAME}_murmur3 ${PROJECT_NAME}_dtl)
 target_link_libraries(${PROJECT_NAME}_client PUBLIC ${PROJECT_NAME}_ctx)
 
-target_compile_definitions(${PROJECT_NAME}_client PUBLIC BUILDING_DYAD=1)
+target_compile_definitions(${PROJECT_NAME}_client PRIVATE BUILDING_DYAD=1)
 target_compile_definitions(${PROJECT_NAME}_client PUBLIC DYAD_HAS_CONFIG)
 target_include_directories(${PROJECT_NAME}_client PUBLIC
     $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/src>  # will be used for generated code

@@ -79,8 +79,8 @@ There are several custom CMake options available to configure a DYAD build:
    | Flag                     | Values (**default**)       | Description                                 |
    +==========================+============================+=============================================+
    | DYAD_ENABLE_MARGO_DATA   | ON, **OFF**                | Allow dynamic selection of Margo-based DTL  |
-   | DYAD_ENABLE_UCX_DATA     | ON, **OFF**                | Allow dynamic selection of UCX-based DTL    |
-   | DYAD_ENABLE_UCX_DATA_RMA | ON, **OFF**                | Allow dynamic selection of UCX-based RMA DTL|
+   | DYAD_ENABLE_UCX_DATA     | ON, **OFF**                | Allow dynamic selection of UCX-based RMA DTL|
+   | No option chosen         | NA                         | FLUX RPC-based DTL                          |
    +--------------------------+----------------------------+---------------------------------------------+
    | DYAD_LOGGER              | FLUX, CPP_LOGGER, **NONE** | Choose the method to log stdout/stderr      |
    | DYAD_LOGGER_LEVEL        | DEBUG, INFO, WARN,         | Choose the level of logging                 |
@@ -114,10 +114,10 @@ There are several custom CMake options available to configure a DYAD build:
      - Allow dynamic selection of Margo-based DTL
    * - DYAD_ENABLE_UCX_DATA
      - ON, **OFF**
-     - Allow dynamic selection of UCX-based DTL
-   * - DYAD_ENABLE_UCX_DATA_RMA
-     - ON, **OFF**
      - Allow dynamic selection of UCX-based RMA DTL
+   * - No option chosen
+     - NA
+     - FLUX RPC-based DTL
    * - **Logging and Profiling**
      -
      -
@@ -145,7 +145,7 @@ There are several custom CMake options available to configure a DYAD build:
    * - DYAD_WARNINGS_AS_ERRORS
      - ON, **OFF**
      - Turn compiler warnings into errors
-   * - **Dependency Path**
+   * - **Core Dependency Paths**
      -
      -
    * - FLUX_CORE_PREFIX
@@ -161,6 +161,9 @@ There are several custom CMake options available to configure a DYAD build:
    **mochi-margo** enables seamless adoption of various DTL types. When installed
    via spack, it supports **libfabric** by default, but not UCX. To enable UCX with
    Margo, Mercury (on which Margo depends) must be built with UCX support enabled.
+   Mercury required UCX configure to support multi-threading. That means UCX is
+   installed with either with the Spack option ``+thread_multiple`` or with
+   UCX build config ``--enable-mt``.
    One way to achieve this is to use a Spack environment.
 
    .. code-block:: bash
@@ -172,17 +175,49 @@ There are several custom CMake options available to configure a DYAD build:
       spack concretize --force
       spack install
 
+
+   On LC Corona, to leverage the existing installations of UCX and libfabric under
+   system directories, edit the **spack.yaml** of the Spack environment via the command
+   ``spack config edit packages`` and add the following:
+
+   .. code-block:: yaml
+
+      spack:
+        specs:
+        - mochi-margo
+        - mercury@2.4.1+ofi+sm+ucx ^ucx@1.17.0 ^libfabric@2.3.1
+        view: true
+        concretizer:
+          unify: true
+        packages:
+          libfabric:
+            externals:
+            - spec: "libfabric@2.3.1 fabrics=verbs,tcp,udp,sockets"
+              prefix: /usr
+            buildable: false
+          cmake:
+            externals:
+            - spec: cmake@3.30.5
+              prefix: /usr/tce/packages/cmake/cmake-3.30.5
+              modules:
+              - cmake/3.30.5
+            buildable: false
+            require: cmake@3.30.5
+          ucx:
+            externals:
+            - spec: ucx@1.17.0 +thread_multiple +cma +cuda +gdrcopy +knem +rdmacm +verbs +dc +rc +ud +mlx5_dv
+              prefix: /usr
+            buildable: false
+
+
    To enable a specific DTL type, DYAD requires the environment variable
    ``DYAD_DTL_MODE`` to be set accordingly. At present, three values are
    supported: ``MARGO``, ``UCX``, and ``FLUX_RPC``.
 
    - When ``DYAD_DTL_MODE`` is set to ``UCX`` and DYAD has been built with the
-     CMake option ``DYAD_ENABLE_UCX_DATA_RMA=ON``, data transfer is performed
+     CMake option ``DYAD_ENABLE_UCX_DATA=ON``, data transfer is performed
      asynchronously via **remote memory access (RMA)** to reduce communication
      costs.
-   - When built with ``DYAD_ENABLE_UCX_DATA=ON``, data transfer is synchronous
-     using UCX. In other words, the choice between synchronous and RMA-based UCX
-     is mutually exclusive at compile time.
    - For details on choosing a network protocol with MARGO, see :doc:`runtime_configuration`.
 
    However, the selection between ``MARGO``, ``UCX``, and ``FLUX_RPC`` can be
@@ -229,8 +264,9 @@ simply adding the following before the shell command that launches their applica
    $ LD_PRELOAD=path/to/dyad_wrapper.so
 
 Once preloaded, DYAD's C API will intercept the :code:`open` and :code:`fopen` functions when consuming
-files and the :code:`close` and :code:`fclose` functions when producing files. As a result,
-if their code already uses thse functions, users do not need to change their code.
+files and the :code:`close` and :code:`fclose` functions when producing files.
+(Similar with :code:`open64`, :code:`fopen64`, :code:`close64` and :code:`fclose64`)
+As a result, if their code already uses thse functions, users do not need to change their code.
 
 GOTCHA allows consistent symbol interception behavior when there are multiple
 interception libraries at runtime by controlling the execution order by priority.

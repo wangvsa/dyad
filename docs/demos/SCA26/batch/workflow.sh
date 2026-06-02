@@ -50,6 +50,7 @@ do
                 --env=DYAD_INSTALL_LIBDIR=${DYAD_INSTALL_LIBDIR} \
                 --output=out-cons-${i_task}.txt \
                 --error=err-cons-${i_task}.txt \
+                --unbuffered \
                 ${script_dir}/task_cons.sh ${i_task} ${mode}
     CONS_IDs="${CONS_IDs} $(flux job last)"
 
@@ -58,6 +59,7 @@ do
                 --env=DYAD_INSTALL_LIBDIR=${DYAD_INSTALL_LIBDIR} \
                 --output=out-prod-${i_task}.txt \
                 --error=err-prod-${i_task}.txt \
+                --unbuffered \
                 ${script_dir}/task_prod.sh ${i_task} ${mode}
     PROD_IDs="${PROD_IDs} $(flux job last)"
 done

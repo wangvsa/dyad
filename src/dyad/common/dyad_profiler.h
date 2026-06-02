@@ -7,7 +7,7 @@
 #endif
 
 #ifdef DYAD_PROFILER_DFTRACER  // DFTRACER
-#include <dftracerr/dftracer.h>
+#include <dftracer/dftracer.h>
 #endif
 
 // clang-format off

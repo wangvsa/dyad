@@ -761,9 +761,30 @@ dyad_rc_t dyad_module_ctx_init (const opt_parse_out_t *opt, flux_t *h)
  */
 DYAD_DLL_EXPORTED int mod_main (flux_t *h, int argc, char **argv)
 {
+    /** If this not a singleton init where the duplicate init is noop,
+     *  this can cause an error. cpp-logger is singlton. flux logger is
+     *  not initialized in dyad. So, it is ok for the choices we have
+     *  for now, but it needs to be revisited when adding a new logger
+     *  later. If is similar for profiler. That is why dftracer is
+     *  initialized explicitly to avoid false impression that other
+     *  non-singleton profiler can be initialized at the same places.
+     */
     DYAD_LOGGER_INIT ();
     DYAD_LOG_STDOUT ("DYAD_MOD: Loading mod_main\n");
     dyad_mod_ctx_t *mod_ctx = NULL;
+    uint32_t broker_rank;
+    flux_get_rank (h, &broker_rank);
+
+#ifdef DYAD_PROFILER_DFTRACER
+    /** Note that dftracer is initialized in dyad_init () which is called via
+     *  dyad_module_ctx_init () below. This is only ok because dftracer is
+     *  singleton and has guard against duplicate intialization.
+     *  The subtle issue is that dyad_init () calls
+     *  DFTRACER_C_INIT_NO_BIND (log_file, NULL, NULL) which will be ignored.
+     */
+    int pid = broker_rank;
+    DFTRACER_C_INIT (NULL, NULL, &pid);
+#endif
 
     if (!h) {
         DYAD_LOG_STDERR ("DYAD_MOD: Failed to get flux handle\n");
@@ -771,16 +792,6 @@ DYAD_DLL_EXPORTED int mod_main (flux_t *h, int argc, char **argv)
     }
 
     mod_ctx = get_mod_ctx (h);
-
-    uint32_t broker_rank;
-    flux_get_rank (h, &broker_rank);
-
-#ifdef DYAD_PROFILER_DFTRACER
-    int pid = broker_rank;
-    DFTRACER_C_INIT (NULL, NULL, &pid);
-#endif
-
-    DYAD_C_FUNCTION_START ();
 
     opt_parse_out_t opt = {NULL, NULL, false, false};
 
@@ -798,6 +809,11 @@ DYAD_DLL_EXPORTED int mod_main (flux_t *h, int argc, char **argv)
     if (DYAD_IS_ERROR (dyad_module_ctx_init (&opt, h))) {
         goto mod_error;
     }
+    /** This is not just for dftracer but an alias for other profiler calls as well.
+     *  That is why comes after the potential profiler initialization, which can
+     *  happen during dyad_ctx initialization, i.e., dyad_init ().
+     */
+    DYAD_C_FUNCTION_START ();
 
     if (flux_msg_handler_addvec (mod_ctx->ctx->h, htab, (void *)h, &mod_ctx->handlers) < 0) {
         DYAD_LOG_ERROR (mod_ctx->ctx, "DYAD_MOD: flux_msg_handler_addvec: %s\n", strerror (errno));

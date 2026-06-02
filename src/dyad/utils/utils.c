@@ -495,6 +495,7 @@ bool get_stat (const char* path, unsigned int max_retry, long ns_sleep)
 }
 #endif  // DYAD_SPIN_WAIT
 
+#if 0
 ssize_t get_file_size (int fd)
 {
     const ssize_t file_size = lseek (fd, 0, SEEK_END);
@@ -509,6 +510,16 @@ ssize_t get_file_size (int fd)
     }
     return file_size;
 }
+#else
+ssize_t get_file_size (int fd)
+{
+    struct stat st;
+    if (fstat (fd, &st) == -1) {
+        return 0l;  // errno already set by fstat
+    }
+    return (ssize_t)(st.st_size);
+}
+#endif
 
 dyad_rc_t dyad_excl_flock (const dyad_ctx_t* __restrict__ ctx,
                            int fd,

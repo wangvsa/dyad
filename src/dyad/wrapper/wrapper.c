@@ -148,13 +148,10 @@ static inline int is_wronly (int fd)
  *       requires @c DYAD_HAS_STD_FSTREAM_FD to be defined for filesystem
  *       locking to be available.
  */
-void dyad_wrapper_init (void)
+static __attribute__ ((constructor)) void dyad_wrapper_init (void)
 {
-#if DYAD_PROFILER == 3
-    DFTRACER_C_FINI ();
-#endif
-    DYAD_C_FUNCTION_START ();
     dyad_ctx_init (DYAD_COMM_RECV, NULL);
+    DYAD_C_FUNCTION_START ();  // this is after initialization of profiler
     ctx = ctx_mutable = dyad_ctx_get ();
     // See dyad_consume () in dyad_client.c
     // TODO: In case that the wrapper and c++ stream wrapper class co-exist
@@ -184,15 +181,12 @@ void dyad_wrapper_init (void)
  * state. Called automatically at library unload time via a destructor
  * attribute.
  */
-void dyad_wrapper_fini (void)
+static __attribute__ ((destructor)) void dyad_wrapper_fini (void)
 {
     DYAD_C_FUNCTION_START ();
     DYAD_LOG_DEBUG (ctx, "DYAD Wrapper: Finalized");
+    DYAD_C_FUNCTION_END ();  // this is before teardown of profiler
     dyad_ctx_fini ();
-    DYAD_C_FUNCTION_END ();
-#if DYAD_PROFILER == 3
-    DFTRACER_C_FINI ();
-#endif
 }
 
 /**
