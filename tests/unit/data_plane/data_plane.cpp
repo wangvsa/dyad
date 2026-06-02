@@ -1,6 +1,7 @@
 #include <dyad/common/dyad_logging.h>
-#include <dyad/core/dyad_core_int.h>
 #include <dyad/core/dyad_ctx.h>
+#include <dyad/client/dyad_client_int.h>
+#include <dyad/client/dyad_client.h>
 #include <fcntl.h>
 
 #include <cstddef>
