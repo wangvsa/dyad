@@ -17,7 +17,7 @@
 #include "ucx_dtl.h"
 #endif  // defined (DYAD_ENABLE_UCX_DTL)
 
-dyad_rc_t dyad_dtl_init (dyad_ctx_t* ctx,
+dyad_rc_t dyad_dtl_init (dyad_ctx_t *ctx,
                          dyad_dtl_mode_t mode,
                          dyad_dtl_comm_mode_t comm_mode,
                          bool debug)
@@ -55,7 +55,7 @@ dtl_init_done:;
     return rc;
 }
 
-dyad_rc_t dyad_dtl_finalize (dyad_ctx_t* ctx)
+dyad_rc_t dyad_dtl_finalize (dyad_ctx_t *ctx)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;

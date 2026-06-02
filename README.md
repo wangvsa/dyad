@@ -9,7 +9,7 @@ DYAD transparently synchronizes file access at the file level (rather than the b
 Users simply access files via paths located under the directory managed by the DYAD service.
 
 ### Documentation
-For further information, build and refer to the documentation under `docs`
+For further information, build and refer to the documentation under `docs` or the online copy at [readthedocs](https://dyad.readthedocs.io/en/latest/index.html).
 
 ```
 cd docs
