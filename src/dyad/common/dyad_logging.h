@@ -82,7 +82,8 @@ extern "C" {
 #endif
 
 #ifdef DYAD_LOGGER_LEVEL_WARN
-#define DYAD_LOG_WARN(dyad_ctx, ...) DYAD_NOOP_MACRO
+#define DYAD_LOG_WARN(dyad_ctx, ...) \
+    flux_log ((flux_t *)(((dyad_ctx_t *)dyad_ctx)->h), LOG_WARNING, __VA_ARGS__);
 #else
 #define DYAD_LOG_WARN(dyad_ctx, ...) DYAD_NOOP_MACRO
 #endif
