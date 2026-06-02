@@ -8,7 +8,7 @@ set(DYAD_CTX_PUBLIC_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/../../../include/dyad/co
 
 add_library(${PROJECT_NAME}_ctx SHARED ${DYAD_CTX_SRC}
             ${DYAD_CTX_PUBLIC_HEADERS} ${DYAD_CTX_PRIVATE_HEADERS})
-target_compile_definitions(${PROJECT_NAME}_ctx PUBLIC BUILDING_DYAD=1)
+target_compile_definitions(${PROJECT_NAME}_ctx PRIVATE BUILDING_DYAD=1)
 target_compile_definitions(${PROJECT_NAME}_ctx PUBLIC DYAD_HAS_CONFIG)
 target_include_directories(${PROJECT_NAME}_ctx PUBLIC
   $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/src>

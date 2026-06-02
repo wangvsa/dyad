@@ -39,6 +39,10 @@ echo "Submitting consumer job"
 flux submit --nodes 1 --exclusive -t 10 \
     --env=DYAD_KVS_NAMESPACE=${DYAD_KVS_NAMESPACE} \
     --env=DYAD_DTL_MODE=${DYAD_DTL_MODE} \
+    --env=DYAD_MARGO_PROTO=${DYAD_MARGO_PROTO} \
+    --output=out-cons.txt \
+    --error=err-cons.txt \
+    --unbuffered \
     ${GITHUB_WORKSPACE}/.github/prod-cons/dyad_consumer.sh $mode
 CONS_JOB=$(flux job last)
 
@@ -46,6 +50,10 @@ echo "Submitting producer job"
 flux submit --nodes 1 --exclusive -t 10 \
     --env=DYAD_KVS_NAMESPACE=${DYAD_KVS_NAMESPACE} \
     --env=DYAD_DTL_MODE=${DYAD_DTL_MODE} \
+    --env=DYAD_MARGO_PROTO=${DYAD_MARGO_PROTO} \
+    --output=out-prod.txt \
+    --error=err-prod.txt \
+    --unbuffered \
     ${GITHUB_WORKSPACE}/.github/prod-cons/dyad_producer.sh $mode
 PROD_JOB=$(flux job last)
 

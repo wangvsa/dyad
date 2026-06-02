@@ -109,6 +109,7 @@ public:
                 messageLabel = "explicitly with messages";
             break;
             // These cases are here to prevent compiler warnings
+        case ResultWas::ExplicitSkip:
         case ResultWas::Unknown:
         case ResultWas::FailureBit:
         case ResultWas::Exception:

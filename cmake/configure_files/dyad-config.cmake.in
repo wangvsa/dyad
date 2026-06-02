@@ -1,0 +1,195 @@
+# This will create IMPORTED targets for DYAD. The executables will be
+# dyad::<exe-name>-bin (e.g., dyad::dyad-bin) and the library will
+# be dyad::dyad.
+
+include("${CMAKE_CURRENT_LIST_DIR}/dyad-config-version.cmake")
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/modules")
+list(APPEND CMAKE_MODULE_PATH "@EXTRA_CMAKE_MODULE_DIR@")
+
+
+set(DYAD_VERSION ${PACKAGE_VERSION})
+
+# Record compiler information
+set(DYAD_C_COMPILER "@CMAKE_C_COMPILER@")
+set(DYAD_CXX_COMPILER "@CMAKE_CXX_COMPILER@")
+
+set(DYAD_C_FLAGS "@CMAKE_C_FLAGS@")
+set(DYAD_CXX_FLAGS "@CMAKE_CXX_FLAGS@")
+
+set(DYAD_C_STANDARD "@CMAKE_C_STANDARD@")
+set(DYAD_CXX_STANDARD "@CMAKE_CXX_STANDARD@")
+
+# Using DYAD-specific versions of these variables so that we don't risk
+# polluting user CMake scripts
+set(DYAD_C_STANDARD_REQUIRED TRUE)
+set(DYAD_CXX_STANDARD_REQUIRED TRUE)
+
+# Record the various flags and switches accumlated in DYAD
+set(DYAD_GNU_LINUX @DYAD_GNU_LINUX@)
+set(DYAD_HAS_STD_FILESYSTEM @DYAD_HAS_STD_FILESYSTEM@)
+set(DYAD_HAS_STD_FSTREAM_FD @DYAD_HAS_STD_FSTREAM_FD@)
+
+# Setup dependencies
+
+
+@PACKAGE_INIT@
+
+# Now actually import the DYAD target
+set(_TMP_INCLUDE_DIRS "@DYAD_INSTALL_INCLUDEDIR@")
+foreach (_DIR ${_TMP_INCLUDE_DIRS})
+    if (EXISTS "${_DIR}")
+        set_and_check(_INCLUDE_DIR "${_DIR}")
+        list(APPEND DYAD_INCLUDE_DIRS "${_INCLUDE_DIR}")
+    endif ()
+endforeach ()
+if (DYAD_INCLUDE_DIRS)
+    list(REMOVE_DUPLICATES DYAD_INCLUDE_DIRS)
+endif ()
+
+set(_TMP_LIBRARY_DIRS "@DYAD_LIBDIR@")
+foreach (_DIR ${_TMP_LIBRARY_DIRS})
+    if (EXISTS "${_DIR}")
+        set_and_check(_LIBRARY_DIR "${_DIR}")
+        list(APPEND DYAD_LIBRARY_DIRS "${_LIBRARY_DIR}")
+    endif ()
+endforeach ()
+if (DYAD_LIBRARY_DIRS)
+    list(REMOVE_DUPLICATES DYAD_LIBRARY_DIRS)
+endif ()
+
+set(_dyad_target "")
+if (TARGET dyad::dyad)
+    set(_dyad_target "dyad::dyad")
+elseif (TARGET dyad)
+    set(_dyad_target "dyad")
+else ()
+    include(${CMAKE_CURRENT_LIST_DIR}/dyad-targets.cmake)
+    if (TARGET dyad::dyad)
+        set(_dyad_target "dyad::dyad")
+    elseif (TARGET dyad)
+        set(_dyad_target "dyad")
+    endif ()
+endif ()
+
+if (NOT _dyad_target STREQUAL "")
+    if (DYAD_INCLUDE_DIRS)
+        set_property(TARGET ${_dyad_target} APPEND PROPERTY
+            INTERFACE_INCLUDE_DIRECTORIES "${DYAD_INCLUDE_DIRS}"
+        )
+    endif ()
+    if (DYAD_LIBRARY_DIRS)
+        set_property(TARGET ${_dyad_target} APPEND PROPERTY
+            INTERFACE_LINK_DIRECTORIES "${DYAD_LIBRARY_DIRS}"
+        )
+    endif ()
+endif ()
+
+set(DYAD_LIBRARIES ${_dyad_target})
+
+
+# Restore build-time PKG_CONFIG_PATH as hint, but allow consumer to override
+set(ENV{PKG_CONFIG_PATH} "$ENV{PKG_CONFIG_PATH}:@DYAD_PKG_CONFIG_PATH@")
+find_package(PkgConfig REQUIRED)
+
+set(FluxCore_INCLUDE_DIRS "@FluxCore_INCLUDE_DIRS@")
+set(FluxCore_LIBRARY_PATH "@FluxCore_LIBRARY_PATH@")
+
+pkg_check_modules(FLUX_CORE REQUIRED IMPORTED_TARGET flux-core)
+
+# Use build-time paths as fallback if pkg_check_modules didn't populate them
+if (NOT FLUX_CORE_INCLUDE_DIRS STREQUAL "" AND NOT FLUX_CORE_INCLUDE_DIRS MATCHES "NOTFOUND")
+    set(FluxCore_INCLUDE_DIRS ${FLUX_CORE_INCLUDE_DIRS})
+endif ()
+if (NOT FLUX_CORE_LIBRARY_DIRS STREQUAL "" AND NOT FLUX_CORE_LIBRARY_DIRS MATCHES "NOTFOUND")
+    set(FluxCore_LIBRARY_PATH ${FLUX_CORE_LIBRARY_DIRS})
+endif ()
+
+if (NOT _dyad_target STREQUAL "")
+    set_property(TARGET ${_dyad_target} APPEND PROPERTY
+        INTERFACE_INCLUDE_DIRECTORIES "${FluxCore_INCLUDE_DIRS}")
+    set_property(TARGET ${_dyad_target} APPEND PROPERTY
+        INTERFACE_LINK_DIRECTORIES "${FluxCore_LIBRARY_PATH}")
+    set_property(TARGET ${_dyad_target} APPEND PROPERTY
+        INTERFACE_LINK_LIBRARIES "flux-core")
+endif ()
+
+pkg_check_modules(JANSSON REQUIRED IMPORTED_TARGET jansson)
+if (NOT _dyad_target STREQUAL "")
+    set_property(TARGET ${_dyad_target} APPEND PROPERTY
+        INTERFACE_INCLUDE_DIRECTORIES "${JANSSON_INCLUDE_DIRS}")
+    set_property(TARGET ${_dyad_target} APPEND PROPERTY
+        INTERFACE_LINK_DIRECTORIES "${JANSSON_LIBRARY_DIRS}")
+    set_property(TARGET ${_dyad_target} APPEND PROPERTY
+        INTERFACE_LINK_LIBRARIES "jansson")
+endif ()
+
+find_package(gotcha 2.4.2 REQUIRED)
+if (gotcha_FOUND)
+    message(STATUS "[Dyad] found gotcha at ${gotcha_INCLUDE_DIRS}")
+    set_property(TARGET ${_dyad_target} APPEND PROPERTY
+                 INTERFACE_INCLUDE_DIRECTORIES "${gotcha_INCLUDE_DIRS}")
+    set_property(TARGET ${_dyad_target} APPEND PROPERTY
+                 INTERFACE_LINK_LIBRARIES "${gotcha_LIBRARIES}")
+    set_property(TARGET ${_dyad_target} APPEND PROPERTY
+        INTERFACE_LINK_DIRECTORIES "${gotcha_LIBRARY_PATH}")
+else ()
+    message(FATAL_ERROR "-- [Dyad] gotcha is needed for dyad build")
+endif ()
+
+if (@DYAD_ENABLE_MARGO_DATA@)
+    pkg_check_modules(MARGO REQUIRED IMPORTED_TARGET margo)
+
+    if (NOT _dyad_target STREQUAL "")
+        set_property(TARGET ${_dyad_target} APPEND PROPERTY
+            INTERFACE_INCLUDE_DIRECTORIES "${MARGO_INCLUDE_DIRS}")
+        set_property(TARGET ${_dyad_target} APPEND PROPERTY
+            INTERFACE_LINK_DIRECTORIES "${MARGO_LIBRARY_DIRS}")
+        set_property(TARGET ${_dyad_target} APPEND PROPERTY
+            INTERFACE_LINK_LIBRARIES "margo")
+    endif ()
+endif ()
+
+if (@DYAD_ENABLE_UCX_DATA@)
+    find_package(ucx 1.6 REQUIRED)
+
+    if (NOT _dyad_target STREQUAL "")
+        set_property(TARGET ${_dyad_target} APPEND PROPERTY
+            INTERFACE_INCLUDE_DIRECTORIES "${ucx_INCLUDE_DIRS}")
+        set_property(TARGET ${_dyad_target} APPEND PROPERTY
+            INTERFACE_LINK_DIRECTORIES "${ucx_LIBRARY_DIRS}")
+        set_property(TARGET ${_dyad_target} APPEND PROPERTY
+            INTERFACE_LINK_LIBRARIES "${ucx_LIBRARIES}")
+    endif ()
+endif ()
+
+if (@DYAD_LOGGER_CPP_LOGGER@)
+    find_package(CppLogger 1.1.1 REQUIRED NAMES cpp-logger cpp_logger CPP_LOGGER Cpp_logger)
+    if (cpp-logger_FOUND)
+        message(STATUS "[Dyad] found cpp-logger at ${CPP_LOGGER_INCLUDE_DIRS}")
+        set_property(TARGET ${_dyad_target} APPEND PROPERTY
+                     INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${CPP_LOGGER_INCLUDE_DIRS}")
+        set_property(TARGET ${_dyad_target} APPEND PROPERTY
+                     INTERFACE_LINK_LIBRARIES "${CPP_LOGGER_LIBRARIES}")
+        set_property(TARGET ${_dyad_target} APPEND PROPERTY
+                     INTERFACE_LINK_DIRECTORIES "${CPP_LOGGER_LIBRARY_DIRS}")
+    else ()
+        message(FATAL_ERROR "-- [Dyad] cpp-logger is not found but selected in cmake options for Dyad build")
+    endif ()
+endif()
+
+check_required_components(dyad)
+
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(dyad
+    REQUIRED_VARS DYAD_LIBRARIES DYAD_INCLUDE_DIRS
+)
+set(DYAD_FOUND ${dyad_FOUND})
+
+list(GET DYAD_INCLUDE_DIRS 0 _first_include)
+get_filename_component(DYAD_DIR ${_first_include}/.. ABSOLUTE)
+unset(_first_include)
+set(DYAD_ROOT_DIR "${DYAD_DIR}")
+
+unset(_dyad_target)

@@ -64,19 +64,19 @@ variables is shown below.
 +---------------------+--------------------------------------------------------+
 | ``na+sm``           | Shared memory (current Margo; use ``sm`` for older)    |
 +---------------------+--------------------------------------------------------+
-| ``ucx``             | Auto; let UCX pick, safe default                       |
+| ``ucx+all://``      | Auto; let UCX pick, safe default, often doesn't work   |
 +---------------------+--------------------------------------------------------+
-| ``ucx+tcp``         | TCP/IP, portable                                       |
+| ``ucx+tcp://``      | TCP/IP, portable                                       |
 +---------------------+--------------------------------------------------------+
-| ``ucx+rc_v``        | InfiniBand RC (verbs), low-latency IB                  |
+| ``ucx+rc_v://``     | InfiniBand RC (verbs), low-latency IB                  |
 +---------------------+--------------------------------------------------------+
-| ``ucx+rc_mlx5``     | InfiniBand RC (mlx5), Mellanox HCAs                    |
+| ``ucx+rc_mlx5://``  | InfiniBand RC (mlx5), Mellanox HCAs                    |
 +---------------------+--------------------------------------------------------+
-| ``ucx+ud_v``        | InfiniBand UD (verbs), scalable IB                     |
+| ``ucx+ud_v://``     | InfiniBand UD (verbs), scalable IB                     |
 +---------------------+--------------------------------------------------------+
-| ``ucx+dc_mlx5``     | InfiniBand DC (mlx5), large-scale IB (Frontier, Sierra)|
+| ``ucx+dc_mlx5://``  | InfiniBand DC (mlx5), large-scale IB (Frontier, Sierra)|
 +---------------------+--------------------------------------------------------+
-| ``ucx+cma``         | Cross-Memory Attach, intra-node shared memory (Linux)  |
+| ``ucx+cma://``      | Cross-Memory Attach, intra-node shared memory (Linux)  |
 +---------------------+--------------------------------------------------------+
-| ``ucx+sysv``        | SysV shared memory, intra-node only                    |
+| ``ucx+sysv://``     | SysV shared memory, intra-node only                    |
 +---------------------+--------------------------------------------------------+
