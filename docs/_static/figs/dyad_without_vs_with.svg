@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg
    viewBox="0 0 1219.2 685.8"
-   font-family="Arial, sans-serif"
+   font-family="Anthropic Sans, -apple-system, Segoe UI, sans-serif"
    version="1.1"
    id="svg31"
    sodipodi:docname="dyad_overview_4.svg"
@@ -74,40 +74,40 @@
   <text
      x="311.39999"
      y="193.2"
-     font-size="16px"
-     font-weight="bold"
-     fill="#4472c4"
+     font-size="17px"
+     font-weight="500"
+     fill="rgb(8,80,65)"
      id="text2">Without DYAD</text>
   <!-- "explicit sync" textbox: off 2442140,2202240 size 2731582x584775, algn=ctr, center=380.8 -->
   <text
      x="366.79999"
      y="240"
      text-anchor="middle"
-     font-size="20px"
-     fill="#222222"
+     font-size="18px"
+     fill="rgb(61,61,58)"
      id="text3">explicit sync</text>
   <text
      x="366.79999"
-     y="261"
+     y="263"
      text-anchor="middle"
-     font-size="14px"
-     fill="#222222"
+     font-size="16px"
+     fill="rgb(61,61,58)"
      id="text4">(dependent jobs, API, or polling)</text>
   <!-- P1 label: off 1208210,2958555 -->
   <text
      x="120.8"
      y="317.10001"
-     font-size="12px"
-     font-weight="bold"
-     fill="#000000"
+     font-size="16px"
+     font-weight="500"
+     fill="rgb(61,61,58)"
      id="text5">P1</text>
   <!-- P2 label: off 1208210,3485127 -->
   <text
      x="120.8"
      y="370.60001"
-     font-size="12px"
-     font-weight="bold"
-     fill="#000000"
+     font-size="16px"
+     font-weight="500"
+     fill="rgb(61,61,58)"
      id="text6">P2</text>
   <!-- P1 timeline arrow: line from 158.0,314.3 to arrowhead at 576.3 then to 582.7 -->
   <line
@@ -143,27 +143,27 @@
      x="222.60001"
      y="318.5"
      text-anchor="middle"
-     font-size="12px"
-     font-weight="bold"
+     font-size="16px"
+     font-weight="500"
      fill="#085041"
      id="text7">Producer</text>
   <!-- W rect (left): 314.4,295.1 66.4x38.4 -->
   <rect
-     x="300.39999"
+     x="299.2"
      y="295.10001"
      width="66.400002"
      height="38.400002"
      fill="#b8fd73"
-     stroke="#70ad47"
+     stroke="#085041"
      stroke-width="0.254"
      id="rect8"
      style="fill:#cdfefc;fill-opacity:1" />
   <text
-     x="333.60001"
+     x="332.4"
      y="318.5"
      text-anchor="middle"
-     font-size="12px"
-     font-weight="bold"
+     font-size="16px"
+     font-weight="500"
      fill="#085040"
      id="text8">W</text>
   <!-- R rect (left): shifted right to x=422.7 -->
@@ -173,7 +173,7 @@
      width="41.700001"
      height="38.400002"
      fill="#b8fd73"
-     stroke="#70ad47"
+     stroke="#085041"
      stroke-width="0.254"
      id="rect9"
      style="fill:#cdfefc;fill-opacity:1" />
@@ -181,13 +181,13 @@
      x="429.60001"
      y="368.10001"
      text-anchor="middle"
-     font-size="12px"
-     font-weight="bold"
+     font-size="16px"
+     font-weight="500"
      fill="#085040"
      id="text9">R</text>
   <!-- Consumer rect (left): shifted right to x=465.4 -->
   <rect
-     x="451.39999"
+     x="450.4"
      y="344.70001"
      width="140.5"
      height="38.400002"
@@ -196,11 +196,11 @@
      stroke-width="0.254"
      id="rect10" />
   <text
-     x="521.59998"
+     x="520.65"
      y="368.10001"
      text-anchor="middle"
-     font-size="12px"
-     font-weight="bold"
+     font-size="16px"
+     font-weight="500"
      fill="#085041"
      id="text10">Consumer</text>
   <!-- SharedFS can: 314.7,437.6 129.6x59.8 -->
@@ -239,8 +239,8 @@
      x="365.5"
      y="479"
      text-anchor="middle"
-     font-size="12px"
-     font-weight="bold"
+     font-size="16px"
+     font-weight="500"
      fill="#3c3489"
      id="text12">Shared FS</text>
   <!-- Central dashed red vertical line (explicit sync indicator): 380.6,278.7 h=158.9 -->
@@ -280,8 +280,8 @@
   <text
      x="408"
      y="413"
-     font-size="12px"
-     fill="#333333"
+     font-size="16px"
+     fill="rgb(61,61,58)"
      id="text14">/lustre/${USER}/file.txt</text>
   <!-- ============================================================ -->
   <!-- RIGHT SIDE: "With DYAD"                                      -->
@@ -290,9 +290,9 @@
   <text
      x="818.29999"
      y="192.8"
-     font-size="16px"
-     font-weight="bold"
-     fill="#4472c4"
+     font-size="17px"
+     font-weight="500"
+     fill="rgb(8,80,65)"
      id="text15">With DYAD</text>
   <!-- DYAD background rect: 677.8,358.7 411.3x207.0 -->
   <rect
@@ -308,17 +308,17 @@
   <text
      x="635.29999"
      y="259.10001"
-     font-size="12px"
-     font-weight="bold"
-     fill="#000000"
+     font-size="16px"
+     font-weight="500"
+     fill="rgb(61,61,58)"
      id="text16">P1</text>
   <!-- P2 label(R): 635.3,572.4 -->
   <text
      x="635.29999"
      y="511.09998"
-     font-size="12px"
-     font-weight="bold"
-     fill="#000000"
+     font-size="16px"
+     font-weight="500"
+     fill="rgb(61,61,58)"
      id="text17">P2</text>
   <!-- P1 timeline(R): from left edge to arrowhead. Arrow segment: 10074690,3355509 len=859877 -->
   <!-- Line from ~660 to arrowhead at 1007.5+86.0=1093.5 -->
@@ -355,33 +355,33 @@
      x="754.40002"
      y="259.89999"
      text-anchor="middle"
-     font-size="12px"
-     font-weight="bold"
+     font-size="16px"
+     font-weight="500"
      fill="#085041"
      id="text18">Producer</text>
   <!-- W rect(R): 832.0,316.5 28.9x38.4 -->
   <rect
-     x="832"
+     x="831.0"
      y="236.5"
      width="28.9"
      height="38.400002"
      fill="#b8fd73"
-     stroke="#70ad47"
+     stroke="#085041"
      stroke-width="0.254"
      id="rect19"
      style="fill:#cdfefc;fill-opacity:1" />
   <text
-     x="846.5"
+     x="845.5"
      y="259.89999"
      text-anchor="middle"
-     font-size="12px"
-     font-weight="bold"
+     font-size="16px"
+     font-weight="500"
      fill="#085040"
      id="text19">W</text>
   <!-- Empty continuation rect after W on P1: 862.0,316.3 144.4x38.6 (no text, no fill shown - transparent) -->
   <rect
-     x="860.90002"
-     y="236.29999"
+     x="859.9"
+     y="236.5"
      width="144.39999"
      height="38.599998"
      fill="#e1f6ee"
@@ -395,7 +395,7 @@
      width="18.700001"
      height="38.400002"
      fill="#b8fd73"
-     stroke="#70ad47"
+     stroke="#085041"
      stroke-width="0.254"
      id="rect21"
      style="fill:#cdfefc;fill-opacity:1" />
@@ -403,8 +403,8 @@
      x="891.29999"
      y="512"
      text-anchor="middle"
-     font-size="12px"
-     font-weight="bold"
+     font-size="16px"
+     font-weight="500"
      fill="#085040"
      id="text21">R</text>
   <!-- Consumer rect(R): 902.0,568.6 153.9x38.4 -->
@@ -421,8 +421,8 @@
      x="977.59998"
      y="512"
      text-anchor="middle"
-     font-size="12px"
-     font-weight="bold"
+     font-size="16px"
+     font-weight="500"
      fill="#085041"
      id="text22">Consumer</text>
   <!-- Local Storage 1 can: 786.2,383.4 129.6x59.8 -->
@@ -460,8 +460,8 @@
      x="851"
      y="345"
      text-anchor="middle"
-     font-size="12px"
-     font-weight="bold"
+     font-size="16px"
+     font-weight="500"
      fill="#0c447c"
      id="text24">Local Storage</text>
   <!-- Local Storage 2 can: 804.2,481.1 129.6x59.8 -->
@@ -499,8 +499,8 @@
      x="869"
      y="443"
      text-anchor="middle"
-     font-size="12px"
-     font-weight="bold"
+     font-size="16px"
+     font-weight="500"
      fill="#0c447c"
      id="text26">Local Storage</text>
   <!-- Arrow W->LS1: 8309132,3545656 to 8447265,3837336 → (830.9,354.6) to (844.7,383.7) -->
@@ -538,29 +538,29 @@
   <text
      x="847.90002"
      y="294"
-     font-size="12px"
-     fill="#333333"
+     font-size="16px"
+     fill="rgb(61,61,58)"
      id="text28">/ssd/${USER} /file.txt</text>
   <!-- /ssd bottom text: 8901391,5389768 -->
   <text
      x="940"
      y="465.09998"
-     font-size="12px"
-     fill="#333333"
+     font-size="16px"
+     fill="rgb(61,61,58)"
      id="text29">/ssd/${USER}/file.txt</text>
   <!-- IO wrapper text: 9157844,4321971 size 1712619x566260 -->
   <text
      x="933.72095"
-     y="377.74884"
-     font-size="11px"
-     font-weight="bold"
+     y="369.74884"
+     font-size="15px"
+     font-weight="500"
      fill="#3c3489"
-     id="text30">I/O intercepting wrapper</text>
+     id="text30">I/O intercepting wrapper lib</text>
   <text
      x="933.72095"
      y="391.74884"
-     font-size="11px"
-     font-weight="bold"
+     font-size="15px"
+     font-weight="500"
      fill="#3c3489"
-     id="text31">lib relying on KVS + RPC</text>
+     id="text31">relying on KVS + RPC</text>
 </svg>

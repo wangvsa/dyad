@@ -20,7 +20,7 @@ descriptor; the local HFL is approximately one order of magnitude slower
 than the DMD but one order of magnitude faster than the global HFL,
 providing an efficient intermediate cache for node-local misses.
 
-.. figure:: _static/figs/hierarchical-file-discovery.pdf
+.. figure:: _static/figs/hierarchical-file-discovery.svg
    :alt: Hierarchical File Locator — four cases
 
    Four cases illustrating the hierarchical file locator. In Case 1, both
