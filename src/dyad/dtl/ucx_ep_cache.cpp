@@ -21,9 +21,55 @@
 #include <dyad/common/dyad_structures.h>
 #include <dyad/dtl/ucx_ep_cache.h>
 
+/**
+ * @brief Key type for the UCX endpoint cache.
+ *
+ * @details
+ * A 64-bit integer combining the consumer's process ID and communication
+ * tag (@c pid << 32 | tag_cons), uniquely identifying a consumer
+ * connection within a job.
+ */
 using key_type = uint64_t;
+
+/**
+ * @brief UCX endpoint cache type.
+ *
+ * @details
+ * An unordered map from @c key_type to @c ucp_ep_h, used to cache
+ * UCX endpoints keyed by consumer connection key. Lookups and insertions
+ * are O(1) on average. Cached endpoints are reused across transfers to
+ * the same consumer to avoid the cost of repeated @c ucp_ep_create()
+ * calls.
+ */
 using cache_type = std::unordered_map<key_type, ucp_ep_h>;
 
+/**
+ * @brief UCX endpoint error handler callback.
+ *
+ * @details
+ * Registered as the error handler for UCX endpoints via the
+ * @c UCP_EP_PARAM_FIELD_ERR_HANDLER field of @c ucp_ep_params_t.
+ * Called by UCX when an error occurs on a @c ucp_ep_h, for example
+ * when the remote peer disconnects unexpectedly or a network failure
+ * is detected.
+ *
+ * Currently logs the error via @c DYAD_LOG_ERROR and returns. No
+ * recovery action is taken.
+ *
+ * Marked @c __attribute__((unused)) because error handler registration
+ * is not yet wired into @c ucx_connect() — the handler is defined but
+ * not currently passed to @c ucp_ep_create() (see TODO).
+ *
+ * @param[in] arg    User argument passed during endpoint creation.
+ *                   Cast to @c dyad_ctx_t* for logging.
+ * @param[in] ep     The endpoint on which the error occurred.
+ * @param[in] status UCX error status describing the failure.
+ *
+ * @todo Wire this handler into @c ucx_connect() by setting
+ *       @c UCP_EP_PARAM_FIELD_ERR_HANDLER and @c params.err_handler
+ *       in @c ucp_ep_params_t so that endpoint errors are caught and
+ *       logged at runtime.
+ */
 static void __attribute__ ((unused)) dyad_ucx_ep_err_handler (void *arg,
                                                               ucp_ep_h ep,
                                                               ucs_status_t status)
@@ -193,6 +239,38 @@ dyad_rc_t dyad_ucx_ep_cache_insert (const dyad_ctx_t *ctx,
     return rc;
 }
 
+/**
+ * @brief Internal helper that disconnects and removes a single cache entry.
+ *
+ * @details
+ * If @p it is a valid iterator (not @c cache->end()), disconnects the
+ * endpoint via @c ucx_disconnect(), erases the entry from the cache via
+ * @c cache->erase(), and returns the iterator to the next entry. If
+ * @p it is @c cache->end(), returns @c cache->end() immediately as a
+ * no-op.
+ *
+ * Used by both @c dyad_ucx_ep_cache_remove() for single-entry removal
+ * and @c dyad_ucx_ep_cache_finalize() to iterate over and remove all
+ * entries.
+ *
+ * @note The comment in the source mentions that the UCP address was
+ *       allocated with @c malloc() during RPC unpacking. However the
+ *       current implementation does not free the address here — it was
+ *       extracted from @c dtl_handle->remote_address and is cleared in
+ *       @c dyad_dtl_ucx_close_connection(). See the TODO in
+ *       @c dyad_dtl_ucx_close_connection() regarding ownership of
+ *       @c remote_address.
+ *
+ * @param[in] ctx    DYAD context. Used for logging in @c ucx_disconnect().
+ * @param[in] cache  The cache from which to remove the entry.
+ * @param[in] it     Iterator to the entry to remove. If equal to
+ *                   @c cache->end(), the function is a no-op.
+ * @param[in] worker UCX worker passed to @c ucx_disconnect() to
+ *                   progress the endpoint close operation.
+ *
+ * @return Iterator to the entry following the removed one, or
+ *         @c cache->end() if @p it was already @c cache->end().
+ */
 static inline cache_type::iterator cache_remove_impl (const dyad_ctx_t *ctx,
                                                       cache_type *cache,
                                                       cache_type::iterator it,

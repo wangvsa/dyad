@@ -3,5 +3,6 @@ sphinx-rtd-theme
 myst-parser
 roman
 roman-numerals-py
+svglib
 rst2pdf
 breathe

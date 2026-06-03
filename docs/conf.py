@@ -36,6 +36,7 @@ extensions = [
 try:
     import rst2pdf
     extensions.append('rst2pdf.pdfbuilder')
+    pdf_stylesheets = ['sphinx', 'a4']
 except (ImportError, Exception):
     pass
 
