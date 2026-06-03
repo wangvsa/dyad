@@ -303,55 +303,56 @@ dyad_rc_t dyad_ucx_ep_cache_remove (const dyad_ctx_t *ctx,
                                     const size_t addr_size,
                                     ucp_worker_h worker);
 
-c /**
-   * @brief Finalizes and frees the UCX endpoint cache.
-   *
-   * @details
-   * Iterates over all entries in the cache, disconnecting and removing
-   * each endpoint via @c cache_remove_impl(). After all entries are
-   * removed, deletes the @c cache_type object and sets @p *cache to
-   * @c nullptr.
-   *
-   * The iteration uses the iterator returned by @c cache_remove_impl()
-   * rather than incrementing the iterator manually, since @c erase()
-   * invalidates the current iterator. @c cache_remove_impl() returns
-   * the iterator to the next valid entry after the erased one, making
-   * this a safe and correct way to drain the entire cache.
-   *
-   * If @p cache is @c nullptr or @p *cache is @c nullptr, the function
-   * is a no-op and returns @c DYAD_RC_OK. This allows safe calls on a
-   * partially initialized or already-finalized cache.
-   *
-   * @note This function is called by @c dyad_dtl_ucx_finalize() as part
-   *       of the full UCX DTL teardown sequence. The endpoint cache must
-   *       be finalized before the UCX worker is destroyed, since
-   *       @c ucx_disconnect() requires the worker to be active to
-   *       progress the endpoint close operations.
-   *
-   * @note Unlike @c dyad_ucx_ep_cache_remove() which wraps operations
-   *       in a @c try / @c catch block, this function does not — any
-   *       C++ exception thrown during iteration or deletion will
-   *       propagate to the caller. Since this is called only from C++
-   *       translation units this is acceptable, but a @c try / @c catch
-   *       wrapper could be added for robustness (see TODO).
-   *
-   * @todo Add a @c try / @c catch block around the iteration and
-   *       @c delete to prevent C++ exceptions from propagating into
-   *       the C calling code in @c dyad_dtl_ucx_finalize().
-   *
-   * @param[in]     ctx    DYAD context. Used for logging in
-   *                       @c cache_remove_impl() → @c ucx_disconnect().
-   * @param[in,out] cache  Pointer to the cache handle to finalize.
-   *                       @p *cache is set to @c nullptr on return.
-   *                       If @c nullptr or @p *cache is @c nullptr,
-   *                       the function is a no-op.
-   * @param[in]     worker UCX worker passed to @c ucx_disconnect() for
-   *                       each endpoint in the cache.
-   *
-   * @return Always returns @c DYAD_RC_OK.
-   */
-    dyad_rc_t
-    dyad_ucx_ep_cache_finalize (const dyad_ctx_t *ctx, ucx_ep_cache_h *cache, ucp_worker_h worker);
+/**
+ * @brief Finalizes and frees the UCX endpoint cache.
+ *
+ * @details
+ * Iterates over all entries in the cache, disconnecting and removing
+ * each endpoint via @c cache_remove_impl(). After all entries are
+ * removed, deletes the @c cache_type object and sets @p *cache to
+ * @c nullptr.
+ *
+ * The iteration uses the iterator returned by @c cache_remove_impl()
+ * rather than incrementing the iterator manually, since @c erase()
+ * invalidates the current iterator. @c cache_remove_impl() returns
+ * the iterator to the next valid entry after the erased one, making
+ * this a safe and correct way to drain the entire cache.
+ *
+ * If @p cache is @c nullptr or @p *cache is @c nullptr, the function
+ * is a no-op and returns @c DYAD_RC_OK. This allows safe calls on a
+ * partially initialized or already-finalized cache.
+ *
+ * @note This function is called by @c dyad_dtl_ucx_finalize() as part
+ *       of the full UCX DTL teardown sequence. The endpoint cache must
+ *       be finalized before the UCX worker is destroyed, since
+ *       @c ucx_disconnect() requires the worker to be active to
+ *       progress the endpoint close operations.
+ *
+ * @note Unlike @c dyad_ucx_ep_cache_remove() which wraps operations
+ *       in a @c try / @c catch block, this function does not — any
+ *       C++ exception thrown during iteration or deletion will
+ *       propagate to the caller. Since this is called only from C++
+ *       translation units this is acceptable, but a @c try / @c catch
+ *       wrapper could be added for robustness (see TODO).
+ *
+ * @todo Add a @c try / @c catch block around the iteration and
+ *       @c delete to prevent C++ exceptions from propagating into
+ *       the C calling code in @c dyad_dtl_ucx_finalize().
+ *
+ * @param[in]     ctx    DYAD context. Used for logging in
+ *                       @c cache_remove_impl() → @c ucx_disconnect().
+ * @param[in,out] cache  Pointer to the cache handle to finalize.
+ *                       @p *cache is set to @c nullptr on return.
+ *                       If @c nullptr or @p *cache is @c nullptr,
+ *                       the function is a no-op.
+ * @param[in]     worker UCX worker passed to @c ucx_disconnect() for
+ *                       each endpoint in the cache.
+ *
+ * @return Always returns @c DYAD_RC_OK.
+ */
+dyad_rc_t dyad_ucx_ep_cache_finalize (const dyad_ctx_t *ctx,
+                                      ucx_ep_cache_h *cache,
+                                      ucp_worker_h worker);
 
 #ifdef __cplusplus
 }

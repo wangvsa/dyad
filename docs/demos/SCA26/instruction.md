@@ -140,7 +140,7 @@ For the full list of DYAD environment variables, refer to [dyad_envs.h](../../..
 - DYAD_KEY_BINS: DYAD utilizes a hierarchical key structure with multiple levels of hash tables. This variable specifies the number of hash bins at each level. The default is 1024.
 - DYAD_KEY_DEPTH: This variable specifies the number of hash table levels. The default is 3.
 
-![Hierarchical Key Structure for Scalability](DYAD_KEY.png)
+![Hierarchical Key Structure for Scalability](../../_static/figs/DYAD_KEY.png)
 
 
 ### Allocate compute nodes and start a Flux instance
