@@ -1,3 +1,20 @@
+/**
+ * @brief Return codes for DYAD core operations.
+ *
+ * @details
+ * Return codes are grouped by subsystem. Negative values indicate errors;
+ * @c DYAD_RC_OK (0) indicates success. Use @c DYAD_IS_ERROR() to test
+ * whether a return code represents an error condition.
+ *
+ * Ranges:
+ * - @c 0              success
+ * - @c -1             generic system or C library failure
+ * - @c -1000 to -1999 internal DYAD errors
+ * - @c -2000 to -2999 Flux errors
+ * - @c -3000 to -3999 UCX errors
+ * - @c -4000 to -4999 Margo errors
+ */
+
 #ifndef DYAD_DTL_DYAD_RC_H
 #define DYAD_DTL_DYAD_RC_H
 
@@ -79,8 +96,24 @@ enum dyad_core_return_codes {
 
 typedef enum dyad_core_return_codes dyad_rc_t;
 
+/**
+ * @brief Tests whether a @c dyad_rc_t value represents an error.
+ *
+ * @param code A @c dyad_rc_t return code.
+ * @return Non-zero if @p code indicates an error, zero if it indicates success.
+ */
 #define DYAD_IS_ERROR(code) ((code) < 0)
 
+/**
+ * @brief Tests whether a Flux API return code represents an error.
+ *
+ * @details
+ * Flux functions return negative values on failure, following the same
+ * convention as @c DYAD_IS_ERROR().
+ *
+ * @param code A Flux API return code.
+ * @return Non-zero if @p code indicates an error, zero otherwise.
+ */
 #define FLUX_IS_ERROR(code) ((code) < 0)
 
 #ifdef __cplusplus

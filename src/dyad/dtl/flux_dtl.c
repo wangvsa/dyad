@@ -109,19 +109,12 @@ dyad_rc_t dyad_dtl_flux_get_buffer (const dyad_ctx_t *ctx, size_t data_size, voi
         rc = DYAD_RC_BADBUF;
         goto flux_get_buf_done;
     }
-#if 0
-    *data_buf = malloc (data_size);
-    if (*data_buf == NULL) {
-        rc = DYAD_RC_SYSFAIL;
-        goto flux_get_buf_done;
-    }
-#else
+
     rc = posix_memalign (data_buf, sysconf (_SC_PAGESIZE), data_size);
     if (rc != 0 || *data_buf == NULL) {
         rc = DYAD_RC_SYSFAIL;
         goto flux_get_buf_done;
     }
-#endif
     rc = DYAD_RC_OK;
 
 flux_get_buf_done:
