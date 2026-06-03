@@ -229,7 +229,7 @@ margo_ret_buf_done:
  * @retval DYAD_RC_MARGO_BAD_PROTO  The protocol is not available, or
  *                                  @c NA_Get_protocol_info() failed.
  */
-static dyad_rc_t validate_margo_protocol (const dyad_ctx_t* ctx, const char* protocol)
+static dyad_rc_t validate_margo_protocol (const dyad_ctx_t *ctx, const char *protocol)
 {
     struct na_protocol_info *info = NULL;
     na_return_t ret = NA_Get_protocol_info (protocol, &info);
@@ -400,8 +400,8 @@ error: __attribute__((unused));
     return DYAD_RC_MARGOINIT_FAIL;
 }
 
-dyad_rc_t dyad_dtl_margo_rpc_pack (const dyad_ctx_t* ctx,
-                                   const char* restrict upath,
+dyad_rc_t dyad_dtl_margo_rpc_pack (const dyad_ctx_t *ctx,
+                                   const char *restrict upath,
                                    uint32_t producer_rank,
                                    json_t **restrict packed_obj)
 {
@@ -507,7 +507,7 @@ dyad_rc_t dyad_dtl_margo_establish_connection (const dyad_ctx_t *ctx)
     return rc;
 }
 
-dyad_rc_t dyad_dtl_margo_send (const dyad_ctx_t* ctx, void* buf, size_t buflen)
+dyad_rc_t dyad_dtl_margo_send (const dyad_ctx_t *ctx, void *buf, size_t buflen)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
@@ -549,7 +549,7 @@ dyad_rc_t dyad_dtl_margo_send (const dyad_ctx_t* ctx, void* buf, size_t buflen)
     return rc;
 }
 
-dyad_rc_t dyad_dtl_margo_recv (const dyad_ctx_t* ctx, void** buf, size_t* buflen)
+dyad_rc_t dyad_dtl_margo_recv (const dyad_ctx_t *ctx, void **buf, size_t *buflen)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;

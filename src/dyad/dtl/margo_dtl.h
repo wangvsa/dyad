@@ -103,7 +103,7 @@ typedef struct dyad_dtl_margo dyad_dtl_margo_t;
  *       @c ctx->dtl_handle->mode by @c dyad_dtl_init() before this
  *       function is called.
  */
-dyad_rc_t dyad_dtl_margo_init (const dyad_ctx_t* ctx,
+dyad_rc_t dyad_dtl_margo_init (const dyad_ctx_t *ctx,
                                dyad_dtl_mode_t mode,
                                dyad_dtl_comm_mode_t comm_mode,
                                bool debug);
@@ -145,8 +145,8 @@ dyad_rc_t dyad_dtl_margo_init (const dyad_ctx_t* ctx,
  * @retval DYAD_RC_OK      The JSON object was created successfully.
  * @retval DYAD_RC_BADPACK @c json_pack() failed to create the object.
  */
-dyad_rc_t dyad_dtl_margo_rpc_pack (const dyad_ctx_t* ctx,
-                                   const char* upath,
+dyad_rc_t dyad_dtl_margo_rpc_pack (const dyad_ctx_t *ctx,
+                                   const char *upath,
                                    uint32_t producer_rank,
                                    json_t **packed_obj);
 
@@ -200,7 +200,7 @@ dyad_rc_t dyad_dtl_margo_rpc_pack (const dyad_ctx_t* ctx,
  *       proceeds over a separate Margo RDMA channel independently of
  *       the Flux message.
  */
-dyad_rc_t dyad_dtl_margo_rpc_unpack (const dyad_ctx_t* ctx, const flux_msg_t* msg, char** upath);
+dyad_rc_t dyad_dtl_margo_rpc_unpack (const dyad_ctx_t *ctx, const flux_msg_t *msg, char **upath);
 
 /**
  * @brief Sends the initial RPC acknowledgement from the service to the consumer.
@@ -217,7 +217,7 @@ dyad_rc_t dyad_dtl_margo_rpc_unpack (const dyad_ctx_t* ctx, const flux_msg_t* ms
  *
  * @return Always returns @c DYAD_RC_OK.
  */
-dyad_rc_t dyad_dtl_margo_rpc_respond (const dyad_ctx_t* ctx, const flux_msg_t* orig_msg);
+dyad_rc_t dyad_dtl_margo_rpc_respond (const dyad_ctx_t *ctx, const flux_msg_t *orig_msg);
 
 /**
  * @brief Receives the initial RPC response from the service.
@@ -233,7 +233,7 @@ dyad_rc_t dyad_dtl_margo_rpc_respond (const dyad_ctx_t* ctx, const flux_msg_t* o
  *
  * @return Always returns @c DYAD_RC_OK.
  */
-dyad_rc_t dyad_dtl_margo_rpc_recv_response (const dyad_ctx_t* ctx, flux_future_t* f);
+dyad_rc_t dyad_dtl_margo_rpc_recv_response (const dyad_ctx_t *ctx, flux_future_t *f);
 
 /**
  * @brief Allocates a buffer for Margo DTL data transfer.
@@ -267,7 +267,7 @@ dyad_rc_t dyad_dtl_margo_rpc_recv_response (const dyad_ctx_t* ctx, flux_future_t
  *                         already non-@c NULL.
  * @retval DYAD_RC_SYSFAIL @c malloc() failed to allocate the buffer.
  */
-dyad_rc_t dyad_dtl_margo_get_buffer (const dyad_ctx_t* ctx, size_t data_size, void** data_buf);
+dyad_rc_t dyad_dtl_margo_get_buffer (const dyad_ctx_t *ctx, size_t data_size, void **data_buf);
 
 /**
  * @brief Releases a buffer previously allocated by
@@ -301,7 +301,7 @@ dyad_rc_t dyad_dtl_margo_get_buffer (const dyad_ctx_t* ctx, size_t data_size, vo
  * @retval DYAD_RC_BADBUF @p data_buf is @c NULL or @p *data_buf is
  *                        @c NULL.
  */
-dyad_rc_t dyad_dtl_margo_return_buffer (const dyad_ctx_t* ctx, void** data_buf);
+dyad_rc_t dyad_dtl_margo_return_buffer (const dyad_ctx_t *ctx, void **data_buf);
 
 /**
  * @brief Establishes the Margo DTL data channel.
@@ -322,7 +322,7 @@ dyad_rc_t dyad_dtl_margo_return_buffer (const dyad_ctx_t* ctx, void** data_buf);
  *
  * @return Always returns @c DYAD_RC_OK.
  */
-dyad_rc_t dyad_dtl_margo_establish_connection (const dyad_ctx_t* ctx);
+dyad_rc_t dyad_dtl_margo_establish_connection (const dyad_ctx_t *ctx);
 
 /**
  * @brief Sends file data to the consumer via Margo RDMA.
@@ -368,7 +368,7 @@ dyad_rc_t dyad_dtl_margo_establish_connection (const dyad_ctx_t* ctx);
  *       @c margo_create(), @c margo_forward(), and
  *       @c margo_get_output() — all currently unchecked.
  */
-dyad_rc_t dyad_dtl_margo_send (const dyad_ctx_t* ctx, void* buf, size_t buflen);
+dyad_rc_t dyad_dtl_margo_send (const dyad_ctx_t *ctx, void *buf, size_t buflen);
 
 /**
  * @brief Receives file data from the producer via the Margo DTL.
@@ -416,7 +416,7 @@ dyad_rc_t dyad_dtl_margo_send (const dyad_ctx_t* ctx, void* buf, size_t buflen);
  *
  * @todo Add error checking for @c malloc() failure.
  */
-dyad_rc_t dyad_dtl_margo_recv (const dyad_ctx_t* ctx, void** buf, size_t* buflen);
+dyad_rc_t dyad_dtl_margo_recv (const dyad_ctx_t *ctx, void **buf, size_t *buflen);
 
 /**
  * @brief Closes the Margo DTL data channel.
@@ -440,7 +440,7 @@ dyad_rc_t dyad_dtl_margo_recv (const dyad_ctx_t* ctx, void** buf, size_t* buflen
  *       example to free @c margo_handle->remote_addr on the producer
  *       side via @c margo_addr_free().
  */
-dyad_rc_t dyad_dtl_margo_close_connection (const dyad_ctx_t* ctx);
+dyad_rc_t dyad_dtl_margo_close_connection (const dyad_ctx_t *ctx);
 
 /**
  * @brief Finalizes and frees the Margo DTL internal state.
@@ -477,6 +477,6 @@ dyad_rc_t dyad_dtl_margo_close_connection (const dyad_ctx_t* ctx);
  *
  * @return Always returns @c DYAD_RC_OK.
  */
-dyad_rc_t dyad_dtl_margo_finalize (const dyad_ctx_t* ctx);
+dyad_rc_t dyad_dtl_margo_finalize (const dyad_ctx_t *ctx);
 
 #endif /* DYAD_DTL_margo_H */
