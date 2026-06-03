@@ -15,7 +15,8 @@ For further information, build and refer to the documentation under `docs` or th
 cd docs
 python3 -m venv .venv
 source .venv/bin/activate
-pip install "Sphinx<7.0.0" myst-parser rst2pdf
+pip install --upgrade pip
+pip install -r requirements.txt
 make html
 make pdf
 ```

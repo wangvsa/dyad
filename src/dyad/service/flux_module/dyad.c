@@ -56,27 +56,60 @@
      / 1000000000L)
 
 /**
- * Flux services are implemented as dynamically loaded broker
- * plugins called “broker modules”.
- * The broker module implementing a new service is expected to
- * register message handlers for its methods, then run the
- * flux reactor. It should use event driven (reactive) programming
- * techniques to remain responsive while juggling work from multiple
- * clients.
+ * @file dyad.c
+ * @brief DYAD Flux broker module implementation.
  *
- * This code implements such a flux module, which can be loaded
- * using "flux module load".
+ * @details
+ * Implements the DYAD service as a Flux broker module. Flux services are
+ * implemented as dynamically loaded broker plugins ("broker modules") that
+ * register message handlers for their methods and run the Flux reactor to
+ * remain responsive while handling requests from multiple clients concurrently
+ * using event-driven (reactive) programming techniques.
+ *
+ * This module can be loaded using:
+ * @code
+ *   flux module load dyad.so [options] [producer_path]
+ * @endcode
+ *
+ * Available options:
+ *  - @c -h, @c --help        Show help and exit without loading the module.
+ *  - @c -d, @c --debug       Enable debug logging.
+ *  - @c -m, @c --mode        DTL mode (@c FLUX_RPC or @c UCX).
+ *  - @c -i, @c --info_log    Redirect info logging to a file (requires
+ *                            @c -DDYAD_LOGGER=PRINTF at build time).
+ *  - @c -e, @c --error_log   Redirect error logging to a file (requires
+ *                            @c -DDYAD_LOGGER=PRINTF at build time).
  */
 
+/**
+ * @brief Context structure for the DYAD Flux module.
+ *
+ * @details
+ * Holds the Flux message handler table and the DYAD context for a running
+ * module instance. Allocated per broker handle via @c get_mod_ctx() and
+ * freed at module finalization time via @c freectx().
+ */
 typedef struct dyad_mod_ctx {
-    flux_msg_handler_t **handlers;
-    dyad_ctx_t *ctx;
+    flux_msg_handler_t **handlers;  ///< Flux message handler table.
+    dyad_ctx_t *ctx;                ///< DYAD context for this module instance.
 } dyad_mod_ctx_t;
 
 const struct dyad_mod_ctx dyad_mod_ctx_default = {NULL, NULL};
 
 static void dyad_mod_fini (void) __attribute__ ((destructor));
 
+/**
+ * @brief Finalizes the DYAD Flux module at library unload time.
+ *
+ * @details
+ * Registered as a destructor via @c __attribute__((destructor)). Called
+ * automatically when the module shared library is unloaded by the broker.
+ *
+ * @note If @c DYAD_PROFILER_DFTRACER is defined, finalizes the DFTracer
+ *       profiler. Flux handle operations are intentionally omitted here
+ *       as calling @c flux_open() at finalization time is known to cause
+ *       errors.
+ */
 void dyad_mod_fini (void)
 {
     // Chen: commented out the following, which
@@ -93,7 +126,18 @@ void dyad_mod_fini (void)
 #endif
 }
 
-// This will be called at flux module finalization time
+/**
+ * @brief Frees the DYAD module context at Flux module finalization time.
+ *
+ * @details
+ * Registered as the destructor callback for the @c "dyad" auxiliary data
+ * on the Flux handle via @c flux_aux_set(). Called by the Flux broker when
+ * the module is unloaded. Releases the message handler table, finalizes
+ * the DYAD context via @c dyad_ctx_fini(), and frees the context struct.
+ *
+ * @param[in] arg  Pointer to the @c dyad_mod_ctx_t to free. Cast from
+ *                 @c void* as required by the @c flux_free_f signature.
+ */
 static void freectx (void *arg)
 {
     dyad_mod_ctx_t *mod_ctx = (dyad_mod_ctx_t *)arg;
@@ -105,6 +149,20 @@ static void freectx (void *arg)
     free (mod_ctx);
 }
 
+/**
+ * @brief Retrieves or allocates the DYAD module context for a Flux handle.
+ *
+ * @details
+ * Looks up the @c dyad_mod_ctx_t associated with @p h via
+ * @c flux_aux_get(). If none exists, allocates a new one, initializes it
+ * to @c NULL, and registers it with @c flux_aux_set() so that @c freectx()
+ * is called automatically at module finalization time.
+ *
+ * @param[in] h  Flux handle to look up or register the context on.
+ *
+ * @return Pointer to the @c dyad_mod_ctx_t, or @c NULL if allocation or
+ *         registration failed.
+ */
 static dyad_mod_ctx_t *get_mod_ctx (flux_t *h)
 {
     dyad_mod_ctx_t *mod_ctx = (dyad_mod_ctx_t *)flux_aux_get (h, "dyad");
@@ -133,7 +191,58 @@ getctx_done:
     return mod_ctx;
 }
 
-/* request callback called when dyad.fetch request is invoked */
+/**
+ * @brief Flux message handler callback that serves file data to a consumer
+ *        via RPC.
+ *
+ * @details
+ * Registered as the handler for @c DYAD_DTL_RPC_NAME requests in @c htab.
+ * Invoked by the Flux reactor when a consumer dispatches an RPC to the
+ * producer's broker requesting file data. Performs the following steps:
+ *
+ *  1. Validates that the incoming message is a streaming RPC.
+ *  2. Unpacks the relative file path (@c upath) from the RPC payload via
+ *     @c dtl_handle->rpc_unpack().
+ *  3. Sends an initial RPC response to acknowledge the request via
+ *     @c dtl_handle->rpc_respond().
+ *  4. Resolves the full file path by combining @c prod_managed_path and
+ *     @c upath.
+ *  5. Opens the file and acquires a shared lock via @c dyad_shared_flock()
+ *     to allow concurrent reads while blocking exclusive (producer) locks.
+ *  6. Reads the file contents into a DTL buffer. For large files (at or
+ *     above @c DYAD_POSIX_TRANSFER_GRANULARITY bytes), reads in chunks.
+ *  7. Releases the shared lock, establishes a DTL connection to the
+ *     consumer via @c dtl_handle->establish_connection(), and sends the
+ *     data via @c dtl_handle->send().
+ *  8. Closes the DTL connection and signals end-of-stream to the consumer
+ *     by responding with @c ENODATA via @c flux_respond_error().
+ *
+ * On any error, responds to the consumer with the current @c errno via
+ * @c flux_respond_error() and returns. The shared lock and file descriptor
+ * are released before returning in all error paths.
+ *
+ * When built with UCX DTL support (@c DYAD_ENABLE_UCX_DTL), the file size
+ * is prepended to the DTL buffer so the consumer can locate the data
+ * boundary without an additional RMA call.
+ *
+ * When built with @c DYAD_SPIN_WAIT, spins on @c get_stat() before
+ * opening the file to wait for it to become accessible.
+ *
+ * @param[in] h    Flux handle for the broker.
+ * @param[in] w    Flux message handler (unused directly).
+ * @param[in] msg  Incoming Flux RPC message containing the file path
+ *                 packed by the consumer.
+ * @param[in] arg  Auxiliary argument (the Flux handle, passed as @c void*
+ *                 from @c flux_msg_handler_addvec()).
+ *
+ * @note This function is an internal Flux message handler and is not
+ *       intended to be called directly. It is registered via @c htab in
+ *       @c mod_main().
+ * @note The shared lock acquired in step 5 coordinates with the exclusive
+ *       lock held by the producer during a write. Because POSIX @c fcntl
+ *       locks are cooperative, this only provides guarantees between
+ *       processes that also participate in locking.
+ */
 #if DYAD_PERFFLOW
 __attribute__ ((annotate ("@critical_path()")))
 #endif
@@ -317,6 +426,20 @@ end_fetch_cb:;
     return;
 }
 
+/**
+ * @brief Flux message handler table for the DYAD module.
+ *
+ * @details
+ * Registers @c dyad_fetch_request_cb as the handler for all incoming
+ * @c FLUX_MSGTYPE_REQUEST messages addressed to @c DYAD_DTL_RPC_NAME.
+ * This is the single RPC endpoint exposed by the DYAD module — consumers
+ * send file fetch requests to this name on the producer's broker, and the
+ * reactor dispatches them to @c dyad_fetch_request_cb.
+ * @c DYAD_DTL_RPC_NAME is defined as "dyad.fetch"
+ *
+ * Passed to @c flux_msg_handler_addvec() in @c mod_main() and terminated
+ * by @c FLUX_MSGHANDLER_TABLE_END as required by the Flux API.
+ */
 static const struct flux_msg_handler_spec htab[] =
     {{FLUX_MSGTYPE_REQUEST, DYAD_DTL_RPC_NAME, dyad_fetch_request_cb, 0},
      FLUX_MSGHANDLER_TABLE_END};
@@ -341,15 +464,51 @@ static void show_help (void)
         "                     Need a filename as an argument.\n");
 }
 
+/**
+ * @brief Parsed command-line options for the DYAD Flux module.
+ */
 struct opt_parse_out {
-    const char *prod_managed_path;
-    const char *dtl_mode;
-    bool debug;
-    bool showed_help;
+    const char *prod_managed_path;  ///< Producer-managed directory path, or @c NULL.
+    const char *dtl_mode;           ///< DTL mode string, or @c NULL for default.
+    bool debug;                     ///< Whether debug logging is enabled.
+    bool showed_help;               ///< Whether @c -h was passed and help was shown.
 };
 
 typedef struct opt_parse_out opt_parse_out_t;
 
+/**
+ * @brief Parses command-line arguments passed to the DYAD Flux module.
+ *
+ * @details
+ * Parses @p argc / @p argv using @c getopt_long(). Because Flux module
+ * argument vectors do not include the executable name in @c argv[0] (unlike
+ * standard @c main()), a synthetic @c _argv is constructed with a @c NULL
+ * dummy first element so that @c getopt() works correctly. @c optind is
+ * reset to 1 before each call to handle repeated invocations.
+ *
+ * Recognized options:
+ *  - @c -h / @c --help        Sets @c opt->showed_help and returns.
+ *  - @c -d / @c --debug       Sets @c opt->debug.
+ *  - @c -m / @c --mode        Sets @c opt->dtl_mode.
+ *  - @c -i / @c --info_log    Redirects info log output to a per-rank file.
+ *  - @c -e / @c --error_log   Redirects error log output to a per-rank file.
+ *
+ * Any remaining non-option argument is treated as the producer-managed
+ * directory path and stored in @c opt->prod_managed_path.
+ *
+ * Log redirection options have no effect unless DYAD was built with
+ * @c -DDYAD_LOGGER=PRINTF.
+ *
+ * @param[out] opt          Output structure populated with parsed options.
+ *                          Must not be @c NULL.
+ * @param[in]  broker_rank  Broker rank, used to name per-rank log files.
+ * @param[in]  argc         Number of module arguments.
+ * @param[in]  argv         Module argument strings.
+ *
+ * @return @c dyad_rc_t return code indicating the outcome:
+ * @retval DYAD_RC_OK      Parsing succeeded.
+ * @retval DYAD_RC_SYSFAIL An unrecognized option was encountered.
+ */
 int opt_parse (opt_parse_out_t *restrict opt,
                const unsigned broker_rank,
                int argc,
@@ -453,6 +612,52 @@ int opt_parse (opt_parse_out_t *restrict opt,
     return DYAD_RC_OK;
 }
 
+/**
+ * @brief Initializes the DYAD context for the Flux module.
+ *
+ * @details
+ * Configures the DYAD context for use as a Flux module (producer side),
+ * bridging command-line arguments and environment variables before delegating
+ * to @c dyad_ctx_init().
+ *
+ * Configuration is layered in the following order of precedence:
+ *  1. Environment variables provide the baseline configuration.
+ *  2. Command-line arguments in @p opt override environment variables by
+ *     calling @c setenv() before @c dyad_ctx_init() is invoked.
+ *
+ * Specifically:
+ *  - If @c opt->prod_managed_path is set, it is written to
+ *    @c DYAD_PATH_PRODUCER_ENV and the directory is created if it does
+ *    not already exist.
+ *  - If @c opt->dtl_mode is set, it is written to @c DYAD_DTL_MODE_ENV.
+ *  - If @c DYAD_KVS_NAMESPACE is not set in the environment, a dummy
+ *    value is written to allow @c dyad_ctx_init() to proceed. This is
+ *    a known limitation (see TODO in source).
+ *
+ * After environment setup, calls @c dyad_ctx_init() with
+ * @c DYAD_COMM_SEND and the provided Flux handle @p h, then retrieves
+ * the initialized context and stores it in @c mod_ctx->ctx. The Flux
+ * handle and debug flag are also applied directly to the context after
+ * initialization.
+ *
+ * @param[in] opt  Parsed command-line options. Must not be @c NULL.
+ *                 Contains optional overrides for the producer path and
+ *                 DTL mode.
+ * @param[in] h    Flux handle provided by the broker to @c mod_main().
+ *                 Must not be @c NULL. Stored directly in the context
+ *                 after initialization.
+ *
+ * @return @c dyad_rc_t return code indicating the outcome:
+ * @retval DYAD_RC_OK     The context was successfully initialized.
+ * @retval DYAD_RC_NOCTX  @p opt, @p h, or the module context is @c NULL,
+ *                        or @c dyad_ctx_init() failed to initialize the
+ *                        context or its DTL handle.
+ *
+ * @note Unlike the C GOTCHA wrapper and C++ stream paths, the Flux module
+ *       initializes with @c DYAD_COMM_SEND (producer) rather than
+ *       @c DYAD_COMM_RECV (consumer), and adopts the broker-provided Flux
+ *       handle rather than opening its own.
+ */
 dyad_rc_t dyad_module_ctx_init (const opt_parse_out_t *opt, flux_t *h)
 {
     // get DYAD Flux module
@@ -509,12 +714,50 @@ dyad_rc_t dyad_module_ctx_init (const opt_parse_out_t *opt, flux_t *h)
 }
 
 /**
- * @brief This is the starting point for a new FLUX broker module thread
- *        The flux_t handle provides direct communication with the
- *        broker over shared memory. The argument list is derived from
- *        the free arguments on the flux module load command line.
- *        When mod_main() returns, the thread is terminated and the
- *        module is unloaded.
+ * @brief Entry point for the DYAD Flux module, invoked in a new broker
+ *        thread when the module is loaded.
+ *
+ * @details
+ * Called by the Flux broker when the DYAD module is loaded. The @p h
+ * handle provides direct communication with the broker over shared memory.
+ * When @c mod_main() returns, the thread is terminated and the module is
+ * unloaded.
+ *
+ * Performs the following steps in order:
+ *  1. Validates the Flux handle @p h.
+ *  2. Retrieves the module context via @c get_mod_ctx().
+ *  3. Parses command-line arguments via @c opt_parse(). If @c -h was
+ *     passed, prints help and returns immediately.
+ *  4. Initializes the DYAD context via @c dyad_module_ctx_init(), which
+ *     applies command-line overrides to environment variables before
+ *     calling @c dyad_ctx_init().
+ *  5. Registers Flux message handlers from @c htab via
+ *     @c flux_msg_handler_addvec().
+ *  6. Runs the Flux reactor loop via @c flux_reactor_run(), blocking
+ *     until the module is unloaded.
+ *
+ * On any error, jumps to @c mod_error and returns @c EXIT_FAILURE.
+ * On success or after printing help, jumps to @c mod_done and returns
+ * @c EXIT_SUCCESS.
+ *
+ * @param[in] h     Flux handle provided by the broker over shared memory.
+ *                  Must not be @c NULL.
+ * @param[in] argc  Number of command-line arguments passed to the module
+ *                  by the broker.
+ * @param[in] argv  Command-line argument strings derived from the free
+ *                  arguments on the @c flux module load command line.
+ *                  Parsed by @c opt_parse() to extract the producer path,
+ *                  DTL mode, and debug flag.
+ *
+ * @return int
+ * @retval EXIT_SUCCESS  The module ran and exited cleanly, or @c -h was
+ *                       passed and help was displayed.
+ * @retval EXIT_FAILURE  Any step in the initialization or reactor loop
+ *                       failed.
+ *
+ * @note If @c DYAD_PROFILER_DFTRACER is defined, initializes the DFTracer
+ *       profiler using the broker rank as the process ID before any other
+ *       setup.
  */
 DYAD_DLL_EXPORTED int mod_main (flux_t *h, int argc, char **argv)
 {

@@ -23,13 +23,73 @@
 #include <mercury.h>
 #include <mercury_macros.h>
 
-/* We use the Mercury macros to define the input
- * and output structures along with the serialization
- * functions.
+/**
+ * @brief Mercury/Margo RPC input structure for a data transfer request.
+ *
+ * @details
+ * The Mercury macro @c MERCURY_GEN_PROC generates the structure along with
+ * the serialization functions. Contains the size of the data to
+ * transfer and a bulk handle referencing the producer's registered memory
+ * region for the RDMA pull.
+ *
+ * - @c n    — number of bytes to transfer.
+ * - @c bulk — Mercury bulk handle to the producer's send buffer.
  */
 MERCURY_GEN_PROC (margo_rpc_in_t, ((int64_t)(n)) ((hg_bulk_t)(bulk)))
+
+/**
+ * @brief Mercury/Margo RPC output structure for a data transfer response.
+ *
+ * @details
+ * The Mercury macro @c MERCURY_GEN_PROC generates the structure along with
+ * the serialization functions. Contains a return code sent back
+ * to the producer after the RDMA pull completes.
+ *
+ * - @c ret — return code; 0 indicates success.
+ */
 MERCURY_GEN_PROC (margo_rpc_out_t, ((int32_t)(ret)))
 
+/**
+ * @brief Margo RPC handler that pulls file data from the producer via RDMA.
+ *
+ * @details
+ * Registered as the handler for the DYAD Margo data transfer RPC.
+ * Invoked on the consumer side when the producer calls
+ * @c margo_forward() to initiate a data transfer. Performs the
+ * following steps:
+ *
+ *  1. Retrieves the Margo instance and producer address from the
+ *     RPC handle.
+ *  2. Looks up the @c dyad_dtl_margo_t handle registered with the
+ *     Margo instance via @c margo_registered_data().
+ *  3. Unpacks the input (@c margo_rpc_in_t) to obtain the transfer
+ *     size (@c n) and the producer's bulk handle.
+ *  4. Allocates a receive buffer of @c n bytes and creates a local
+ *     Mercury bulk handle with @c HG_BULK_WRITE_ONLY access.
+ *  5. Performs an RDMA pull (@c HG_BULK_PULL) from the producer's
+ *     bulk handle into the local buffer via @c margo_bulk_transfer().
+ *  6. Responds to the producer with @c out.ret = 0 to signal
+ *     completion, then frees the input and destroys the RPC handle.
+ *  7. Sets @c margo_handle->recv_ready = 1 to unblock the consumer
+ *     thread waiting in a busy loop on that flag.
+ *
+ * @note All Mercury/Margo calls are checked with @c assert(). This
+ *       means any failure aborts the process rather than returning an
+ *       error code. Error handling should be improved in a future
+ *       revision.
+ *
+ * @note The receive buffer allocated in step 4 is stored in
+ *       @c margo_handle->recv_buffer and must be freed by the caller
+ *       after consuming the data.
+ *
+ * @note @c DEFINE_MARGO_RPC_HANDLER() wraps this function to register
+ *       it with the Margo runtime as a ULT (user-level thread) handler.
+ *
+ * @todo Replace @c assert() calls with proper error handling that
+ *       propagates failures back to the caller rather than aborting.
+ *
+ * @param[in] h  Mercury RPC handle for the incoming request.
+ */
 static void data_ready_rpc (hg_handle_t h)
 {
     hg_return_t ret;
@@ -131,6 +191,44 @@ margo_ret_buf_done:
     return rc;
 }
 
+/**
+ * @brief Validates that a Mercury/libfabric network protocol is available
+ *        on the current system.
+ *
+ * @details
+ * Calls @c NA_Get_protocol_info() with @p protocol to check whether it
+ * is supported by the installed libfabric providers.
+ *
+ * If the protocol is available, logs the class and device names at debug
+ * level, frees the protocol info via @c NA_Free_protocol_info(), and
+ * returns @c DYAD_RC_OK.
+ *
+ * If the protocol is not available, logs an error and attempts a second
+ * call to @c NA_Get_protocol_info() with @c NULL to enumerate all
+ * available protocols. Each available protocol is logged at debug level
+ * to help the user identify a valid alternative. The protocol info is
+ * freed and @c DYAD_RC_MARGO_BAD_PROTO is returned regardless of
+ * whether the enumeration succeeds.
+ *
+ * If the enumeration call also fails or returns no protocols, logs a
+ * message indicating that no NA protocol is available at all and returns
+ * @c DYAD_RC_MARGO_BAD_PROTO.
+ *
+ * This function is called during Margo DTL initialization to fail fast
+ * with a descriptive error message rather than letting @c margo_init()
+ * fail with a cryptic error.
+ *
+ * @param[in] ctx      DYAD context.
+ * @param[in] protocol Mercury/NA protocol string to validate, e.g.
+ *                     @c "ofi+tcp" or @c "ofi+verbs". If @c NULL,
+ *                     behavior is undefined — callers should always
+ *                     pass a non-@c NULL string.
+ *
+ * @return @c dyad_rc_t return code:
+ * @retval DYAD_RC_OK               The protocol is available on this system.
+ * @retval DYAD_RC_MARGO_BAD_PROTO  The protocol is not available, or
+ *                                  @c NA_Get_protocol_info() failed.
+ */
 static dyad_rc_t validate_margo_protocol (const dyad_ctx_t *ctx, const char *protocol)
 {
     struct na_protocol_info *info = NULL;
@@ -204,10 +302,9 @@ dyad_rc_t dyad_dtl_margo_init (const dyad_ctx_t *ctx,
     //   sm          – shared memory (single-node testing)
     //   na+sm       – shared memory (newer Margo)
     //
-    //   ucx://         - auto (all);              let UCX pick, safe default for ucx
-    //   ucx+tcp::/     - TCP/IP;                  portable, works everywhere
-    //   ucx+rc_v::/    - InfiniBand RC (verbs);   low-latency IB
-    //   ucx+rc_mlx5::/ - InfiniBand RC (mlx5 optimized); Mellanox HCAs
+    //   ucx+tcp:://    - TCP/IP;                  portable, works everywhere
+    //   ucx+rc_v://    - InfiniBand RC (verbs);   low-latency IB
+    //   ucx+rc_mlx5:// - InfiniBand RC (mlx5 optimized); Mellanox HCAs
     //   ucx+ud_v://    - InfiniBand UD (verbs);   scalable IB, less reliability overhead
     //   ucx+dc_mlx5:// - InfiniBand DC (mlx5);    large-scale IB (Frontier, Sierra)
     //   ucx+cma://     - Cross-Memory Attach;     intra-node shared memory (Linux)
@@ -303,7 +400,6 @@ error: __attribute__((unused));
     return DYAD_RC_MARGOINIT_FAIL;
 }
 
-/* Packing an RPC message in a json string */
 dyad_rc_t dyad_dtl_margo_rpc_pack (const dyad_ctx_t *ctx,
                                    const char *restrict upath,
                                    uint32_t producer_rank,
@@ -411,7 +507,6 @@ dyad_rc_t dyad_dtl_margo_establish_connection (const dyad_ctx_t *ctx)
     return rc;
 }
 
-/* provider (now flux broker) calls send */
 dyad_rc_t dyad_dtl_margo_send (const dyad_ctx_t *ctx, void *buf, size_t buflen)
 {
     DYAD_C_FUNCTION_START ();
@@ -454,7 +549,6 @@ dyad_rc_t dyad_dtl_margo_send (const dyad_ctx_t *ctx, void *buf, size_t buflen)
     return rc;
 }
 
-/* consumer calls recv (which recvs from flux broker) */
 dyad_rc_t dyad_dtl_margo_recv (const dyad_ctx_t *ctx, void **buf, size_t *buflen)
 {
     DYAD_C_FUNCTION_START ();

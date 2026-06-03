@@ -60,7 +60,6 @@
 #define DYAD_PATH_DELIM "/"
 #endif
 
-/// If hashing is not possible, returns 0. Otherwise, returns a non-zero hash value.
 uint32_t hash_str (const char* str, const uint32_t seed)
 {
     if (!str)
@@ -86,8 +85,6 @@ uint32_t hash_str (const char* str, const uint32_t seed)
     return (hash[0] ^ hash[1] ^ hash[2] ^ hash[3]) + 1;
 }
 
-/** If hashing is not possible, returns 0. Otherwise, returns a non-zero hash value.
- *  This only hashes the prefix of a given length */
 uint32_t hash_path_prefix (const char* str, const uint32_t seed, const size_t len)
 {
     if (!str || len == 0ul) {
@@ -115,11 +112,6 @@ uint32_t hash_path_prefix (const char* str, const uint32_t seed, const size_t le
     return (hash[0] ^ hash[1] ^ hash[2] ^ hash[3]) + 1;
 }
 
-/**
- * Append the string `to_append` to the existing string `str`.
- * A connector is added between them. `str_capacity` indicates
- * how large the `str` buffer is.
- */
 char* concat_str (char* __restrict__ str,
                   const char* __restrict__ to_append,
                   const char* __restrict__ connector,
@@ -168,11 +160,6 @@ char* concat_str (char* __restrict__ str,
     return str;
 }
 
-/**
- * Compares a path (full) against a path prefix considering the path
- * delimiter. Then, returns the length of the user added path string
- * that follows the path prefix via the last argument.
- */
 bool extract_user_path (const char* __restrict__ prefix,
                         const char* __restrict__ full,
                         const char* __restrict__ delim,
@@ -239,18 +226,6 @@ bool extract_user_path (const char* __restrict__ prefix,
     return true;
 }
 
-/**
- * This function checks if the 'path' string provided has the prefix that matches
- * the dyad manage path ('prefix') or the canonical version of it ('can_prefix').
- * Then, it returns true if it matches or false otherwise. It also checks with the
- * canonical version of the 'path' if it does not match as is. The portion of the
- * path string without the prefix is written to `upath` buffer. 'upath_capacity'
- * indicates the capacity of the buffer.
- * This does not check if the length of prefix string and can_prefix string
- * actually match the ones provided. It is also assume that the internal hashing
- * relies on the same hash algorithm and the seed as used to compute the hash
- * arguments provided.
- */
 bool cmp_canonical_path_prefix (const dyad_ctx_t* __restrict__ ctx,
                                 const bool is_prod,
                                 const char* __restrict__ path,
@@ -328,8 +303,44 @@ bool cmp_canonical_path_prefix (const dyad_ctx_t* __restrict__ ctx,
 }
 
 /**
- * Recursively create a directory
- * https://stackoverflow.com/questions/2336242/recursive-mkdir-system-call-on-unix
+ * @brief Recursively creates a directory and all missing parent directories.
+ *
+ * @details
+ * Creates @p dir and any intermediate parent directories that do not yet exist,
+ * similar to @c mkdir -p. If @p dir already exists, returns 0 immediately
+ * without error.
+ *
+ * The implementation recurses up the directory tree via @c dirname() until it
+ * reaches a directory that already exists, then creates each missing component
+ * on the way back down. @c strdupa() is used to duplicate the path before
+ * passing it to @c dirname() since @c dirname() may modify its argument in
+ * place.
+ *
+ * See https://stackoverflow.com/questions/2336242/recursive-mkdir-system-call-on-unix
+ * for the basis of this implementation.
+ *
+ * @param[in] dir  Null-terminated path of the directory to create. Must not
+ *                 be @c NULL. If @c NULL, sets @c errno to @c EINVAL and
+ *                 returns 1.
+ * @param[in] m    Permission mode bits to apply to each newly created
+ *                 directory, passed directly to @c mkdir().
+ *
+ * @return int
+ * @retval 0        @p dir already exists or was successfully created along
+ *                  with all required parent directories.
+ * @retval 1        @p dir is @c NULL (@c errno set to @c EINVAL).
+ * @retval non-zero The return value of @c mkdir() for the final directory
+ *                  component if creation failed, with @c errno set by
+ *                  @c mkdir().
+ *
+ * @note The permission mode @p m is applied to each directory created during
+ *       the recursive descent. The effective permissions may differ from @p m
+ *       depending on the process @c umask.
+ * @note This function uses @c strdupa() which allocates on the stack. Deep
+ *       directory hierarchies or very long paths may cause stack overflow.
+ * @warning Return codes from intermediate @c mkdir() calls during recursion
+ *          are not checked. Only the return value of the final @c mkdir() for
+ *          @p dir itself is returned to the caller.
  */
 int mkpath (const char* dir, const mode_t m)
 {
@@ -645,5 +656,4 @@ int sync_containing_dir (const char* path)
 
     return 0;
 }
-
 #endif  // DYAD_SYNC_DIR

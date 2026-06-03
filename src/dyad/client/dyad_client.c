@@ -29,6 +29,48 @@
 #include <string.h>
 #endif
 
+/**
+ * @brief Generates a hierarchical KVS key from a file path using MurmurHash3.
+ *
+ * @details
+ * Produces a structured KVS key of the form @c "h1.h2...hN.str", where each
+ * @c hN is a hexadecimal hash bucket value and @c str is the original file path.
+ * The number of hash levels is controlled by @p depth and the number of buckets
+ * per level by @p width.
+ *
+ * Each level is computed by applying MurmurHash3_x64_128 to @p str with a
+ * different seed (drawn from a fixed table of primes, cycling every 10 levels),
+ * then reducing the four 32-bit hash words via XOR and taking the result modulo
+ * @p width to select a bucket. The buckets from all levels are concatenated with
+ * @c '.' separators, followed by the original @p str appended as the final
+ * component.
+ *
+ * If @p str is shorter than 128 bytes, it is padded with @c '@' characters to
+ * 128 bytes before hashing to improve hash distribution for short paths.
+ *
+ * The hierarchical structure distributes keys across a tree of KVS directories,
+ * avoiding hot spots that would occur if all keys were stored at the same level.
+ * @p depth and @p width together control the fanout and depth of this tree.
+ *
+ * @param[in]  str       File path to encode as a KVS key. Must not be @c NULL
+ *                       or empty.
+ * @param[out] path_key  Buffer to receive the generated key. Must not be @c NULL.
+ *                       On success, contains a null-terminated string of the form
+ *                       @c "h1.h2...hN.str".
+ * @param[in]  len       Size of the @p path_key buffer in bytes. Must be greater
+ *                       than zero and large enough to hold the full key including
+ *                       the null terminator.
+ * @param[in]  depth     Number of hash levels (directory levels) in the key.
+ *                       Must be no greater than 10 to stay within the seed table;
+ *                       larger values cycle through the seed table.
+ * @param[in]  width     Number of buckets per hash level. Controls the fanout at
+ *                       each directory level of the KVS key tree.
+ *
+ * @return int
+ * @retval  0  The key was successfully generated and written to @p path_key.
+ * @retval -1  @p str, @p path_key, or @p len is invalid, @p str is empty, or
+ *             the generated key exceeded @p len.
+ */
 DYAD_DLL_EXPORTED int gen_path_key (const char *restrict str,
                                     char *restrict path_key,
                                     const size_t len,
@@ -47,11 +89,7 @@ DYAD_DLL_EXPORTED int gen_path_key (const char *restrict str,
     const char *str_long = str;
     size_t str_len = strlen (str);
 
-    if (str == NULL || path_key == NULL || len == 0ul) {
-        DYAD_C_FUNCTION_END ();
-        return -1;
-    }
-    if (str_len == 0ul) {
+    if (str == NULL || path_key == NULL || len == 0ul || str_len == 0ul) {
         DYAD_C_FUNCTION_END ();
         return -1;
     }
@@ -79,7 +117,6 @@ DYAD_DLL_EXPORTED int gen_path_key (const char *restrict str,
         }
     }
     n = snprintf (path_key + cx, len - cx, "%s", str);
-    // FIXME: cx + n >= len  fails for str_len > 256
     if (n < 0) {
         DYAD_C_FUNCTION_END ();
         return -1;
@@ -89,6 +126,22 @@ DYAD_DLL_EXPORTED int gen_path_key (const char *restrict str,
     return 0;
 }
 
+/**
+ * @brief Callback to clean up a Flux future after an asynchronous KVS commit completes.
+ *
+ * @details
+ * Registered via @c flux_future_then() by @c dyad_kvs_commit() when
+ * @c ctx->async_publish is enabled. Invoked by the Flux reactor when the
+ * asynchronous KVS commit future is fulfilled, allowing the commit to complete
+ * without blocking the caller.
+ *
+ * If the future completed with an error, logs a message to stderr before
+ * destroying the future. The error is not propagated since there is no caller
+ * context to return to at callback invocation time.
+ *
+ * @param[in] f    Pointer to the fulfilled Flux future. Destroyed before returning.
+ * @param[in] arg  Unused. Reserved for future use.
+ */
 static void future_cleanup_cb (flux_future_t *f, void *arg)
 {
     if (flux_future_get (f, NULL) < 0) {
@@ -97,6 +150,43 @@ static void future_cleanup_cb (flux_future_t *f, void *arg)
     flux_future_destroy (f);
 }
 
+/**
+ * @brief Commits a Flux KVS transaction to publish file metadata.
+ *
+ * @details
+ * Submits @p txn to the Flux KVS under @c ctx->kvs_namespace. The commit
+ * behavior depends on whether asynchronous publishing is enabled:
+ *
+ * - **Synchronous** (@c ctx->async_publish is @c false): Blocks until the
+ *   commit is acknowledged by the KVS, then destroys the future. The caller
+ *   can be certain the metadata is visible to consumers upon return.
+ *
+ * - **Asynchronous** (@c ctx->async_publish is @c true): Registers
+ *   @c future_cleanup_cb via @c flux_future_then() and returns immediately
+ *   without waiting for the commit to complete. The future is destroyed by
+ *   the callback when the commit eventually completes. The caller cannot
+ *   assume the metadata is visible to consumers upon return.
+ *
+ * This function is an internal helper called by @c publish_via_flux() and
+ * is not intended to be called directly by users.
+ *
+ * @param[in] ctx  Pointer to the DYAD context. Must not be @c NULL. Provides
+ *                 the Flux handle, KVS namespace, and @c async_publish flag.
+ * @param[in] txn  Pointer to the Flux KVS transaction to commit. Must not be
+ *                 @c NULL. The caller retains ownership and is responsible for
+ *                 destroying @p txn after this function returns.
+ *
+ * @return @c dyad_rc_t return code indicating the outcome:
+ * @retval DYAD_RC_OK        The transaction was successfully submitted, and in
+ *                           synchronous mode, acknowledged by the KVS.
+ * @retval DYAD_RC_BADCOMMIT The @c flux_kvs_commit() call failed to submit
+ *                           the transaction.
+ *
+ * @note In asynchronous mode, a failure to register @c future_cleanup_cb via
+ *       @c flux_future_then() is logged but does not affect the return code.
+ *       The commit may still complete, but the future may not be properly
+ *       cleaned up.
+ */
 DYAD_CORE_FUNC_MODS dyad_rc_t dyad_kvs_commit (const dyad_ctx_t *restrict ctx,
                                                flux_kvs_txn_t *restrict txn)
 {
@@ -128,6 +218,43 @@ kvs_commit_region_finish:;
     return rc;
 }
 
+/**
+ * @brief Builds and commits a Flux KVS transaction to advertise a produced file.
+ *
+ * @details
+ * Generates a KVS key from @p upath via @c gen_path_key(), then creates and
+ * commits a single-entry Flux KVS transaction that maps the key to the
+ * producer's broker rank (@c ctx->rank). This rank is later retrieved by
+ * consumers via @c dyad_kvs_read() to determine file locality and, if needed,
+ * to identify which broker to contact for data transfer.
+ *
+ * This function sits between @c dyad_commit() and @c dyad_kvs_commit() in the
+ * producer publish pipeline:
+ *
+ * @code
+ * dyad_produce()
+ *     -> dyad_commit()          [resolves path, checks management, guards reenter]
+ *         -> publish_via_flux() [builds and submits the KVS transaction]
+ *             -> dyad_kvs_commit() [commits the transaction to the Flux KVS]
+ * @endcode
+ *
+ * The KVS transaction is destroyed before returning regardless of whether the
+ * commit succeeded or failed.
+ *
+ * This function is an internal helper and is not intended to be called directly
+ * by users.
+ *
+ * @param[in] ctx    Pointer to the DYAD context. Must not be @c NULL. Provides
+ *                   the Flux handle, KVS namespace, producer rank, and key
+ *                   generation parameters (@c key_depth and @c key_bins).
+ * @param[in] upath  Path to the file relative to the producer-managed directory.
+ *                   Used to generate the KVS key. Must not be @c NULL.
+ *
+ * @return @c dyad_rc_t return code indicating the outcome:
+ * @retval DYAD_RC_OK        The transaction was successfully built and committed.
+ * @retval DYAD_RC_FLUXFAIL  The Flux KVS transaction could not be created or packed.
+ * @retval DYAD_RC_*         Any error code propagated from @c dyad_kvs_commit().
+ */
 DYAD_CORE_FUNC_MODS dyad_rc_t publish_via_flux (const dyad_ctx_t *restrict ctx,
                                                 const char *restrict upath)
 {
@@ -176,6 +303,42 @@ publish_done:;
     return rc;
 }
 
+/**
+ * @brief Publishes file metadata to the Flux KVS to notify consumers that a file is ready.
+ *
+ * @details
+ * Resolves @p fname to a path relative to the producer-managed directory and
+ * publishes the file's metadata to the Flux KVS via @c publish_via_flux(). This
+ * signals to waiting consumers that the file has been written and is ready to
+ * be read or transferred.
+ *
+ * If @p fname is not under the producer-managed path, the function returns
+ * @c DYAD_RC_OK immediately without taking any action, so that DYAD does not
+ * interfere with file operations outside its managed directories.
+ *
+ * This function is the internal implementation called by @c dyad_produce(). It
+ * may also be called directly when finer control over the commit step is needed,
+ * such as when bypassing the context validation performed by @c dyad_produce().
+ *
+ * @param[in]     ctx    Pointer to the DYAD context. Must not be @c NULL and must
+ *                       have a valid @c prod_managed_path set. @c ctx->reenter is
+ *                       temporarily set to @c false during the KVS publish to
+ *                       prevent re-entrant interception.
+ * @param[in]     fname  Path to the file to be published. May be an absolute path
+ *                       or, if @c ctx->relative_to_managed_path is set, a path
+ *                       relative to @c ctx->prod_managed_path.
+ *
+ * @return @c dyad_rc_t return code indicating the outcome:
+ * @retval DYAD_RC_OK   The file metadata was successfully published, or @p fname
+ *                      is not under the producer-managed path (no action taken).
+ * @retval DYAD_RC_*    Any error code propagated from @c publish_via_flux().
+ *
+ * @note The caller is responsible for ensuring the file has been fully written
+ *       and flushed to storage before calling this function, as consumers may
+ *       begin reading the file immediately upon receiving the KVS notification.
+ * @note If @c ctx->check is set and the operation succeeds, the environment
+ *       variable @c DYAD_CHECK_ENV is set to @c "ok".
+ */
 DYAD_DLL_EXPORTED dyad_rc_t dyad_commit (dyad_ctx_t *restrict ctx, const char *restrict fname)
 {
     DYAD_C_FUNCTION_START ();
@@ -236,6 +399,55 @@ static void print_mdata (const dyad_ctx_t *restrict ctx, const dyad_metadata_t *
     }
 }
 
+/**
+ * @brief Looks up file metadata from the Flux KVS.
+ *
+ * @details
+ * Queries the Flux KVS for metadata associated with the file identified by
+ * @p topic (the KVS key) and @p upath (the file path relative to the
+ * consumer-managed directory). The only metadata currently stored in the KVS
+ * is the producer's broker rank (@c owner_rank), which is used by the caller
+ * to determine locality and, if needed, to dispatch an RPC to the correct
+ * producer broker for data transfer.
+ *
+ * If @p should_wait is @c true, the lookup blocks using @c FLUX_KVS_WAITCREATE
+ * until the producer publishes the metadata. If @p should_wait is @c false,
+ * the lookup returns immediately with @c DYAD_RC_NOTFOUND if the metadata is
+ * not yet available.
+ *
+ * If @c *mdata is already allocated on entry, the existing object is reused
+ * and only @c fpath and @c owner_rank are overwritten. Otherwise a new
+ * @c dyad_metadata_t object is allocated. On error, any partially allocated
+ * @p mdata is freed before returning.
+ *
+ * @param[in]     ctx         Pointer to the DYAD context. Must not be @c NULL.
+ *                            Provides the Flux handle and KVS namespace.
+ * @param[in]     topic       KVS key for the file, generated from @p upath via
+ *                            @c gen_path_key(). Must not be @c NULL.
+ * @param[in]     upath       Path to the file relative to the consumer-managed
+ *                            directory. Stored in the populated metadata object.
+ *                            Must not be @c NULL.
+ * @param[in]     should_wait If @c true, block until the producer publishes the
+ *                            metadata to the KVS. If @c false, return immediately
+ *                            if the metadata is not yet available.
+ * @param[in,out] mdata       Address of a @c dyad_metadata_t pointer to be
+ *                            populated. Must not be @c NULL. If @c *mdata is
+ *                            already allocated, it is reused; otherwise a new
+ *                            object is allocated. The caller is responsible for
+ *                            freeing it via @c dyad_free_metadata() when no
+ *                            longer needed.
+ *
+ * @return @c dyad_rc_t         return code indicating the outcome:
+ * @retval DYAD_RC_OK           Metadata was successfully retrieved and @p mdata
+ *                              has been populated.
+ * @retval DYAD_RC_NOTFOUND     @p mdata is @c NULL, the KVS lookup failed, or
+ *                              the metadata is not yet available and
+ *                              @p should_wait is @c false.
+ * @retval DYAD_RC_SYSFAIL      Memory allocation for the metadata object or its
+ *                              @c fpath field failed.
+ * @retval DYAD_RC_BADMETADATA  The KVS response could not be unpacked to extract
+ *                              the producer's broker rank.
+ */
 DYAD_DLL_EXPORTED dyad_rc_t dyad_kvs_read (const dyad_ctx_t *restrict ctx,
                                            const char *restrict topic,
                                            const char *restrict upath,
@@ -311,6 +523,52 @@ kvs_read_end:;
     return rc;
 }
 
+/**
+ * @brief Retrieves file metadata from the Flux KVS for an internal consumer operation.
+ *
+ * @details
+ * Looks up metadata for the file identified by @p upath in the Flux KVS,
+ * blocking until the producer publishes it. This is the internal counterpart
+ * to @c dyad_get_metadata(), used exclusively by @c dyad_consume().
+ *
+ * After retrieving metadata, the function determines whether a remote data
+ * transfer is actually needed by checking if the producer and consumer reside
+ * on the same node. This is done by comparing @c mdata->owner_rank / @c ctx->service_mux
+ * against @c ctx->node_idx. If they match, the producer is on the same node and
+ * the file is already locally accessible, so the metadata object is freed and
+ * set to @c NULL to signal to @c dyad_consume() that the data transfer step
+ * should be skipped.
+ *
+ * Note that this locality check is only relevant for node-local storage. When
+ * shared storage is enabled, @c dyad_consume() never uses the metadata for data
+ * transfer regardless, so the check is not needed in that path.
+ *
+ * The @c mdata == @c NULL convention on return is therefore not an error condition
+ * but a deliberate signal that the data transfer step should be skipped.
+ *
+ * This function is not intended to be called directly by users.
+ *
+ * @param[in]  ctx    Pointer to the DYAD context. Must not be @c NULL.
+ * @param[in]  fname  Absolute path to the file being consumed.
+ * @param[in]  upath  Path to the file relative to the consumer-managed directory.
+ *                    Used to generate the Flux KVS lookup key.
+ * @param[out] mdata  Address of a @c dyad_metadata_t pointer. Always set to
+ *                    @c NULL on entry. On success, either points to the retrieved
+ *                    metadata if a remote transfer is needed, or remains @c NULL
+ *                    if the producer is on the same node and the file is already
+ *                    locally accessible.
+ *
+ * @return @c dyad_rc_t return code indicating the outcome:
+ * @retval DYAD_RC_OK   Metadata was successfully retrieved, or the producer is
+ *                      on the same node and no transfer is needed (@p mdata will
+ *                      be @c NULL).
+ * @retval DYAD_RC_*    Any error code propagated from @c dyad_kvs_read().
+ *
+ * @note Unlike @c dyad_get_metadata(), this function always blocks until the
+ *       producer publishes the file's metadata to the KVS.
+ * @note The @c service_mux field in @p ctx controls how many Flux broker ranks
+ *       map to a single node, and is used to determine node-level locality.
+ */
 DYAD_CORE_FUNC_MODS dyad_rc_t dyad_fetch_metadata (const dyad_ctx_t *restrict ctx,
                                                    const char *restrict fname,
                                                    const char *restrict upath,
@@ -351,6 +609,7 @@ DYAD_CORE_FUNC_MODS dyad_rc_t dyad_fetch_metadata (const dyad_ctx_t *restrict ct
     // skipped
     DYAD_C_FUNCTION_UPDATE_INT ("owner_rank", (*mdata)->owner_rank);
     DYAD_C_FUNCTION_UPDATE_INT ("node_idx", ctx->node_idx);
+    // if (ctx->shared_storage || ((*mdata)->owner_rank / ctx->service_mux) == ctx->node_idx) {
     if (((*mdata)->owner_rank / ctx->service_mux) == ctx->node_idx) {
         DYAD_LOG_INFO (ctx,
                        "Either shared-storage is indicated or the producer rank (%u) is the"
@@ -372,6 +631,67 @@ fetch_done:;
     return rc;
 }
 
+/**
+ * @brief Retrieves file data from a remote producer's Flux broker via RPC.
+ *
+ * @details
+ * Dispatches a streaming Flux RPC to the DYAD module running on the producer's
+ * broker (identified by @p mdata->owner_rank) and retrieves the file data via
+ * the configured Data Transport Layer (DTL). The retrieved data is returned in
+ * @p file_data and its length in @p file_len.
+ *
+ * The sequence of operations is:
+ *  1. Pack an RPC payload containing the file path and producer rank.
+ *  2. Send a streaming Flux RPC to the producer's DYAD module.
+ *  3. Receive and parse the RPC response.
+ *  4. Establish a DTL connection to the producer.
+ *  5. Receive the file data over the DTL connection.
+ *  6. Close the DTL connection.
+ *  7. Wait for the end-of-stream RPC message from the producer module.
+ *
+ * The streaming RPC protocol expects exactly one data message followed by an
+ * end-of-stream signal (indicated by @c ENODATA). If additional messages arrive
+ * or the module reports an error, @c DYAD_RC_BADRPC is returned. Two return
+ * codes from the DTL have special meaning and bypass the end-of-stream wait:
+ * @c DYAD_RC_RPC_FINISHED (end of stream already received) and
+ * @c DYAD_RC_BADRPC (a prior RPC operation failed irrecoverably).
+ *
+ * When built with UCX DTL support (@c DYAD_ENABLE_UCX_DTL), the producer
+ * prepends the file size to the data buffer. This prefix is extracted and
+ * stripped before returning, so @p file_data always points to the raw file
+ * contents.
+ *
+ * This function is an internal helper called by @c dyad_consume() and
+ * @c dyad_consume_w_metadata(). It is not intended to be called directly
+ * by users.
+ *
+ * @param[in]  ctx        Pointer to the DYAD context. Must not be @c NULL.
+ *                        Provides the Flux handle, DTL handle, and other
+ *                        connection parameters.
+ * @param[in]  mdata      Metadata for the file to retrieve. Must not be @c NULL.
+ *                        @c mdata->fpath and @c mdata->owner_rank identify the
+ *                        file and the producer broker to contact.
+ * @param[out] file_data  Address of a pointer to be set to the buffer containing
+ *                        the retrieved file data. The buffer is allocated by the
+ *                        DTL layer. The caller is responsible for releasing it
+ *                        via @c ctx->dtl_handle->return_buffer().
+ * @param[out] file_len   Address of a @c size_t to be set to the number of bytes
+ *                        in @p file_data.
+ *
+ * @return @c dyad_rc_t return code indicating the outcome:
+ * @retval DYAD_RC_OK           File data was successfully retrieved.
+ * @retval DYAD_RC_BADRPC       An RPC operation failed, the producer module sent
+ *                              an unexpected number of responses, or the module
+ *                              reported an error.
+ * @retval DYAD_RC_BADFIO       UCX DTL only: the producer-prepended file size
+ *                              was negative, indicating a read failure on the
+ *                              producer side.
+ * @retval DYAD_RC_*            Any error code propagated from
+ *                              @c dtl_handle->rpc_pack(),
+ *                              @c dtl_handle->rpc_recv_response(),
+ *                              @c dtl_handle->establish_connection(), or
+ *                              @c dtl_handle->recv().
+ */
 DYAD_DLL_EXPORTED dyad_rc_t dyad_get_data (const dyad_ctx_t *restrict ctx,
                                            const dyad_metadata_t *restrict mdata,
                                            char **restrict file_data,
@@ -456,17 +776,19 @@ get_done:;
 #ifdef DYAD_ENABLE_UCX_DTL
     // For UCX RMA, file_size was prepended to the buffer by the server; extract it
     // here to get the true data length and advance past the prefix.
-    ctx->dtl_handle->get_buffer (ctx, 0, (void **)file_data);
-    ssize_t read_len = 0l;
-    memcpy (&read_len, *file_data, sizeof (read_len));
-    if (read_len < 0l) {
-        *file_len = 0ul;
-        DYAD_LOG_DEBUG (ctx, "Not able to read from %s file", mdata->fpath);
-        rc = DYAD_RC_BADFIO;
-    } else {
-        *file_len = (size_t)read_len;
+    if (ctx->dtl_handle->mode == DYAD_DTL_UCX) {
+        ctx->dtl_handle->get_buffer (ctx, 0, (void **)file_data);
+        ssize_t read_len = 0l;
+        memcpy (&read_len, *file_data, sizeof (read_len));
+        if (read_len < 0l) {
+            *file_len = 0ul;
+            DYAD_LOG_DEBUG (ctx, "Not able to read from %s file", mdata->fpath);
+            rc = DYAD_RC_BADFIO;
+        } else {
+            *file_len = (size_t)read_len;
+        }
+        *file_data = ((char *)*file_data) + sizeof (read_len);
     }
-    *file_data = ((char *)*file_data) + sizeof (read_len);
 #endif
     DYAD_LOG_DEBUG (ctx, "DYAD CLIENT: Read %zd bytes from %s file", *file_len, mdata->fpath);
     DYAD_LOG_DEBUG (ctx, "DYAD CLIENT: Destroy the Flux future for the RPC.");
@@ -475,6 +797,41 @@ get_done:;
     return rc;
 }
 
+/**
+ * @brief Writes file data retrieved from a producer to the consumer-managed directory.
+ *
+ * @details
+ * Stores @p data_len bytes of @p file_data to the appropriate path under the
+ * consumer-managed directory, as determined by combining @c ctx->cons_managed_path
+ * with the relative file path in @p mdata->fpath. Any intermediate directories
+ * that do not yet exist are created as needed.
+ *
+ * For large files (at or above @c DYAD_POSIX_TRANSFER_GRANULARITY bytes), the
+ * data is written in chunks of @c DYAD_POSIX_TRANSFER_GRANULARITY rather than
+ * in a single @c write() call.
+ *
+ * This function is an internal helper called by @c dyad_consume() and
+ * @c dyad_consume_w_metadata() after data has been retrieved from the producer
+ * via @c dyad_get_data(). It is not intended to be called directly by users.
+ *
+ * @param[in] ctx        Pointer to the DYAD context. Must not be @c NULL. Used to
+ *                       resolve the consumer-managed path and check the @c check flag.
+ * @param[in] mdata      Metadata for the file being stored. Must not be @c NULL.
+ *                       @c mdata->fpath is appended to @c ctx->cons_managed_path to
+ *                       form the full destination path.
+ * @param[in] fd         Open, writable file descriptor for the destination file.
+ * @param[in] data_len   Number of bytes to write from @p file_data.
+ * @param[in] file_data  Buffer containing the file data to write. Must be at least
+ *                       @p data_len bytes in size.
+ *
+ * @return @c dyad_rc_t return code indicating the outcome:
+ * @retval DYAD_RC_OK      All @p data_len bytes were successfully written.
+ * @retval DYAD_RC_BADFIO  Directory creation failed, a @c write() call failed,
+ *                         or the total bytes written does not match @p data_len.
+ *
+ * @note If the operation succeeds and @c ctx->check is set, the environment
+ *       variable @c DYAD_CHECK_ENV is set to @c "ok".
+ */
 DYAD_CORE_FUNC_MODS dyad_rc_t dyad_cons_store (const dyad_ctx_t *restrict ctx,
                                                const dyad_metadata_t *restrict mdata,
                                                int fd,
@@ -772,17 +1129,24 @@ dyad_rc_t dyad_consume (dyad_ctx_t *restrict ctx, const char *restrict fname)
     if (ctx->shared_storage) {
         dyad_release_flock (ctx, lock_fd, &exclusive_lock);
         if (!ctx->use_fs_locks || file_size <= 0) {
-            // as file size was zero that means consumer won the lock first so has to
+            // As file size being zero means that consumer won the lock first. So has to
             // wait for kvs. or we cannot use file lock based synchronization as it
             // does not work with the files managed by c++ fstream.
             rc = dyad_fetch_metadata (ctx, fname, upath, &mdata);
             if (DYAD_IS_ERROR (rc)) {
-                DYAD_LOG_ERROR (ctx, "dyad_fetch_metadata failed fore shared storage!\n");
+                DYAD_LOG_ERROR (ctx, "dyad_fetch_metadata failed for shared storage!\n");
                 goto consume_done;
             }
         }
     } else {
-        if (file_size <= 0) {
+        // When use_fs_locks is false, filesystem locking is unavailable
+        // (e.g. DYAD_HAS_STD_FSTREAM_FD is not defined for C++ streams),
+        // so we cannot rely on file size alone to determine if the file is
+        // fully written as producer cannot lock the file it is still writting.
+        // In that case, always fetch metadata from KVS to ensure correctness,
+        // as in the shared storage path. For the C GOTCHA wrapper path,
+        // use_fs_locks is irrelevant and should always be true.
+        if (!ctx->use_fs_locks || file_size <= 0) {
             DYAD_LOG_INFO (ctx,
                            "[node %u rank %u pid %d] File (%s with lock_fd %d) is not "
                            "fetched yet",
@@ -976,6 +1340,42 @@ consume_close:;
 }
 
 #if DYAD_SYNC_DIR
+/**
+ * @brief Synchronizes the parent directory of a file to ensure its entry is
+ *        durably written to storage.
+ *
+ * @details
+ * Opens the parent directory of @p path and calls @c fsync() on it to flush
+ * any pending directory entry updates to stable storage. This is necessary
+ * after creating a new file to guarantee that the directory entry is durable
+ * and visible to other processes, even in the event of a system crash. See
+ * https://lwn.net/Articles/457671/ for background.
+ *
+ * This is particularly important in the DYAD producer path — calling
+ * @c dyad_commit() to publish a file to the KVS before the directory entry
+ * is synced could allow a consumer to attempt to open the file before it is
+ * visible in the directory.
+ *
+ * @c ctx->reenter is saved and restored around the directory open and sync
+ * operations to prevent re-entrant interception of the @c open() call.
+ *
+ * @param[in]     ctx   Pointer to the DYAD context. May be @c NULL, in which
+ *                      case the @c reenter guard is skipped. If non-@c NULL,
+ *                      @c ctx->reenter is temporarily set to @c false during
+ *                      the operation.
+ * @param[in]     path  Path to the file whose parent directory is to be synced.
+ *                      Must not be @c NULL. The parent directory is derived via
+ *                      @c dirname().
+ *
+ * @return int
+ * @retval  0  The parent directory was successfully opened, synced, and closed.
+ * @retval -1  The parent directory could not be opened, @c fsync() failed, or
+ *             @c close() failed.
+ *
+ * @note All three operations (open, fsync, close) are attempted even if one
+ *       fails — the return code reflects whether any of them failed, but does
+ *       not distinguish which one.
+ */
 int dyad_sync_directory (dyad_ctx_t *restrict ctx, const char *restrict path)
 {
     DYAD_C_FUNCTION_START ();

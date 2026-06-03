@@ -1,3 +1,32 @@
+/**
+ * @file test_cmp_canonical_path_prefix.c
+ * @brief Command-line test utility for @c cmp_canonical_path_prefix().
+ *
+ * @details
+ * Constructs a minimal @c dyad_ctx_t populated with consumer-side path
+ * information from the command-line arguments and calls
+ * @c cmp_canonical_path_prefix() to verify whether @p path falls under
+ * @p prefix (or its canonical form). Prints the result to @c stdout.
+ *
+ * This is a standalone test executable and is not part of the DYAD library.
+ *
+ * Usage:
+ * @code
+ *   test_cmp_canonical_path_prefix <prefix> <path> [canonical_prefix]
+ * @endcode
+ *
+ * @param argc  Argument count. Must be 3 or 4.
+ * @param argv  Argument vector.
+ *              - @c argv[1]: managed directory prefix to match against.
+ *              - @c argv[2]: file path to check.
+ *              - @c argv[3]: (optional) canonical form of the prefix.
+ *
+ * @return int
+ * @retval EXIT_SUCCESS  @p path falls under @p prefix or its canonical form.
+ * @retval EXIT_FAILURE  Incorrect number of arguments, or @p path does not
+ *                       fall under @p prefix or its canonical form.
+ */
+
 #if defined(DYAD_HAS_CONFIG)
 #include <dyad/dyad_config.hpp>
 #else

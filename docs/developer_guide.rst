@@ -19,3 +19,11 @@ Includes for external tools, system headers, and the C++
 Standard Library should be placed in one group, and includes for internal DYAD headers
 should be placed in another group. The group for external headers should be placed
 before the group for internal headers.
+
+Consider utilizaing the formatting scripts under ``scripts/formatting``
+
+.. code-block:: shell
+
+   cat .clang-format
+   scripts/formatting/check-formatting.sh
+   scripts/formatting/autoformat.sh
