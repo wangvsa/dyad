@@ -17,7 +17,7 @@ IndentWidth: '4'
 PenaltyBreakBeforeFirstCallParameter: '10000000'
 PenaltyBreakString: '10'
 PenaltyReturnTypeOnItsOwnLine: '10000000'
-PointerAlignment: Right
+#PointerAlignment: Right
 SpaceBeforeParens: Always
 TabWidth: '4'
 UseTab: Never
