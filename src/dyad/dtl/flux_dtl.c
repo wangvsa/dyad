@@ -131,6 +131,7 @@ dyad_rc_t dyad_dtl_flux_return_buffer (const dyad_ctx_t *ctx, void **data_buf)
         goto flux_ret_buf_done;
     }
     free (*data_buf);
+    *data_buf = NULL;
     rc = DYAD_RC_OK;
 
 flux_ret_buf_done:

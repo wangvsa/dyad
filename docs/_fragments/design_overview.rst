@@ -1,4 +1,4 @@
-DYAD Overview: Synchronization and File Transfer
+Overview of Synchronization and File Transfer
 ################################################
 
 .. figure:: _static/figs/dyad_operation_overview.svg

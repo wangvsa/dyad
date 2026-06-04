@@ -442,7 +442,7 @@ int get_path (const int fd, const size_t max_size, char* path)
     } else if ((size_t)rc == max_size) {
         DYAD_LOG_DEBUG (NULL, "DYAD UTIL: truncation might have happend with %s.", proclink);
     }
-    path[max_size + 1] = '\0';
+    path[max_size] = '\0';
 
     return 0;
 }
