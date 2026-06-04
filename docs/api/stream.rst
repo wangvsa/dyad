@@ -15,10 +15,10 @@ Input stream
    :project: dyad
    :members:
 
-.. doxygentypedef:: ifstream_dyad
+.. doxygentypedef:: dyad::ifstream_dyad
    :project: dyad
 
-.. doxygentypedef:: wifstream_dyad
+.. doxygentypedef:: dyad::wifstream_dyad
    :project: dyad
 
 Output stream
@@ -28,10 +28,10 @@ Output stream
    :project: dyad
    :members:
 
-.. doxygentypedef:: ofstream_dyad
+.. doxygentypedef:: dyad::ofstream_dyad
    :project: dyad
 
-.. doxygentypedef:: wofstream_dyad
+.. doxygentypedef:: dyad::wofstream_dyad
    :project: dyad
 
 Bidirectional stream
@@ -41,8 +41,8 @@ Bidirectional stream
    :project: dyad
    :members:
 
-.. doxygentypedef:: fstream_dyad
+.. doxygentypedef:: dyad::fstream_dyad
    :project: dyad
 
-.. doxygentypedef:: wfstream_dyad
+.. doxygentypedef:: dyad::wfstream_dyad
    :project: dyad
