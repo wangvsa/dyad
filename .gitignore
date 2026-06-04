@@ -37,8 +37,9 @@ libltdl/
 /config/lt~obsolete.m4
 
 # docs intermediate files
-/doc/man*/*.xml
-/doc/_build
+/docs/man*/*.xml
+/docs/_build
+/docs/doxygen
 
 # Object files
 *.o
@@ -123,6 +124,10 @@ docs/demos/ecp_feb_2023/c_cons
 docs/demos/ecp_feb_2023/cpp_cons
 docs/demos/ecp_feb_2023/c_prod
 docs/demos/ecp_feb_2023/cpp_prod
+docs/demos/SCA26/c_cons
+docs/demos/SCA26/cpp_cons
+docs/demos/SCA26/c_prod
+docs/demos/SCA26/cpp_prod
 tests/integration/dlio_benchmark/logs
 scripts/checkpoints
 scripts/logs
