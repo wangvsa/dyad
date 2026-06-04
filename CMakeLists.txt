@@ -121,7 +121,7 @@ option(DYAD_ENABLE_TESTS "Enable dyad tests" OFF)
 #------------------------------------------------------------------------------
 include(ExternalProject)
 # It requires include(GNUInstallDirs) before if that is needed
-include(SetupCompiler)
+include(DyadSetupCompiler)
 
 #------------------------------------------------------------------------------
 # Build Type based configurations

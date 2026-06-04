@@ -705,13 +705,18 @@ dyad_rc_t dyad_dtl_ucx_init (const dyad_ctx_t *ctx,
     dtl_handle->mem_handle = NULL;
     dtl_handle->net_buf = NULL;
     dtl_handle->max_transfer_size = UCX_MAX_TRANSFER_SIZE;
-    dtl_handle->ep = NULL;
-    dtl_handle->ep_cache = NULL;
     dtl_handle->local_address = NULL;
-    dtl_handle->local_addr_len = 0;
+    dtl_handle->local_addr_len = 0ul;
     dtl_handle->remote_address = NULL;
-    dtl_handle->remote_addr_len = 0;
-    dtl_handle->comm_tag = 0;
+    dtl_handle->remote_addr_len = 0ul;
+    dtl_handle->ep = NULL;
+    dtl_handle->comm_tag = 0ul;
+    dtl_handle->ep_cache = NULL;
+    dtl_handle->consumer_conn_key = 0ul;
+    dtl_handle->rkey_buf = NULL;
+    dtl_handle->rkey_size = 0ul;
+    dtl_handle->cons_buf_ptr = 0ul;
+    dtl_handle->rkey = NULL;
 
     // Read the UCX configuration
     DYAD_LOG_INFO (ctx, "Reading UCP config\n");
@@ -1177,7 +1182,10 @@ dyad_rc_t dyad_dtl_ucx_close_connection (const dyad_ctx_t *ctx)
             //                   "Could not successfully close Endpoint! However, endpoint was "
             //                   "released.");
             // }
-            ucp_rkey_destroy (dtl_handle->rkey);
+            if (dtl_handle->rkey != NULL) {
+                ucp_rkey_destroy (dtl_handle->rkey);
+                dtl_handle->rkey = NULL;
+            }
             dtl_handle->ep = NULL;
             // Sender doesn't have a consumer address at this time
             // So, free the consumer address when closing the connection
@@ -1233,9 +1241,15 @@ dyad_rc_t dyad_dtl_ucx_finalize (const dyad_ctx_t *ctx)
         ucp_worker_release_address (dtl_handle->ucx_worker, dtl_handle->local_address);
         dtl_handle->local_address = NULL;
     }
+    // Free remote adddress structure if not already freed
+    if (dtl_handle->remote_address != NULL) {
+        free (dtl_handle->remote_address);
+        dtl_handle->remote_address = NULL;
+    }
     // Free memory buffer if not already freed
     if (dtl_handle->mem_handle != NULL) {
         ucx_free_buffer (ctx, dtl_handle->ucx_ctx, dtl_handle->mem_handle, &(dtl_handle->net_buf));
+        dtl_handle->mem_handle = NULL;
     }
     // Release worker if not already released
     if (dtl_handle->ucx_worker != NULL) {
@@ -1247,6 +1261,18 @@ dyad_rc_t dyad_dtl_ucx_finalize (const dyad_ctx_t *ctx)
         ucp_cleanup (dtl_handle->ucx_ctx);
         dtl_handle->ucx_ctx = NULL;
     }
+    if (dtl_handle->rkey_buf != NULL) {
+        if (dtl_handle->comm_mode == DYAD_COMM_SEND)
+            ucp_rkey_buffer_release (dtl_handle->rkey_buf);
+        else
+            free (dtl_handle->rkey_buf);
+        dtl_handle->rkey_buf = NULL;
+    }
+    if (dtl_handle->rkey != NULL) {
+        ucp_rkey_destroy (dtl_handle->rkey);
+        dtl_handle->rkey = NULL;
+    }
+
     // Flux handle should be released by the
     // DYAD context, so it is not released here
     dtl_handle->h = NULL;

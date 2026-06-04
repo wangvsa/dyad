@@ -2,11 +2,11 @@
 DYAD System Design
 ******************************
 
-High-level Overview
-###################
+Where is DYAD useful?
+#####################
 
-Comparison of a producer and consumer pair sharing a file with and without DYAD
-===============================================================================
+A producer and consumer scenario sharing a file with and without DYAD
+=====================================================================
 
 .. figure:: _static/figs/dyad_without_vs_with.svg
    :alt: Without DYAD vs With DYAD
@@ -18,6 +18,21 @@ Comparison of a producer and consumer pair sharing a file with and without DYAD
    across local storages while coordinating accesses through KVS and
    RDMA-based data movement, eliminating both the shared file system
    bottleneck and the need for explicit synchronization.
+
+
+Deep Learning Training for Distributed Stochastic Gradient Descent (SGD)
+========================================================================
+
+Deep learning training often requires randomizing the order of input samples at
+each epoch. In distributed or parallel training, where each worker processes a
+subset of the samples, the set of files assigned to each worker changes at every
+epoch due to this randomization.
+
+With DYAD, workers can avoid repeatedly loading files from shared storage at
+every epoch. Instead, workers can retrieve files from the local storage of other
+workers when needed. Initially, the dataset is partitioned across workers. When
+a file is reference for the first time, it is staged into the DYAD managed
+directory on the local storage of the worker who owns the partition.
 
 
 .. include:: _fragments/design_overview.rst

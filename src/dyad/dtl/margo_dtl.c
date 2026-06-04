@@ -184,6 +184,7 @@ dyad_rc_t dyad_dtl_margo_return_buffer (const dyad_ctx_t *ctx, void **data_buf)
         goto margo_ret_buf_done;
     }
     free (*data_buf);
+    *data_buf = NULL;
     rc = DYAD_RC_OK;
 
 margo_ret_buf_done:
@@ -511,42 +512,73 @@ dyad_rc_t dyad_dtl_margo_send (const dyad_ctx_t *ctx, void *buf, size_t buflen)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
+    hg_return_t ret = HG_SUCCESS;
 
     DYAD_LOG_DEBUG (ctx, "[MARGO DTL] margo_send is called, buflen: %ld.", buflen);
     dyad_dtl_margo_t *margo_handle = ctx->dtl_handle->private_dtl.margo_dtl_handle;
 
     hg_size_t segment_sizes[1] = {buflen};
     void *segment_ptrs[1] = {buf};
+    hg_bulk_t local_bulk;
+    margo_rpc_in_t args;
+    hg_handle_t mh;
+    margo_rpc_out_t resp;
 
     // Register my local data
     // which will be pulled by the consumer
-    hg_bulk_t local_bulk;
-    margo_bulk_create (margo_handle->mid,
-                       1,
-                       segment_ptrs,
-                       segment_sizes,
-                       HG_BULK_READ_ONLY,
-                       &local_bulk);
+    ret = margo_bulk_create (margo_handle->mid,
+                             1,
+                             segment_ptrs,
+                             segment_sizes,
+                             HG_BULK_READ_ONLY,
+                             &local_bulk);
+    if (ret != HG_SUCCESS) {
+        DYAD_LOG_ERROR (ctx, "margo_bulk_create failed: %d", (int)ret);
+        goto margo_error_bulk;
+    }
 
-    margo_rpc_in_t args;
     args.n = buflen;
     args.bulk = local_bulk;
 
-    // send a message to the consuer, notifying
-    // it that my data is ready
-    hg_handle_t h;
-    margo_create (margo_handle->mid, margo_handle->remote_addr, margo_handle->sendrecv_rpc_id, &h);
-    margo_forward (h, &args);
+    // send a message to the consumer, notifying it that my data is ready
+    ret = margo_create (margo_handle->mid,
+                        margo_handle->remote_addr,
+                        margo_handle->sendrecv_rpc_id,
+                        &mh);
+    if (ret != HG_SUCCESS) {
+        DYAD_LOG_ERROR (ctx, "margo_create failed: %d", (int)ret);
+        goto margo_error;
+    }
+    ret = margo_forward (mh, &args);
+    if (ret != HG_SUCCESS) {
+        DYAD_LOG_ERROR (ctx, "margo_forward failed: %d", (int)ret);
+        goto margo_error;
+    }
 
-    margo_rpc_out_t resp;
-    margo_get_output (h, &resp);
-    margo_free_output (h, &resp);
-    margo_destroy (h);
+    ret = margo_get_output (mh, &resp);
+    if (ret != HG_SUCCESS) {
+        DYAD_LOG_ERROR (ctx, "margo_get_output failed: %d", (int)ret);
+        goto margo_error;
+    }
+    margo_free_output (mh, &resp);
+    margo_destroy (mh);
 
     DYAD_LOG_DEBUG (ctx, "[MARGO DTL] margo_send completed, buflen: %lu", buflen);
 
     DYAD_C_FUNCTION_END ();
     return rc;
+
+margo_error:;
+    if (mh != HG_HANDLE_NULL) {
+        margo_destroy (mh);
+    }
+
+margo_error_bulk:;
+    if (local_bulk != HG_BULK_NULL) {
+        margo_bulk_free (local_bulk);
+    }
+
+    return DYAD_RC_MARGOINIT_FAIL;
 }
 
 dyad_rc_t dyad_dtl_margo_recv (const dyad_ctx_t *ctx, void **buf, size_t *buflen)

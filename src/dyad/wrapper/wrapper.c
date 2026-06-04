@@ -46,9 +46,14 @@ using namespace std;  // std::clock ()
 #include <dyad/common/dyad_profiler.h>
 #include <dyad/utils/utils.h>
 #include <fcntl.h>
-#include <gotcha/gotcha.h>
 #include <libgen.h>  // dirname
 #include <unistd.h>
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wall"
+#pragma clang diagnostic ignored "-Wstrict-prototypes"
+#include <gotcha/gotcha.h>
+#pragma clang diagnostic pop
 
 #ifdef __cplusplus
 extern "C" {
