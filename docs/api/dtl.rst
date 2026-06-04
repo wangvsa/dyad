@@ -1,3 +1,5 @@
+.. _dyad_dev_api_dtl:
+
 DYAD Data Transport API
 =======================
 
@@ -11,6 +13,8 @@ and the Margo+Mercury framework.
 .. doxygenfile:: dyad_dtl_api.c
    :project: dyad
 
+
+.. _dyad_dev_api_dtl_flux_rpc:
 
 Flux Streaming RPC
 ##################
@@ -39,6 +43,8 @@ until it receives ``ENODATA``.
 .. doxygenfile:: flux_dtl.c
    :project: dyad
 
+
+.. _dyad_dev_api_dtl_margo:
 
 Margo, Mercury and Mochi
 ########################
@@ -76,6 +82,8 @@ high-performance network transport layer.
 .. doxygenfile:: margo_dtl.c
    :project: dyad
 
+
+.. _dyad_dev_api_ucx:
 
 UCX
 ###

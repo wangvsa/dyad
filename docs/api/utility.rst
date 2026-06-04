@@ -1,3 +1,5 @@
+.. _dyad_dev_api_utility:
+
 Utility API
 ===========
 

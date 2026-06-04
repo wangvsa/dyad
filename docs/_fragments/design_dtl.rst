@@ -1,4 +1,4 @@
-.. _dtl:
+.. _dyad_dtl:
 
 Data Transport Layer (DTL)
 ##########################

@@ -1,3 +1,5 @@
+.. _dyad_dev_api_cpp_stream:
+
 C++ Stream API
 ==============
 

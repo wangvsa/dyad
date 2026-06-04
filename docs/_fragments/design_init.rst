@@ -1,8 +1,13 @@
-.. _entry_and_init:
+.. _dyad_entry_and_init:
 
 DYAD entry points and initalization
 ###################################
 
+
+.. _dyad_entry_and_init_client:
+
+Client
+======
 
 .. figure:: _static/figs/dyad_initialization_points.svg
    :alt: DYAD initialization points
@@ -24,11 +29,16 @@ DYAD entry points and initalization
    below.
 
 
+.. _dyad_entry_and_init_service:
+
+Service
+=======
+
 .. figure:: _static/figs/dyad_flux_module_init.svg
    :alt: DYAD Flux module initialization
 
    The DYAD Flux module follows the same ``dyad_ctx_init()`` →
-   ``dyad_init_env()`` → ``dyad_init()`` chain as the C GOTCHA wrapper
+   ``dyad_init_env()`` -> ``dyad_init()`` chain as the C GOTCHA wrapper
    (shown above), but with an additional step — ``mod_main()`` first calls
    ``dyad_module_ctx_init()``, which applies any command-line argument
    overrides to environment variables before delegating to

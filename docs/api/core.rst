@@ -1,3 +1,5 @@
+.. _dyad_dev_api_core:
+
 C/C++ API Reference
 ===================
 
