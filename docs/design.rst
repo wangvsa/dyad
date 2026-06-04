@@ -20,6 +20,7 @@ Comparison of a producer and consumer pair sharing a file with and without DYAD
    bottleneck and the need for explicit synchronization.
 
 
+.. include:: _fragments/design_overview.rst
 
 .. include:: _fragments/design_dtl.rst
 

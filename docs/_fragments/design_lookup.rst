@@ -1,4 +1,4 @@
-.. _metadata_lookup:
+.. _dyad_metadata_lookup:
 
 File Lookup and Hierarchical File Discovery
 ###########################################
@@ -35,6 +35,8 @@ providing an efficient intermediate cache for node-local misses.
    caches. In Case 4, no cache contains the file and the locator falls
    back to the parallel file system (PFS) for the initial fetch.
 
+
+.. _dyad_metadata_key:
 
 Scalable Metadata Key
 =====================
@@ -81,7 +83,7 @@ to tune the trade-off between key space size and lookup performance for
 their workload. The defaults (``DYAD_KEY_DEPTH=2``,
 ``DYAD_KEY_BINS=256``) are suitable for most use cases.
 
-The :ref:`next section <local-file-access>` details how concurrent accesses to the same file by
+The :ref:`next section <dyad_local-file-access>` details how concurrent accesses to the same file by
 multiple workers — as in Case 1 — are coordinated. It also describes
 how files are transferred into local storage, which applies to Cases 2,
 3, and 4 where the file is not yet present on the requesting worker's

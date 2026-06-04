@@ -1,4 +1,4 @@
-.. _local-file-access:
+.. _dyad_local-file-access:
 
 Local file access coordination via locking
 ##########################################
@@ -41,6 +41,8 @@ mechanisms.
    immediately and continues to perform read-only access on the file.
 
 
+.. _dyad_local-file-access_fallback:
+
 Fallback behavior when filesystem locking is unavailable
 ========================================================
 
@@ -74,6 +76,9 @@ in the C GOTCHA wrapper it is called inside the ``close()`` wrapper, and in
 the C++ stream path it is called via ``close_sync()`` from
 ``basic_ofstream_dyad`` and ``basic_fstream_dyad`` destructors and their
 ``close()`` methods.
+
+
+.. _dyad_local-file-access_stream_sync:
 
 Data durability in the C++ stream path
 ======================================

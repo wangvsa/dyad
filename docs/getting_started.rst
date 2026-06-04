@@ -1,6 +1,10 @@
+.. _dyad_getting_started:
+
 ***************
 Getting Started
 ***************
+
+.. _dyad_prerequisites:
 
 Prerequisites
 #############
@@ -24,6 +28,9 @@ Optionally, DYAD leverages:
 * `cpp-logger <https://github.com/hariharan-devarajan/cpp-logger.git>`_ for logging operational details to aid debugging.
 * `perflow-aspect <https://perfflowaspect.readthedocs.io/en/latest/>`_ for visualizing function-level events to aid workflow performance diagnosis.
 * `caliper <https://github.com/llnl/Caliper.git>`_ for collecting performance profiling.
+
+
+.. _dyad_installation:
 
 Installation
 ############
@@ -241,6 +248,8 @@ There are several custom CMake options available to configure a DYAD build:
    gotchat is required to build DYAD but is only relevant to the interception wrapper.
 
 
+.. _dyad_user_api:
+
 Using DYAD's APIs
 #################
 
@@ -251,6 +260,8 @@ Currently, DYAD provides APIs for the following programming languages:
 * Python
 
 This section describes the basics of integrating them into an application.
+
+.. _dyad_user_api_c:
 
 C API
 *****
@@ -273,6 +284,8 @@ interception libraries at runtime by controlling the execution order by priority
 DYAD's priority can be set via the ``DYAD_GOTCHA_PRIORITY`` environment variable
 — a higher integer value means DYAD's wrapper runs first. If the variable is not
 set, all tools default to priority 0 and order is determined by load order.
+
+.. _dyad_user_api_cpp:
 
 C++ API
 *******
@@ -329,6 +342,8 @@ you must link the associated library (i.e., :code:`libdyad_stream.so` or
 subdirectory of the install prefix.
 
 
+.. _dyad_user_api_python:
+
 Python
 *******
 
@@ -368,6 +383,9 @@ consumer. To create this namespace, run the following:
 
 The namespace can be whatever string value you want.
 
+
+.. _dyad_managed_dir:
+
 Determine the Managed Directories for Each Application
 ******************************************************
 
@@ -396,6 +414,9 @@ for each application. These directories will need to be provided to the commands
    When opening or closing a file not in the producer- or consumer-managed directories, DYAD
    will simply open or close the file. DYAD changes the behavior of opening or closing only the
    files in the managed directories.
+
+
+.. _dyad_user_service:
 
 Load DYAD's Flux Module
 ***********************
