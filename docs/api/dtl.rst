@@ -3,12 +3,23 @@
 DYAD Data Transport API
 #######################
 
-Once consumer identifies the owner of the file it tries to access via metadata,
-and it finds out the owner is at a remote location, i.e., the file is not
-locally visible, it request the owner to transfer the file.
-DYAD offers multiple backend implementations to transfer data from producer to
-consumer. The streaming RPC that is native mechanism of Flux, UCX with RDMA,
-and the Margo+Mercury framework.
+When the consumer identifies that the file owner is at a remote location
+(i.e., the file is not locally visible), it requests the owner to
+transfer the file. DYAD supports three backend implementations: the
+Flux-native streaming RPC, UCX with RDMA, and the Margo+Mercury
+framework.
+
+
+.. _dyad_dev_api_dtl_abstract:
+
+Abstract Data Transport Layer (DTL)
+====================================
+
+The Abstract DTL exposes a uniform interface over these backends via a
+common function pointer table, decoupling the DYAD core from the
+specifics of any particular transport. Concrete backends each implement
+this interface, allowing the producer and consumer to transfer file data
+without knowledge of the transport in use.
 
 .. doxygenfile:: dyad_dtl_api.c
    :project: dyad
