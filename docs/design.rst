@@ -1,6 +1,10 @@
+.. _DYAD_desig:
+
 ******************************
 DYAD System Design
 ******************************
+
+.. _DYAD_useful:
 
 Where is DYAD useful?
 #####################
@@ -19,6 +23,8 @@ A producer and consumer scenario sharing a file
    RDMA-based data movement, eliminating both the shared file system
    bottleneck and the need for explicit synchronization.
 
+   Check out our use case with a molecular dynamics simulation workflow
+   :ref:`Lumsden et al. 2024 <paper-ipdpsw-2024>`.
 
 Deep Learning Training by Distributed Stochastic Gradient Descent (SGD)
 =======================================================================
@@ -33,6 +39,9 @@ every epoch. Instead, workers can retrieve files from the local storage of other
 workers when needed. Initially, the dataset is partitioned across workers. When
 a file is reference for the first time, it is staged into the DYAD managed
 directory on the local storage of the worker who owns the partition.
+
+Check out our use case with the `DLIO <https://dlio-benchmark.readthedocs.io/en/latest/>`_ 
+representing PyTorch dataloader :ref:`Devarajan et al. 2024 <paper-sbacpad-2024>`.
 
 
 .. include:: _fragments/design_overview.rst

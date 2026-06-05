@@ -1,6 +1,8 @@
-====================================
+.. _DYAD_debugging_tips:
+
+***********************************
 Common Tips for Debugging with DYAD
-====================================
+***********************************
 
 Debugging distributed operations of mutiple jobs coordination under batch system is quite challending. Here are several tips.
 

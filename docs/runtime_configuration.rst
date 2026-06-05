@@ -1,3 +1,5 @@
+.. _DYAD_runtime_config:
+
 ******************************
 Runtime Configuration
 ******************************

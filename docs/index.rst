@@ -27,7 +27,7 @@ In resolving these challenges, DYAD aims to provide the following to users:
 
 .. toctree::
    :maxdepth: 2
-   :caption: User Docs:
+   :caption: User Guide:
 
    getting_started
 
@@ -74,9 +74,16 @@ In resolving these challenges, DYAD aims to provide the following to users:
 
    api/core
    api/stream
-   api/utility
    api/service
    api/dtl
+   api/utility
+
+.. toctree::
+   :maxdepth: 1
+   :caption: DYAD logos
+
+   logo
+
 
 Indices and tables
 ==================
