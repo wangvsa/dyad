@@ -55,6 +55,7 @@ templates_path = ['_templates']
 exclude_patterns = ['_build', '_fragments', 'Thumbs.db', '.DS_Store', 'venv', '.venv']
 
 raw_enabled = True
+html_allow_unsafe = True
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -67,7 +68,7 @@ html_theme = 'sphinx_rtd_theme'
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
-html_logo = "_static/logo/dyad_logo_sky_blue.svg"
+html_logo = "_static/logo/dyad_logo_white_streamliner.svg"
 html_css_files = ["logo/logo.css"]
 
 # -- Options for Breathe  ---------------------------------------------------
