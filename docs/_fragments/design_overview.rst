@@ -9,12 +9,12 @@ Overview of Synchronization and File Transfer
 
 DYAD consists of two components: a :ref:`**wrapper**<dyad_user_api>` library that is injected
 into the application process via ``LD_PRELOAD`` or C++ stream wrapper
-classes to transparently intercept I/O calls, and a :ref:`**service**<dyad_user_service>` that
+classes to transparently intercept I/O calls, and a :ref:`**service**<DYAD_user_service>` that
 runs as a plugin module to the Flux broker on each node. Together they
 coordinate file access and transfer between nodes.
 
 The wrapper intercepts I/O only for files in the directory it manages,
-or :ref:`DYAD managed directory (DMD)<dyad_managed_dir>`. If the file shared between producer and
+or :ref:`DYAD managed directory (DMD)<DYAD_managed_dir>`. If the file shared between producer and
 consumer under DMD resides on the producer's local storage that is not
 visible to the consumer, DYAD both synchronizes accesses and transfers
 files to the DMD on the consumer's local storage. If it is visible to
@@ -52,7 +52,7 @@ occur in order (see **c.1–c.3** in the diagram):
    query when it sees the matching entry, which propagates from the
    producer's local HFL through the hierarchy.
 2. **c.2** ``rpc_get(producer_rank, filename)`` — the wrapper sends an
-   RPC to the producer's :ref:`DYAD service<dyad_user_service>` requesting the file. The service
+   RPC to the producer's :ref:`DYAD service<DYAD_user_service>` requesting the file. The service
    transfers the file over the selected :ref:`DTL backend<dyad_dtl>` (Flux RPC, Margo, or
    UCX) and stores it on the consumer's local storage.
 3. **c.3** ``read(managed_dir/filename)`` — the application reads the

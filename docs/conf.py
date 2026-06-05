@@ -28,6 +28,7 @@ author = 'This page is maintained by the <a href="https://github.com/flux-framew
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    "sphinx_rtd_theme",
     "sphinx.ext.autosectionlabel",
     'myst_parser',
 ]
@@ -56,6 +57,8 @@ exclude_patterns = ['_build', '_fragments', 'Thumbs.db', '.DS_Store', 'venv', '.
 
 raw_enabled = True
 html_allow_unsafe = True
+autosectionlabel_prefix_document = True
+suppress_warnings = ["autosectionlabel.*"]
 
 # -- Options for HTML output -------------------------------------------------
 
