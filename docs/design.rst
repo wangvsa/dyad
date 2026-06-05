@@ -5,8 +5,8 @@ DYAD System Design
 Where is DYAD useful?
 #####################
 
-A producer and consumer scenario sharing a file with and without DYAD
-=====================================================================
+A producer and consumer scenario sharing a file
+===============================================
 
 .. figure:: _static/figs/dyad_without_vs_with.svg
    :alt: Without DYAD vs With DYAD
@@ -20,8 +20,8 @@ A producer and consumer scenario sharing a file with and without DYAD
    bottleneck and the need for explicit synchronization.
 
 
-Deep Learning Training for Distributed Stochastic Gradient Descent (SGD)
-========================================================================
+Deep Learning Training by Distributed Stochastic Gradient Descent (SGD)
+=======================================================================
 
 Deep learning training often requires randomizing the order of input samples at
 each epoch. In distributed or parallel training, where each worker processes a

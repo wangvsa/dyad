@@ -1,13 +1,10 @@
 .. _dyad_dev_api_core:
 
-C/C++ API Reference
-===================
-
 Core API
-========
+########
 
 Initialization and finalization
---------------------------------
+===============================
 
 .. doxygenfunction:: dyad_init
    :project: dyad
@@ -31,7 +28,7 @@ Initialization and finalization
    :project: dyad
 
 Path management
----------------
+===============
 
 .. doxygenfunction:: dyad_set_prod_path
    :project: dyad
@@ -40,7 +37,7 @@ Path management
    :project: dyad
 
 Return codes
-------------
+============
 
 .. doxygenenum:: dyad_core_return_codes
    :project: dyad
@@ -50,7 +47,7 @@ Return codes
 
 
 Internal implementation
------------------------
+=======================
 
 The following documents all internal functions from the core client
 implementation that are not exposed in the public headers.

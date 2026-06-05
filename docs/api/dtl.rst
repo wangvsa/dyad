@@ -1,7 +1,7 @@
 .. _dyad_dev_api_dtl:
 
 DYAD Data Transport API
-=======================
+#######################
 
 Once consumer identifies the owner of the file it tries to access via metadata,
 and it finds out the owner is at a remote location, i.e., the file is not
@@ -17,7 +17,7 @@ and the Margo+Mercury framework.
 .. _dyad_dev_api_dtl_flux_rpc:
 
 Flux Streaming RPC
-##################
+==================
 
 The Flux RPC DTL backend uses the built-in RPC mechanism provided by
 the `Flux framework <https://flux-framework.readthedocs.io>`_, requiring
@@ -47,7 +47,7 @@ until it receives ``ENODATA``.
 .. _dyad_dev_api_dtl_margo:
 
 Margo, Mercury and Mochi
-########################
+========================
 
 Margo, Mercury, and libfabric form a layered communication stack
 used by DYAD's Margo DTL backend.
@@ -86,7 +86,7 @@ high-performance network transport layer.
 .. _dyad_dev_api_ucx:
 
 UCX
-###
+===
 
 The UCX (Unified Communication X) DTL backend provides high-performance
 inter-node data movement using one-sided RDMA. UCX is an open-source

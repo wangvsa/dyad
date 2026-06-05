@@ -148,7 +148,14 @@ typedef struct dyad_dtl_ucx dyad_dtl_ucx_t;
  *     @c UCX_MAX_TRANSFER_SIZE + @c sizeof(size_t) bytes via
  *     @c ucx_allocate_buffer(). The extra @c sizeof(size_t) bytes hold
  *     a prepended file size sentinel used by the consumer to detect
- *     when the producer has started the RDMA push.
+ *     when the producer has started the RDMA push. On the consumer side
+ *     (@c DYAD_COMM_RECV), also packs the registered memory region into
+ *     @c rkey_buf via @c ucp_rkey_pack() so the packed key can be sent
+ *     to the producer to authorize the RDMA push. On the producer side
+ *     (@c DYAD_COMM_SEND), @c rkey_buf is left as @c NULL since no peer
+ *     performs RDMA into the producer's buffer; it will be populated per
+ *     transfer in @c dyad_dtl_ucx_rpc_unpack() with the consumer's
+ *     packed key decoded from the RPC payload.
  *  8. Wires all DTL function pointers.
  *  9. Performs a loopback connection warmup via @c ucx_warmup() to
  *     prime the UCX connection machinery before the first real transfer.
@@ -570,24 +577,47 @@ dyad_rc_t dyad_dtl_ucx_close_connection (const dyad_ctx_t *ctx);
  *
  *  1. If @c dtl_handle->ep is non-@c NULL, closes the active connection
  *     via @c dyad_dtl_ucx_close_connection() to destroy the unpacked
- *     remote key and clear connection state, then sets @c ep to @c NULL.
+ *     remote key and clear per-RPC connection state, then sets
+ *     @c ep to @c NULL.
  *  2. If @c dtl_handle->ep_cache is non-@c NULL, finalizes the endpoint
  *     cache via @c dyad_ucx_ep_cache_finalize(), which disconnects and
  *     destroys all cached @c ucp_ep_h endpoints, then sets
- *     @c ep_cache to @c NULL.
+ *     @c ep_cache to @c NULL. This is the actual connection teardown —
+ *     endpoints are kept alive across RPCs in the cache and are only
+ *     destroyed here.
  *  3. If @c dtl_handle->local_address is non-@c NULL, releases the
  *     local worker address via @c ucp_worker_release_address() and
- *     sets it to @c NULL.
- *  4. If @c dtl_handle->mem_handle is non-@c NULL, unmaps and frees the
+ *     sets it to @c NULL. @c ucp_worker_release_address() must be used
+ *     instead of @c free() since the address is UCX-allocated by
+ *     @c ucp_worker_get_address().
+ *  4. If @c dtl_handle->remote_address is non-@c NULL, frees it with
+ *     @c free() and sets it to @c NULL. This handles the case where
+ *     @c dyad_dtl_ucx_close_connection() was skipped on an error path
+ *     and @c remote_address was not freed there.
+ *  5. If @c dtl_handle->rkey is non-@c NULL, destroys the unpacked
+ *     remote key handle via @c ucp_rkey_destroy() and sets it to
+ *     @c NULL. This is normally @c NULL at finalization since
+ *     @c dyad_dtl_ucx_close_connection() destroys it after each
+ *     transfer. A non-@c NULL value indicates that
+ *     @c close_connection() was skipped on an error path.
+ *  6. If @c dtl_handle->rkey_buf is non-@c NULL, releases it and sets
+ *     it to @c NULL. The release function differs by @c comm_mode:
+ *     @c DYAD_COMM_SEND uses @c free() since @c rkey_buf is a plain
+ *     @c malloc() allocation from @c dyad_dtl_ucx_rpc_unpack();
+ *     @c DYAD_COMM_RECV uses @c ucp_rkey_buffer_release() since
+ *     @c rkey_buf is UCX-allocated by @c ucp_rkey_pack() in
+ *     @c ucx_allocate_buffer().
+ *  7. If @c dtl_handle->mem_handle is non-@c NULL, unmaps and frees the
  *     pre-allocated RDMA buffer via @c ucx_free_buffer(), which calls
  *     @c ucp_mem_unmap() and sets @c dtl_handle->net_buf to @c NULL.
- *  5. If @c dtl_handle->ucx_worker is non-@c NULL, destroys the UCX
+ *     Then sets @c mem_handle to @c NULL.
+ *  8. If @c dtl_handle->ucx_worker is non-@c NULL, destroys the UCX
  *     worker via @c ucp_worker_destroy() and sets it to @c NULL.
- *  6. If @c dtl_handle->ucx_ctx is non-@c NULL, releases the UCX
+ *  9. If @c dtl_handle->ucx_ctx is non-@c NULL, releases the UCX
  *     context via @c ucp_cleanup() and sets it to @c NULL.
- *  7. Sets @c dtl_handle->h to @c NULL. The Flux handle is non-owning
+ * 10. Sets @c dtl_handle->h to @c NULL. The Flux handle is non-owning
  *     and must not be closed here — it is managed by the DYAD context.
- *  8. Frees the @c dyad_dtl_ucx struct and sets the handle pointer
+ * 11. Frees the @c dyad_dtl_ucx struct and sets the handle pointer
  *     to @c NULL.
  *
  * If @c ctx->dtl_handle is @c NULL or
@@ -597,6 +627,10 @@ dyad_rc_t dyad_dtl_ucx_close_connection (const dyad_ctx_t *ctx);
  * @note The endpoint cache must be finalized before the UCX worker is
  *       destroyed, since endpoint disconnection requires the worker to
  *       be active to flush pending operations.
+ *
+ * @note @c rkey and @c rkey_buf must be released before the UCX worker
+ *       and context are destroyed since they are UCX-managed resources
+ *       bound to the UCX context.
  *
  * @note The RDMA buffer must be unmapped before the UCX context is
  *       cleaned up, since @c ucp_mem_unmap() requires a valid UCX

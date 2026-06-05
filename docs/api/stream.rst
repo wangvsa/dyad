@@ -1,17 +1,17 @@
 .. _dyad_dev_api_cpp_stream:
 
 C++ Stream API
-==============
+##############
 
 Stream core
------------
+===========
 
 .. doxygenclass:: dyad::dyad_stream_core
    :project: dyad
    :members:
 
 Input stream
-------------
+============
 
 .. doxygenclass:: dyad::basic_ifstream_dyad
    :project: dyad
@@ -24,7 +24,7 @@ Input stream
    :project: dyad
 
 Output stream
--------------
+=============
 
 .. doxygenclass:: dyad::basic_ofstream_dyad
    :project: dyad
@@ -37,7 +37,7 @@ Output stream
    :project: dyad
 
 Bidirectional stream
---------------------
+====================
 
 .. doxygenclass:: dyad::basic_fstream_dyad
    :project: dyad
