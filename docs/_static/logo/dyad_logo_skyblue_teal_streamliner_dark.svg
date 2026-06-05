@@ -1,0 +1,12 @@
+<svg width="100%" viewBox="230 40 170 195" role="img" xmlns="http://www.w3.org/2000/svg">
+<title>DYAD logo — sky blue and light teal (dark background)</title>
+<desc>DYAD logo with sky blue and teal interlocking D shapes. Optimized for dark backgrounds.</desc>
+<g transform="translate(630,0) scale(-1,1)">
+  <text x="240" y="140" font-family="Georgia, 'Times New Roman', serif" font-size="120px" font-weight="700" fill="#3ecfbf" opacity="0.75">D</text>
+</g>
+<text x="240" y="140" font-family="Georgia, 'Times New Roman', serif" font-size="120px" font-weight="700" fill="#7dd4f8" opacity="0.95">D</text>
+<path d="M247 150 L260 150 C280 151 300 149 315 148 C330 149 350 151 370 150 L383 150 L377 155 L383 160 L370 160 C350 161 330 159 315 158 C300 159 280 161 260 160 L247 160 L253 155 Z" fill="#b8e0f5" opacity="0.6"/>
+<path d="M248 151 L260 151 C280 152 300 150 315 149 C330 150 350 152 370 151 L381 151 L376 154 L370 153 C350 154 330 152 315 151 C300 152 280 154 260 153 L248 153 L252 152 Z" fill="white" opacity="0.35"/>
+<text x="318" y="200" text-anchor="middle" font-family="Anthropic Sans, -apple-system, Segoe UI, sans-serif" font-size="38px" font-weight="500" fill="#5de8d8" letter-spacing="10">DYAD</text>
+<text x="315" y="220" text-anchor="middle" font-family="Anthropic Sans, -apple-system, Segoe UI, sans-serif" font-size="11px" fill="#5de8d8" opacity="0.6" letter-spacing="3">DATA STREAMLINER</text>
+</svg>

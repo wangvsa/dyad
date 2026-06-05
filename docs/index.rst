@@ -82,7 +82,7 @@ In resolving these challenges, DYAD aims to provide the following to users:
    :maxdepth: 1
    :caption: DYAD logos
 
-   logo
+   dyad_logos
 
 
 Indices and tables

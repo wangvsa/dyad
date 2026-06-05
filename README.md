@@ -1,11 +1,11 @@
 <p align="center">
   <!-- Mother Project Logo on the Left -->
-  <img src="https://raw.githubusercontent.com/flux-framework/.github/main/images/logo.png" width="50" height="50" valign="bottom" alt="Flux">
+  <img src="https://raw.githubusercontent.com/flux-framework/.github/main/images/logo.png" width="50" height="50" valign="bottom" align="middle" alt="Flux">
   <!-- Your Project Name in the Middle -->
   <span style="font-size: 2.2em; font-weight: bold; margin: 0 15px; valign: middle;">DYAD: DYnamic and Asynchronous Data Streamliner</span>
   
   <!-- Your Subproject Logo on the Right -->
-  <img src="docs/_static/logo/dyad_logo_sky_blue.svg" width="50" height="50" valign="bottom" alt="DYAD">
+  <img src="docs/_static/logo/dyad_logo_sky_blue.svg" width="50" height="50" valign="bottom" align="middle" alt="DYAD">
 </p>
 
 ---
