@@ -1,3 +1,5 @@
+.. _DYAD_developer_guide:
+
 ***************
 Developer Guide
 ***************

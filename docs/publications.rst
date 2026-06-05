@@ -1,3 +1,5 @@
+.. _DYAD_publication:
+
 ******************************
 Publications and Presentations
 ******************************

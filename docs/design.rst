@@ -1,6 +1,10 @@
+.. _DYAD_desig:
+
 ******************************
 DYAD System Design
 ******************************
+
+.. _DYAD_useful:
 
 Where is DYAD useful?
 #####################

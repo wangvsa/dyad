@@ -1,3 +1,6 @@
+.. _DYAD_pytorch:
+
+*****************************************************
 An Example of Integrating DYAD into PyToch DataLoader
 *****************************************************
 
