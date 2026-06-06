@@ -72,7 +72,8 @@ html_theme = 'sphinx_rtd_theme'
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 html_logo = "_static/logo/dyad_logo_white_streamliner.svg"
-html_css_files = ["logo/logo.css"]
+html_css_files = ["logo/logo.css", "img_width.css"]
+
 
 # -- Options for Breathe  ---------------------------------------------------
 

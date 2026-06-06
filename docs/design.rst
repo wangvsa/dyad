@@ -14,6 +14,8 @@ A producer and consumer scenario sharing a file
 
 .. figure:: _static/figs/dyad_without_vs_with.svg
    :alt: Without DYAD vs With DYAD
+   :name: dyad-without-vs-with
+   :align: center
 
    Without DYAD, producer and consumer share data via a shared file system
    (e.g., Lustre) with explicit synchronization through dependent jobs, APIs,

@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg
-   viewBox="0 0 1219.2 685.8"
+   viewBox="0 0 1013.6186 387.66047"
    font-family="Anthropic Sans, -apple-system, Segoe UI, sans-serif"
    version="1.1"
    id="svg31"
    sodipodi:docname="dyad_overview_4.svg"
    inkscape:version="1.3 (0e150ed6c4, 2023-07-21)"
+   width="1013.6186"
+   height="387.66046"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
@@ -20,15 +22,16 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      inkscape:zoom="2.15"
-     inkscape:cx="609.53488"
-     inkscape:cy="343.02326"
+     inkscape:cx="503.95349"
+     inkscape:cy="181.62791"
      inkscape:window-width="3840"
      inkscape:window-height="2066"
      inkscape:window-x="-11"
      inkscape:window-y="-11"
      inkscape:window-maximized="1"
      inkscape:current-layer="svg31"
-     showgrid="false" />
+     showgrid="false"
+     inkscape:clip-to-page="false" />
   <!-- PPTX slide 12192000x6858000 EMU, scale 1/10000, all coords from XML -->
   <defs
      id="defs2">
@@ -41,7 +44,7 @@
        refY="3"
        orient="auto">
       <path
-         d="M0,0 L0,6 L8,3 z"
+         d="M 0,0 V 6 L 8,3 Z"
          fill="#085040"
          id="path1" />
     </marker>
@@ -54,8 +57,8 @@
        refY="3"
        orient="auto">
       <path
-         d="M0,0 L0,6 L8,3 z"
-         fill="#CD665F"
+         d="M 0,0 V 6 L 8,3 Z"
+         fill="#cd665f"
          id="path2" />
     </marker>
   </defs>
@@ -64,75 +67,75 @@
      height="387.66046"
      fill="#ffffff"
      id="rect2"
-     x="105.53488"
-     y="161.39536"
+     x="0"
+     y="0"
      style="stroke-width:0.685529" />
   <!-- ============================================================ -->
   <!-- LEFT SIDE: "Without DYAD"                                    -->
   <!-- ============================================================ -->
   <!-- "Without DYAD" title: off 2894144,1756678 box 1565044x338554 -->
   <text
-     x="311.39999"
-     y="193.2"
-     font-size="17px"
-     font-weight="500"
-     fill="rgb(8,80,65)"
+     x="205.86511"
+     y="31.804642"
+     font-size="16px"
+     font-weight="bold"
+     fill="#4472c4"
      id="text2">Without DYAD</text>
   <!-- "explicit sync" textbox: off 2442140,2202240 size 2731582x584775, algn=ctr, center=380.8 -->
   <text
-     x="366.79999"
-     y="240"
+     x="261.26511"
+     y="78.604645"
      text-anchor="middle"
-     font-size="18px"
-     fill="rgb(61,61,58)"
+     font-size="20px"
+     fill="#222222"
      id="text3">explicit sync</text>
   <text
-     x="366.79999"
-     y="263"
+     x="261.26511"
+     y="99.604645"
      text-anchor="middle"
-     font-size="16px"
-     fill="rgb(61,61,58)"
+     font-size="14px"
+     fill="#222222"
      id="text4">(dependent jobs, API, or polling)</text>
   <!-- P1 label: off 1208210,2958555 -->
   <text
-     x="120.8"
-     y="317.10001"
-     font-size="16px"
-     font-weight="500"
-     fill="rgb(61,61,58)"
+     x="15.265121"
+     y="155.70465"
+     font-size="12px"
+     font-weight="bold"
+     fill="#000000"
      id="text5">P1</text>
   <!-- P2 label: off 1208210,3485127 -->
   <text
-     x="120.8"
-     y="370.60001"
-     font-size="16px"
-     font-weight="500"
-     fill="rgb(61,61,58)"
+     x="15.265121"
+     y="209.20465"
+     font-size="12px"
+     font-weight="bold"
+     fill="#000000"
      id="text6">P2</text>
   <!-- P1 timeline arrow: line from 158.0,314.3 to arrowhead at 576.3 then to 582.7 -->
   <line
-     x1="144"
-     y1="314.29999"
-     x2="615.21167"
-     y2="314.29999"
+     x1="38.465118"
+     y1="152.90463"
+     x2="509.67679"
+     y2="152.90463"
      stroke="#085040"
      stroke-width="1.33773"
      marker-end="url(#arr-green)"
      id="line6" />
   <!-- P2 timeline arrow: 158.0,363.9 to arrowhead at 576.3 -->
   <line
-     x1="144"
-     y1="363.89999"
-     x2="614.74652"
-     y2="363.89999"
+     x1="38.465118"
+     y1="202.50464"
+     x2="509.21164"
+     y2="202.50464"
      stroke="#085040"
      stroke-width="1.33708"
      marker-end="url(#arr-green)"
      id="line7" />
   <!-- Producer rect (left): 160.0,295.1 153.2x38.4 -->
   <rect
-     x="146"
-     y="295.10001"
+     x="40.465118"
+     y="133.70465"
      width="153.2"
      height="38.400002"
      fill="#e1f6ee"
@@ -140,55 +143,55 @@
      stroke-width="0.254"
      id="rect7" />
   <text
-     x="222.60001"
-     y="318.5"
+     x="117.06512"
+     y="157.10464"
      text-anchor="middle"
-     font-size="16px"
-     font-weight="500"
+     font-size="12px"
+     font-weight="bold"
      fill="#085041"
      id="text7">Producer</text>
   <!-- W rect (left): 314.4,295.1 66.4x38.4 -->
   <rect
-     x="299.2"
-     y="295.10001"
+     x="194.86511"
+     y="133.70465"
      width="66.400002"
      height="38.400002"
      fill="#b8fd73"
-     stroke="#085041"
+     stroke="#70ad47"
      stroke-width="0.254"
      id="rect8"
      style="fill:#cdfefc;fill-opacity:1" />
   <text
-     x="332.4"
-     y="318.5"
+     x="228.06512"
+     y="157.10464"
      text-anchor="middle"
-     font-size="16px"
-     font-weight="500"
+     font-size="12px"
+     font-weight="bold"
      fill="#085040"
      id="text8">W</text>
   <!-- R rect (left): shifted right to x=422.7 -->
   <rect
-     x="408.70001"
-     y="344.70001"
+     x="303.16513"
+     y="183.30466"
      width="41.700001"
      height="38.400002"
      fill="#b8fd73"
-     stroke="#085041"
+     stroke="#70ad47"
      stroke-width="0.254"
      id="rect9"
      style="fill:#cdfefc;fill-opacity:1" />
   <text
-     x="429.60001"
-     y="368.10001"
+     x="324.06512"
+     y="206.70465"
      text-anchor="middle"
-     font-size="16px"
-     font-weight="500"
+     font-size="12px"
+     font-weight="bold"
      fill="#085040"
      id="text9">R</text>
   <!-- Consumer rect (left): shifted right to x=465.4 -->
   <rect
-     x="450.4"
-     y="344.70001"
+     x="345.86511"
+     y="183.30466"
      width="140.5"
      height="38.400002"
      fill="#e1f6ee"
@@ -196,18 +199,18 @@
      stroke-width="0.254"
      id="rect10" />
   <text
-     x="520.65"
-     y="368.10001"
+     x="416.06509"
+     y="206.70465"
      text-anchor="middle"
-     font-size="16px"
-     font-weight="500"
+     font-size="12px"
+     font-weight="bold"
      fill="#085041"
      id="text10">Consumer</text>
   <!-- SharedFS can: 314.7,437.6 129.6x59.8 -->
   <!-- body rect between the two ellipses -->
   <rect
-     x="300.70001"
-     y="452"
+     x="195.16513"
+     y="290.60464"
      width="129.60001"
      height="45.400002"
      fill="#eeedfe"
@@ -216,8 +219,8 @@
      id="rect11"
      style="fill:#eee3fe;fill-opacity:1" />
   <ellipse
-     cx="365.5"
-     cy="452"
+     cx="259.96512"
+     cy="290.60464"
      rx="64.800003"
      ry="14.4"
      fill="#eeedfe"
@@ -226,8 +229,8 @@
      id="ellipse11"
      style="fill:#eee3fe;fill-opacity:1" />
   <ellipse
-     cx="365.5"
-     cy="497.39999"
+     cx="259.96512"
+     cy="336.00464"
      rx="64.800003"
      ry="14.4"
      fill="#eeedfe"
@@ -236,19 +239,19 @@
      id="ellipse12"
      style="fill:#eee3fe;fill-opacity:1" />
   <text
-     x="365.5"
-     y="479"
+     x="259.96512"
+     y="317.60464"
      text-anchor="middle"
-     font-size="16px"
-     font-weight="500"
+     font-size="12px"
+     font-weight="bold"
      fill="#3c3489"
      id="text12">Shared FS</text>
   <!-- Central dashed red vertical line (explicit sync indicator): 380.6,278.7 h=158.9 -->
   <line
-     x1="366.60001"
-     y1="273.58374"
-     x2="366.60001"
-     y2="437.60001"
+     x1="261.06512"
+     y1="112.18839"
+     x2="261.06512"
+     y2="276.20465"
      stroke="#cd665f"
      stroke-width="1.93543"
      stroke-dasharray="8, 5"
@@ -256,10 +259,10 @@
   <!-- Arrow W->SharedFS: from bottom-center of W (347.6,333.5) to top of FS (379.5,437.6) -->
   <!-- XML: off 3141984,3335132 size 652827x1040795 → (314.2,333.5) to (379.5,437.6) -->
   <line
-     x1="300.20001"
-     y1="333.5"
-     x2="365.5"
-     y2="437.60001"
+     x1="194.66513"
+     y1="172.10464"
+     x2="259.96512"
+     y2="276.20465"
      stroke="#cd665f"
      stroke-width="1.27"
      marker-end="url(#arr-red)"
@@ -268,36 +271,36 @@
   <!-- flipV=1 means the line goes from (end_x,start_y) to (start_x,end_y) -->
   <!-- start: (379.5,383.1), end: (392.7,437.6) but flipV means arrow tip at top -->
   <line
-     x1="365.5"
-     y1="437.60001"
-     x2="408.70001"
-     y2="383.10001"
+     x1="259.96512"
+     y1="276.20465"
+     x2="303.16513"
+     y2="221.70465"
      stroke="#cd665f"
      stroke-width="1.27"
      marker-end="url(#arr-red)"
      id="line14" />
   <!-- /lustre text: 399.9,385.8 -->
   <text
-     x="408"
-     y="413"
-     font-size="16px"
-     fill="rgb(61,61,58)"
+     x="302.46512"
+     y="251.60464"
+     font-size="12px"
+     fill="#333333"
      id="text14">/lustre/${USER}/file.txt</text>
   <!-- ============================================================ -->
   <!-- RIGHT SIDE: "With DYAD"                                      -->
   <!-- ============================================================ -->
   <!-- "With DYAD" title: off 8002780,1684377 -->
   <text
-     x="818.29999"
-     y="192.8"
-     font-size="17px"
-     font-weight="500"
-     fill="rgb(8,80,65)"
+     x="712.76514"
+     y="31.404648"
+     font-size="16px"
+     font-weight="bold"
+     fill="#4472c4"
      id="text15">With DYAD</text>
   <!-- DYAD background rect: 677.8,358.7 411.3x207.0 -->
   <rect
-     x="677.79999"
-     y="278.70001"
+     x="572.26514"
+     y="117.30466"
      width="411.29999"
      height="207"
      fill="#eeedfe"
@@ -306,45 +309,45 @@
      style="fill:#eee3fe;fill-opacity:1" />
   <!-- P1 label(R): 635.3,316.5 -->
   <text
-     x="635.29999"
-     y="259.10001"
-     font-size="16px"
-     font-weight="500"
-     fill="rgb(61,61,58)"
+     x="529.76514"
+     y="97.704651"
+     font-size="12px"
+     font-weight="bold"
+     fill="#000000"
      id="text16">P1</text>
   <!-- P2 label(R): 635.3,572.4 -->
   <text
-     x="635.29999"
-     y="511.09998"
-     font-size="16px"
-     font-weight="500"
-     fill="rgb(61,61,58)"
+     x="529.76514"
+     y="349.70462"
+     font-size="12px"
+     font-weight="bold"
+     fill="#000000"
      id="text17">P2</text>
   <!-- P1 timeline(R): from left edge to arrowhead. Arrow segment: 10074690,3355509 len=859877 -->
   <!-- Line from ~660 to arrowhead at 1007.5+86.0=1093.5 -->
   <line
-     x1="660"
-     y1="255.60001"
-     x2="1096"
-     y2="255.60001"
+     x1="554.46509"
+     y1="94.204651"
+     x2="990.46509"
+     y2="94.204651"
      stroke="#085040"
      stroke-width="1.27"
      marker-end="url(#arr-green)"
      id="line17" />
   <!-- P2 timeline(R): 672.6,586.3 len=209.4, then 1056.1 len=34.0 -->
   <line
-     x1="660"
-     y1="507.79999"
-     x2="1096"
-     y2="507.79999"
+     x1="554.46509"
+     y1="346.40463"
+     x2="990.46509"
+     y2="346.40463"
      stroke="#085040"
      stroke-width="1.27"
      marker-end="url(#arr-green)"
      id="line18" />
   <!-- Producer rect(R): 677.8,316.5 153.2x38.4 -->
   <rect
-     x="677.79999"
-     y="236.5"
+     x="572.26514"
+     y="75.104645"
      width="153.2"
      height="38.400002"
      fill="#e1f6ee"
@@ -352,36 +355,36 @@
      stroke-width="0.254"
      id="rect18" />
   <text
-     x="754.40002"
-     y="259.89999"
+     x="648.86511"
+     y="98.504639"
      text-anchor="middle"
-     font-size="16px"
-     font-weight="500"
+     font-size="12px"
+     font-weight="bold"
      fill="#085041"
      id="text18">Producer</text>
   <!-- W rect(R): 832.0,316.5 28.9x38.4 -->
   <rect
-     x="831.0"
-     y="236.5"
+     x="726.46509"
+     y="75.104645"
      width="28.9"
      height="38.400002"
      fill="#b8fd73"
-     stroke="#085041"
+     stroke="#70ad47"
      stroke-width="0.254"
      id="rect19"
      style="fill:#cdfefc;fill-opacity:1" />
   <text
-     x="845.5"
-     y="259.89999"
+     x="740.96509"
+     y="98.504639"
      text-anchor="middle"
-     font-size="16px"
-     font-weight="500"
+     font-size="12px"
+     font-weight="bold"
      fill="#085040"
      id="text19">W</text>
   <!-- Empty continuation rect after W on P1: 862.0,316.3 144.4x38.6 (no text, no fill shown - transparent) -->
   <rect
-     x="859.9"
-     y="236.5"
+     x="755.36511"
+     y="74.904633"
      width="144.39999"
      height="38.599998"
      fill="#e1f6ee"
@@ -390,27 +393,27 @@
      id="rect20" />
   <!-- R rect(R): 881.9,568.6 18.7x38.4 -->
   <rect
-     x="881.90002"
-     y="488.59998"
+     x="776.36511"
+     y="327.20462"
      width="18.700001"
      height="38.400002"
      fill="#b8fd73"
-     stroke="#085041"
+     stroke="#70ad47"
      stroke-width="0.254"
      id="rect21"
      style="fill:#cdfefc;fill-opacity:1" />
   <text
-     x="891.29999"
-     y="512"
+     x="785.76514"
+     y="350.60464"
      text-anchor="middle"
-     font-size="16px"
-     font-weight="500"
+     font-size="12px"
+     font-weight="bold"
      fill="#085040"
      id="text21">R</text>
   <!-- Consumer rect(R): 902.0,568.6 153.9x38.4 -->
   <rect
-     x="900.59998"
-     y="488.59998"
+     x="795.06506"
+     y="327.20462"
      width="153.89999"
      height="38.400002"
      fill="#e1f6ee"
@@ -418,17 +421,17 @@
      stroke-width="0.254"
      id="rect22" />
   <text
-     x="977.59998"
-     y="512"
+     x="872.06506"
+     y="350.60464"
      text-anchor="middle"
-     font-size="16px"
-     font-weight="500"
+     font-size="12px"
+     font-weight="bold"
      fill="#085041"
      id="text22">Consumer</text>
   <!-- Local Storage 1 can: 786.2,383.4 129.6x59.8 -->
   <rect
-     x="786.20001"
-     y="317.79999"
+     x="680.66516"
+     y="156.40463"
      width="129.60001"
      height="45.400002"
      fill="#e6f2fb"
@@ -437,8 +440,8 @@
      id="rect23"
      style="fill:#fbe7f4;fill-opacity:1" />
   <ellipse
-     cx="851"
-     cy="317.79999"
+     cx="745.46509"
+     cy="156.40463"
      rx="64.800003"
      ry="14.4"
      fill="#e6f2fb"
@@ -447,8 +450,8 @@
      id="ellipse23"
      style="fill:#fbe7f4;fill-opacity:1" />
   <ellipse
-     cx="851"
-     cy="363.20001"
+     cx="745.46509"
+     cy="201.80466"
      rx="64.800003"
      ry="14.4"
      fill="#e6f2fb"
@@ -457,17 +460,17 @@
      id="ellipse24"
      style="fill:#fbe7f4;fill-opacity:1" />
   <text
-     x="851"
-     y="345"
+     x="745.46509"
+     y="183.60464"
      text-anchor="middle"
-     font-size="16px"
-     font-weight="500"
+     font-size="12px"
+     font-weight="bold"
      fill="#0c447c"
      id="text24">Local Storage</text>
   <!-- Local Storage 2 can: 804.2,481.1 129.6x59.8 -->
   <rect
-     x="804.20001"
-     y="415.5"
+     x="698.66516"
+     y="254.10464"
      width="129.60001"
      height="45.400002"
      fill="#e6f2fb"
@@ -476,8 +479,8 @@
      id="rect24"
      style="fill:#fbe7f4;fill-opacity:1" />
   <ellipse
-     cx="869"
-     cy="415.5"
+     cx="763.46509"
+     cy="254.10464"
      rx="64.800003"
      ry="14.4"
      fill="#e6f2fb"
@@ -486,8 +489,8 @@
      id="ellipse25"
      style="fill:#fbe7f4;fill-opacity:1" />
   <ellipse
-     cx="869"
-     cy="460.90002"
+     cx="763.46509"
+     cy="299.50467"
      rx="64.800003"
      ry="14.4"
      fill="#e6f2fb"
@@ -496,29 +499,29 @@
      id="ellipse26"
      style="fill:#fbe7f4;fill-opacity:1" />
   <text
-     x="869"
-     y="443"
+     x="763.46509"
+     y="281.60464"
      text-anchor="middle"
-     font-size="16px"
-     font-weight="500"
+     font-size="12px"
+     font-weight="bold"
      fill="#0c447c"
      id="text26">Local Storage</text>
   <!-- Arrow W->LS1: 8309132,3545656 to 8447265,3837336 → (830.9,354.6) to (844.7,383.7) -->
   <line
-     x1="830.90002"
-     y1="274.60001"
-     x2="844.70001"
-     y2="303.39999"
+     x1="725.36511"
+     y1="113.20465"
+     x2="739.16516"
+     y2="142.00464"
      stroke="#cd665f"
      stroke-width="1.27"
      marker-end="url(#arr-red)"
      id="line26" />
   <!-- Arrow LS1->LS2 (dashed): 8510051,4431656 to 8597735,4810932 → (851.0,443.2) to (859.8,481.1) -->
   <line
-     x1="851"
-     y1="363.20001"
-     x2="859.79999"
-     y2="401.10001"
+     x1="745.46509"
+     y1="201.80466"
+     x2="754.26514"
+     y2="239.70465"
      stroke="#cd665f"
      stroke-width="1.27"
      stroke-dasharray="5, 4"
@@ -526,41 +529,41 @@
      id="line27" />
   <!-- Arrow LS2->R: 8689649,5409066 to 8819215,5686065 → (869.0,540.9) to (881.9,568.6) -->
   <line
-     x1="869"
-     y1="460.90002"
-     x2="881.90002"
-     y2="488.59998"
+     x1="763.46509"
+     y1="299.50467"
+     x2="776.36511"
+     y2="327.20462"
      stroke="#cd665f"
      stroke-width="1.27"
      marker-end="url(#arr-red)"
      id="line28" />
   <!-- /ssd top text: 8479122,3558881 -->
   <text
-     x="847.90002"
-     y="294"
-     font-size="16px"
-     fill="rgb(61,61,58)"
+     x="742.36511"
+     y="132.60464"
+     font-size="12px"
+     fill="#333333"
      id="text28">/ssd/${USER} /file.txt</text>
   <!-- /ssd bottom text: 8901391,5389768 -->
   <text
-     x="940"
-     y="465.09998"
-     font-size="16px"
-     fill="rgb(61,61,58)"
+     x="834.46509"
+     y="303.70462"
+     font-size="12px"
+     fill="#333333"
      id="text29">/ssd/${USER}/file.txt</text>
   <!-- IO wrapper text: 9157844,4321971 size 1712619x566260 -->
   <text
-     x="933.72095"
-     y="369.74884"
-     font-size="15px"
-     font-weight="500"
+     x="828.18604"
+     y="216.35349"
+     font-size="11px"
+     font-weight="bold"
      fill="#3c3489"
-     id="text30">I/O intercepting wrapper lib</text>
+     id="text30">I/O intercepting wrapper</text>
   <text
-     x="933.72095"
-     y="391.74884"
-     font-size="15px"
-     font-weight="500"
+     x="828.18604"
+     y="230.35349"
+     font-size="11px"
+     font-weight="bold"
      fill="#3c3489"
-     id="text31">relying on KVS + RPC</text>
+     id="text31">lib relying on KVS + RPC</text>
 </svg>
