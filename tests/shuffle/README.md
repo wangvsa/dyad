@@ -34,7 +34,7 @@ otherwise be fetched from another worker’s local storage or from shared storag
 It can reside on either local or shared storage, controlled by `--is-local`.
 When local, each worker has its own work-dir and owns an exclusive partition
 of the file list — files are either generated or staged into it before the
-epoch loop begins. When shared, all workers reference the same work_dir —
+epoch loop begins. When shared, all workers reference the same `work_dir` —
 files are either generated into it or assumed to already exist there.
 
 ## Options
@@ -110,10 +110,50 @@ file_N-1.dat
 
 | Suffix | Multiplier | Example |
 |---|---|---|
-| none | 1 | `--size 4096` → 4096 bytes |
-| `K` | 1024 | `--size 4K` → 4096 bytes |
-| `M` | 1024²  | `--size 2M` → 2097152 bytes |
-| `G` | 1024³  | `--size 1G` → 1073741824 bytes |
+| none | 1 | `--size 4096` ->4096 bytes |
+| `K` | 1024 | `--size 4K` -> 4096 bytes |
+| `M` | 1024²  | `--size 2M` -> 2097152 bytes |
+| `G` | 1024³  | `--size 1G` -> 1073741824 bytes |
+
+
+## Implementation
+
+![Shuffle data structures](../../docs/_static/figs/shuffle_epoch_loop.svg)
+
+**Epoch loop in the shuffle test**
+Epoch loop in the shuffle test. Before the loop begins, each worker prepares
+its partition of files through generation or staging into local storage. Each
+epoch starts with `worker.shuffle()`, which runs `std::shuffle` on `m_fidx` using a
+shared RNG seed — producing an identical file order across all workers with no
+MPI communication. Each worker then iterates over its assigned window of `m_fidx`
+and calls `open()` on each mapped filename via a plain POSIX call, unaware of
+where the file physically resides. If the file is in the worker's own local
+storage it is read directly; if it belongs to another worker, DYAD intercepts
+the `open()` call and fetches the file transparently via the KVS and RDMA
+transfer. In a real training scenario, each file would then be processed (e.g.
+decoded and fed to the model), but the shuffle test omits this step as it
+benchmarks I/O behavior only. The epoch ends with an `MPI_Barrier` that
+synchronizes all workers before the next shuffle begins.
+
+![Shuffle data structures](../../docs/_static/figs/shuffle_sample_files.svg)
+
+**Data structures used by the shuffle test.**
+`m_flist` stores the filenames in a fixed order shared by all workers.
+Each worker owns a contiguous partition of files in local storage — this
+ownership is static and does not change across epochs.
+`m_fidx` is an index array shuffled each epoch using std::shuffle with the
+same RNG seed on every worker, as described above.
+Each worker reads a contiguous window of `m_fidx` determined by `split()`
+— rank 0 gets indices [0,3), rank 1 [3,6), and rank 2 [6,8).
+While the window into `m_fidx` is fixed, the shuffled indices point to
+different files every epoch, so each worker processes a different subset
+of files each time.
+To read a file, a worker dereferences its assigned indices in `m_fidx` to
+obtain positions in `m_flist`, then opens the corresponding file. If the
+file resides in another worker's local storage (as shown: rank 1 reading
+"ibis.dat" owned by rank 2), DYAD intercepts the `open()` call and fetches
+it transparently via the KVS and RDMA transfer.
+
 
 ## Examples
 

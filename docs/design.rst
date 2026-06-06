@@ -30,6 +30,9 @@ A producer and consumer scenario sharing a file
 Deep Learning Training by Distributed Stochastic Gradient Descent (SGD)
 =======================================================================
 
+.. figure:: _static/figs/shuffle_sample_files.svg
+   :alt: shuffling sample files
+
 Deep learning training often requires randomizing the order of input samples at
 each epoch. In distributed or parallel training, where each worker processes a
 subset of the samples, the set of files assigned to each worker changes at every
@@ -41,7 +44,7 @@ workers when needed. Initially, the dataset is partitioned across workers. When
 a file is reference for the first time, it is staged into the DYAD managed
 directory on the local storage of the worker who owns the partition.
 
-Check out our use case with the `DLIO <https://dlio-benchmark.readthedocs.io/en/latest/>`_ 
+Check out our use case with the `DLIO <https://dlio-benchmark.readthedocs.io/en/latest/>`_
 representing PyTorch dataloader :ref:`Devarajan et al. 2024 <paper-sbacpad-2024>`.
 
 
