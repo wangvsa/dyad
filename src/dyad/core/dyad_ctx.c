@@ -34,39 +34,39 @@ static __thread dyad_ctx_t *ctx = NULL;
 
 const struct dyad_ctx dyad_ctx_default = {
     // Internal
-    NULL,   // h
-    NULL,   // dtl_handle
-    NULL,   // fname
-    false,  // use_fs_locks
-    NULL,   // prod_real_path
-    NULL,   // cons_real_path
-    0u,     // prod_managed_len
-    0u,     // cons_managed_len
-    0u,     // prod_real_len
-    0u,     // cons_real_len
-    0u,     // prod_managed_hash
-    0u,     // cons_managed_hash
-    0u,     // prod_real_hash
-    0u,     // cons_real_hash
-    0u,     // delim_len
+    NULL,   ///< h
+    NULL,   ///< dtl_handle
+    NULL,   ///< fname
+    false,  ///< use_fs_locks
+    NULL,   ///< prod_real_path
+    NULL,   ///< cons_real_path
+    0u,     ///< prod_managed_len
+    0u,     ///< cons_managed_len
+    0u,     ///< prod_real_len
+    0u,     ///< cons_real_len
+    0u,     ///< prod_managed_hash
+    0u,     ///< cons_managed_hash
+    0u,     ///< prod_real_hash
+    0u,     ///< cons_real_hash
+    0u,     ///< delim_len
     // User facing
-    false,  // debug
-    false,  // check
-    false,  // reenter
-    true,   // initialized
-    false,  // shared_storage
-    false,  // async_publish
-    false,  // fsync_write
-    3u,     // key_depth
-    1024u,  // key_bins
-    0u,     // rank
-    1u,     // service_mux
-    0u,     // node_idx
-    -1,     // pid
-    NULL,   // kvs_namespace
-    NULL,   // prod_managed_path
-    NULL,   // cons_managed_path
-    false   // relative_to_managed_path
+    false,  ///< debug
+    false,  ///< check
+    false,  ///< reenter
+    true,   ///< initialized
+    false,  ///< shared_storage
+    false,  ///< async_publish
+    false,  ///< fsync_write
+    3u,     ///< key_depth
+    1024u,  ///< key_bins
+    0u,     ///< rank
+    1u,     ///< service_mux
+    0u,     ///< node_idx
+    -1,     ///< pid
+    NULL,   ///< kvs_namespace
+    NULL,   ///< prod_managed_path
+    NULL,   ///< cons_managed_path
+    false   ///< relative_to_managed_path
 };
 
 DYAD_DLL_EXPORTED dyad_ctx_t *dyad_ctx_get (void)
@@ -76,13 +76,13 @@ DYAD_DLL_EXPORTED dyad_ctx_t *dyad_ctx_get (void)
 
 DYAD_DLL_EXPORTED void dyad_ctx_init (const dyad_dtl_comm_mode_t dtl_comm_mode, void *flux_handle)
 {
-#if DYAD_PROFILER == 3
-    DFTRACER_C_FINI ();
-#endif
-    DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
 
     rc = dyad_init_env (dtl_comm_mode, flux_handle);
+
+    // dftracer is initialized in dyad_init () as pydyad's entry point is
+    // dyad_init () or dyad_init_env (). The latter calls the former inside.
+    DYAD_C_FUNCTION_START ();
 
     if (DYAD_IS_ERROR (rc)) {
         fprintf (stderr, "Failed to initialize DYAD (code = %d)", rc);
@@ -100,17 +100,14 @@ DYAD_DLL_EXPORTED void dyad_ctx_init (const dyad_dtl_comm_mode_t dtl_comm_mode, 
 
 DYAD_DLL_EXPORTED void dyad_ctx_fini (void)
 {
+    // pydyad closes dyad by calling dyad_finalize ()
     DYAD_C_FUNCTION_START ();
     if (ctx == NULL) {
-        DYAD_C_FUNCTION_END ();
         goto dyad_wrapper_fini_done;
     }
+    DYAD_C_FUNCTION_END ();
     dyad_finalize ();
 dyad_wrapper_fini_done:;
-    DYAD_C_FUNCTION_END ();
-#if DYAD_PROFILER == 3
-    DFTRACER_C_FINI ();
-#endif
 }
 
 dyad_rc_t dyad_clear (void);
@@ -329,7 +326,6 @@ init_region_finish:;
 DYAD_DLL_EXPORTED dyad_rc_t dyad_init_env (const dyad_dtl_comm_mode_t dtl_comm_mode,
                                            void *flux_handle)
 {
-    DYAD_C_FUNCTION_START ();
     const char *e = NULL;
     bool debug = false;
     bool check = false;
@@ -447,7 +443,6 @@ DYAD_DLL_EXPORTED dyad_rc_t dyad_init_env (const dyad_dtl_comm_mode_t dtl_comm_m
                               dtl_mode,
                               dtl_comm_mode,
                               flux_handle);
-    DYAD_C_FUNCTION_END ();
     return rc;
 }
 
@@ -783,9 +778,6 @@ DYAD_DLL_EXPORTED dyad_rc_t dyad_clear (void)
     rc = DYAD_RC_OK;
 clear_region_finish:;
     DYAD_C_FUNCTION_END ();
-#ifdef DYAD_PROFILER_DFTRACER
-    DFTRACER_C_FINI ();
-#endif
     return rc;
 }
 

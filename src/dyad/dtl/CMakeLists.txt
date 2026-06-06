@@ -61,7 +61,7 @@ target_include_directories(${PROJECT_NAME}_dtl SYSTEM PUBLIC ${FluxCore_INCLUDE_
 
 dyad_add_werror_if_needed(${PROJECT_NAME}_dtl)
 if(DYAD_LOGGER STREQUAL "CPP_LOGGER")
-    target_link_libraries(${PROJECT_NAME}_dtl PRIVATE ${CPP_LOGGER_LIBRARIES})
+    target_link_libraries(${PROJECT_NAME}_dtl PRIVATE ${cpp-logger_LIBRARIES})
 endif()
 if(DYAD_PROFILER STREQUAL "DFTRACER")
     target_link_libraries(${PROJECT_NAME}_dtl PRIVATE ${DFTRACER_LIBRARIES})

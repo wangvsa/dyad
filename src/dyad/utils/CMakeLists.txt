@@ -20,7 +20,7 @@ target_link_libraries(${PROJECT_NAME}_utils PUBLIC
                       ${PROJECT_NAME}_murmur3)
 
 if(DYAD_LOGGER STREQUAL "CPP_LOGGER")
-    target_link_libraries(${PROJECT_NAME}_utils PRIVATE ${CPP_LOGGER_LIBRARIES})
+    target_link_libraries(${PROJECT_NAME}_utils PRIVATE ${cpp-logger_LIBRARIES})
 endif()
 if(DYAD_PROFILER STREQUAL "DFTRACER")
     target_link_libraries(${PROJECT_NAME}_utils PRIVATE ${DFTRACER_LIBRARIES})
@@ -45,10 +45,10 @@ target_compile_definitions(test_murmur3 PUBLIC DYAD_HAS_CONFIG)
 target_link_libraries(test_murmur3 PUBLIC ${PROJECT_NAME}_murmur3)
 
 if(DYAD_LOGGER STREQUAL "CPP_LOGGER")
-    target_link_libraries(test_cmp_canonical_path_prefix PRIVATE ${CPP_LOGGER_LIBRARIES})
+    target_link_libraries(test_cmp_canonical_path_prefix PRIVATE ${cpp-logger_LIBRARIES})
 endif()
 if(DYAD_PROFILER STREQUAL "DFTRACER")
-    target_link_libraries(test_cmp_canonical_path_prefix PRIVATE ${DTRACER_LIBRARIES})
+    target_link_libraries(test_cmp_canonical_path_prefix PRIVATE ${DFTRACER_LIBRARIES})
 endif()
 
 dyad_add_werror_if_needed(${PROJECT_NAME}_utils)

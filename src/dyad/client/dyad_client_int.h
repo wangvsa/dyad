@@ -6,6 +6,10 @@
 #include <dyad/common/dyad_structures_int.h>
 // clang-format on
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Debug message
 #ifndef DPRINTF
 #if VA_OPT_SUPPORTED
@@ -58,6 +62,10 @@ DYAD_DLL_EXPORTED dyad_rc_t dyad_kvs_read (const dyad_ctx_t *ctx,
 
 #if DYAD_SYNC_DIR
 DYAD_PFA_ANNOTATE DYAD_DLL_EXPORTED int dyad_sync_directory (dyad_ctx_t *ctx, const char *path);
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif /* DYAD_CORE_DYAD_CORE_INT_H */

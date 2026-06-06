@@ -1,4 +1,14 @@
-DYAD: DYnamic and Asynchronous Data Streamliner
+<p align="center">
+  <!-- Mother Project Logo on the Left -->
+  <img src="https://raw.githubusercontent.com/flux-framework/.github/main/images/logo.png" height="50" align="middle" alt="Flux">
+  <!-- Your Project Name in the Middle -->
+  <span style="font-size: 2.2em; font-weight: bold; margin: 0 20px; valign: middle;">DYAD: DYnamic and Asynchronous Data Streamliner</span>
+  
+  <!-- Your Subproject Logo on the Right -->
+  <img src="docs/_static/logo/dyad_logo_sky_blue.svg" height="50" align="middle" alt="DYAD">
+</p>
+
+---
 
 DYAD aims to facilitate data file sharing between producer and consumer job elements, particularly within an ensemble or across co-scheduled ensembles.
 
@@ -9,13 +19,14 @@ DYAD transparently synchronizes file access at the file level (rather than the b
 Users simply access files via paths located under the directory managed by the DYAD service.
 
 ### Documentation
-For further information, build and refer to the documentation under `docs`
+For further information, build and refer to the documentation under `docs` or the online copy at [readthedocs](https://dyad.readthedocs.io/en/latest/index.html).
 
 ```
 cd docs
 python3 -m venv .venv
 source .venv/bin/activate
-pip install "Sphinx<7.0.0" myst-parser rst2pdf
+pip install --upgrade pip
+pip install -r requirements.txt
 make html
 make pdf
 ```

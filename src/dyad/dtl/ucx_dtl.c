@@ -18,46 +18,135 @@
 #include <dyad/dtl/ucx_dtl.h>
 #include <dyad/utils/base64/base64.h>
 
+/**
+ * @brief Base64 encoding map for RFC 4648, used to encode/decode UCX
+ *        remote keys for transmission over the Flux RPC channel.
+ */
 extern const base64_maps_t base64_maps_rfc4648;
 
+/**
+ * @brief Maximum data size for a single UCX transfer (4 GiB).
+ *
+ * @details
+ * UCX tag send/receive operations are limited to 4 GiB per transfer.
+ * Files larger than this limit must be split into multiple transfers.
+ */
 #define UCX_MAX_TRANSFER_SIZE (4 * 1024L * 1024L * 1024L)
 
-// Tag mask for UCX Tag send/recv
+/**
+ * @brief Tag mask used for UCX tag send/receive operations.
+ *
+ * @details
+ * Set to @c UINT64_MAX to match any tag, effectively disabling tag
+ * filtering. DYAD uses a single tag per transfer so no filtering is
+ * needed.
+ */
 #define DYAD_UCX_TAG_MASK UINT64_MAX
 
-// Define a request struct to be used in handling
-// async UCX operations
+/**
+ * @brief Request struct used to track the completion of async UCX
+ *        operations.
+ *
+ * @details
+ * UCX allocates one instance of this struct per in-flight operation
+ * using @c dyad_ucx_request_init() as the initializer. The @c completed
+ * flag is set to 1 by the send callback @c dyad_send_callback() when
+ * the operation finishes, and polled by @c dyad_ucx_request_wait().
+ */
 struct ucx_request {
-    int completed;
+    int completed;  ///< Set to 1 when the UCX operation completes.
 };
 typedef struct ucx_request dyad_ucx_request_t;
 
-// Define a function that UCX will use to allocate and
-// initialize our request struct
-static void dyad_ucx_request_init (void* request)
+/**
+ * @brief Initializes a @c dyad_ucx_request_t allocated by UCX.
+ *
+ * @details
+ * Registered with UCX via the @c request_init field of
+ * @c ucp_params_t during @c dyad_dtl_ucx_init(). Called automatically
+ * by UCX each time it allocates a new request object from its internal
+ * memory pool. Sets @c completed to 0 so that @c dyad_ucx_request_wait()
+ * can detect when the operation has finished.
+ *
+ * @param[in] request Pointer to the uninitialized request memory
+ *                    allocated by UCX. Cast to @c dyad_ucx_request_t*.
+ */
+static void dyad_ucx_request_init (void *request)
 {
     DYAD_C_FUNCTION_START ();
-    dyad_ucx_request_t* real_request = NULL;
-    real_request = (dyad_ucx_request_t*)request;
+    dyad_ucx_request_t *real_request = NULL;
+    real_request = (dyad_ucx_request_t *)request;
     real_request->completed = 0;
     DYAD_C_FUNCTION_END ();
 }
 
+/**
+ * @brief UCX send completion callback.
+ *
+ * @details
+ * Registered as the completion callback for UCX tag send operations.
+ * Called by UCX when a send operation completes, either successfully
+ * or with an error. Sets @c real_req->completed to 1 so that
+ * @c dyad_ucx_request_wait() can detect completion and exit its
+ * polling loop.
+ *
+ * The function signature differs between UCX API versions:
+ * - UCX >= 1.10: receives an additional @c ctx pointer argument.
+ * - UCX < 1.10:  receives only @c req and @c status.
+ *
+ * @param[in] req    Pointer to the @c dyad_ucx_request_t for the
+ *                   completed operation.
+ * @param[in] status Final status of the send operation.
+ * @param[in] ctx    User context pointer (UCX >= 1.10 only, unused).
+ */
 #if UCP_API_VERSION >= UCP_VERSION(1, 10)
-static void dyad_send_callback (void* req, ucs_status_t status, void* ctx)
+static void dyad_send_callback (void *req, ucs_status_t status, void *ctx)
 #else   // UCP_API_VERSION
-static void dyad_send_callback (void* req, ucs_status_t status)
+static void dyad_send_callback (void *req, ucs_status_t status)
 #endif  // UCP_API_VERSION
 {
     DYAD_C_FUNCTION_START ();
     DYAD_LOG_STDERR ("Calling send callback");
-    dyad_ucx_request_t* real_req = (dyad_ucx_request_t*)req;
+    dyad_ucx_request_t *real_req = (dyad_ucx_request_t *)req;
     real_req->completed = 1;
     DYAD_C_FUNCTION_END ();
 }
 
-// Simple function used to wait on the async receive
-static ucs_status_t dyad_ucx_request_wait (const dyad_ctx_t* ctx, dyad_ucx_request_t* request)
+/**
+ * @brief Waits for an async UCX operation to complete.
+ *
+ * @details
+ * Handles the three possible return values of a UCX communication
+ * operation:
+ *
+ * - **Immediate success** (@c request == @c UCS_OK): the operation
+ *   completed synchronously. Returns @c UCS_OK immediately.
+ * - **Request handle** (@c UCS_PTR_IS_PTR(request)): the operation
+ *   is in progress. Spins by calling @c ucp_worker_progress() and
+ *   polling @c ucp_request_check_status() until the status is no
+ *   longer @c UCS_INPROGRESS, then frees the request via
+ *   @c ucp_request_free() and returns the final status.
+ * - **Immediate error** (@c UCS_PTR_IS_ERR(request)): the operation
+ *   failed immediately. Extracts the @c ucs_status_t error code via
+ *   @c UCS_PTR_STATUS() and returns it.
+ *
+ * The spin loop is expected to run only a small number of iterations
+ * because prior UCX calls in the send/receive path are structured to
+ * minimize the size of the worker's event queue before this wait is
+ * called.
+ *
+ * @param[in] ctx     DYAD context. Used to access the UCX worker via
+ *                    @c ctx->dtl_handle->private_dtl.ucx_dtl_handle->ucx_worker.
+ * @param[in] request Return value of a UCX communication operation
+ *                    (e.g. @c ucp_tag_send_nbx() or
+ *                    @c ucp_tag_recv_nbx()). May be @c UCS_OK, a
+ *                    request handle, or a UCX error pointer.
+ *
+ * @return @c ucs_status_t final status of the operation:
+ * @retval UCS_OK       The operation completed successfully.
+ * @retval other        A UCX error code indicating failure.
+ */
+static ucs_status_t dyad_ucx_request_wait (const dyad_ctx_t *ctx, dyad_ucx_request_t *request)
 {
     DYAD_C_FUNCTION_START ();
     ucs_status_t final_request_status = UCS_OK;
@@ -102,8 +191,67 @@ dtl_ucx_request_wait_region_finish:;
     return final_request_status;
 }
 
-static dyad_rc_t ucx_allocate_buffer (const dyad_ctx_t* ctx,
-                                      dyad_dtl_ucx_t* dtl_handle,
+/**
+ * @brief Allocates and registers a UCX memory buffer for RDMA operations.
+ *
+ * @details
+ * Allocates a host memory buffer of @c dtl_handle->max_transfer_size +
+ * @c sizeof(size_t) bytes using @c ucp_mem_map() with
+ * @c UCP_MEM_MAP_ALLOCATE, which lets UCX allocate and register the
+ * memory in one step. The extra @c sizeof(size_t) bytes prepend the
+ * file size to the buffer so the consumer can determine the data
+ * boundary without an additional RDMA operation.
+ *
+ * The memory protection flags differ by communication direction:
+ * - @c DYAD_COMM_SEND (producer): @c UCP_MEM_MAP_PROT_LOCAL_READ —
+ *   the producer only reads from the buffer locally to send data.
+ * - @c DYAD_COMM_RECV (consumer): @c UCP_MEM_MAP_PROT_REMOTE_WRITE —
+ *   the buffer is exposed for remote write so the producer can push
+ *   data into it via RDMA.
+ *
+ * After mapping, queries the actual allocated address via
+ * @c ucp_mem_query() and stores it in @c dtl_handle->net_buf and
+ * @c dtl_handle->cons_buf_ptr. On the producer side (@c DYAD_COMM_SEND),
+ * @c cons_buf_ptr is initialized to the producer's own buffer address
+ * as a placeholder; it is overwritten with the consumer's remote buffer
+ * address in @c dyad_dtl_ucx_rpc_unpack() before each transfer.
+ *
+ * @c ucp_rkey_pack() is called only when @c comm_mode == @c DYAD_COMM_RECV.
+ * The consumer packs its registered memory region into @c rkey_buf so
+ * that the packed key can be sent to the producer (encoded in base64 via
+ * @c dyad_dtl_ucx_rpc_pack()) to authorize the RDMA push into the
+ * consumer's buffer. The producer does not need to pack its own memory
+ * region since no peer performs RDMA into the producer's buffer.
+ *
+ * On any failure after a successful @c ucp_mem_map(), the memory is
+ * unmapped via @c ucp_mem_unmap() before returning.
+ *
+ * @param[in]     ctx        DYAD context. Used for logging.
+ * @param[in,out] dtl_handle UCX DTL internal state. On success,
+ *                           @c net_buf, @c cons_buf_ptr, and
+ *                           @c mem_handle are always populated.
+ *                           @c rkey_buf and @c rkey_size are populated
+ *                           only when @p comm_mode is @c DYAD_COMM_RECV.
+ * @param[in]     comm_mode  Communication direction. Controls the memory
+ *                           protection flags and whether @c ucp_rkey_pack()
+ *                           is called. Must not be @c DYAD_COMM_NONE.
+ *
+ * @return @c dyad_rc_t return code:
+ * @retval DYAD_RC_OK                  Buffer allocated and registered
+ *                                     successfully.
+ * @retval DYAD_RC_NOCTX               @c dtl_handle->ucx_ctx is @c NULL.
+ * @retval DYAD_RC_BAD_COMM_MODE       @c dtl_handle->comm_mode is
+ *                                     @c DYAD_COMM_NONE.
+ * @retval DYAD_RC_UCXMMAP_FAIL        @c ucp_mem_map() or
+ *                                     @c ucp_mem_query() failed.
+ * @retval DYAD_RC_UCXRKEY_PACK_FAILED @c ucp_rkey_pack() failed.
+ *                                     Only possible when @p comm_mode
+ *                                     is @c DYAD_COMM_RECV.
+ * @retval DYAD_RC_BADBUF              Default error before any specific
+ *                                     check is reached.
+ */
+static dyad_rc_t ucx_allocate_buffer (const dyad_ctx_t *ctx,
+                                      dyad_dtl_ucx_t *dtl_handle,
                                       dyad_dtl_comm_mode_t comm_mode)
 {
     DYAD_C_FUNCTION_START ();
@@ -148,17 +296,23 @@ static dyad_rc_t ucx_allocate_buffer (const dyad_ctx_t* ctx,
         goto ucx_allocate_done;
     }
     dtl_handle->net_buf = attr.address;
+    /* On the producer side this is a placeholder that will be overwritten
+     * by the consumer's remote buffer address in dyad_dtl_ucx_rpc_unpack().
+     * On the consumer side this is the actual RDMA destination address sent
+     * to the producer via the RPC payload. */
     dtl_handle->cons_buf_ptr = (uint64_t)dtl_handle->net_buf;
     DYAD_LOG_DEBUG (ctx, "Done writing address");
-    status = ucp_rkey_pack (dtl_handle->ucx_ctx,
-                            dtl_handle->mem_handle,
-                            &(dtl_handle->rkey_buf),
-                            &(dtl_handle->rkey_size));
-    if (UCX_STATUS_FAIL (status)) {
-        ucp_mem_unmap (dtl_handle->ucx_ctx, dtl_handle->mem_handle);
-        rc = DYAD_RC_UCXRKEY_PACK_FAILED;
-        DYAD_LOG_ERROR (ctx, "ucp_rkey_pack failed errno %d", status);
-        goto ucx_allocate_done;
+    if (dtl_handle->comm_mode == DYAD_COMM_RECV) {
+        status = ucp_rkey_pack (dtl_handle->ucx_ctx,
+                                dtl_handle->mem_handle,
+                                &(dtl_handle->rkey_buf),
+                                &(dtl_handle->rkey_size));
+        if (UCX_STATUS_FAIL (status)) {
+            ucp_mem_unmap (dtl_handle->ucx_ctx, dtl_handle->mem_handle);
+            rc = DYAD_RC_UCXRKEY_PACK_FAILED;
+            DYAD_LOG_ERROR (ctx, "ucp_rkey_pack failed errno %d", status);
+            goto ucx_allocate_done;
+        }
     }
     rc = DYAD_RC_OK;
 
@@ -167,10 +321,47 @@ ucx_allocate_done:;
     return rc;
 }
 
-static dyad_rc_t ucx_free_buffer (const dyad_ctx_t* ctx,
+/**
+ * @brief Releases a UCX RDMA-registered memory buffer.
+ *
+ * @details
+ * Unmaps and deregisters the memory region identified by @p mem_handle
+ * via @c ucp_mem_unmap(), which both frees the UCX memory registration
+ * and releases the underlying memory allocated by @c ucp_mem_map() with
+ * @c UCP_MEM_MAP_ALLOCATE. Sets @p *buf to @c NULL after unmapping.
+ *
+ * Validates all three inputs before proceeding:
+ * - If @p ucp_ctx is @c NULL, returns @c DYAD_RC_NOCTX.
+ * - If @p mem_handle is @c NULL, returns @c DYAD_RC_UCXMMAP_FAIL.
+ * - If @p buf or @p *buf is @c NULL, returns @c DYAD_RC_BADBUF.
+ *
+ * @note Unlike @c dyad_dtl_flux_return_buffer() and
+ *       @c dyad_dtl_margo_return_buffer() which use @c free(), this
+ *       function uses @c ucp_mem_unmap() because the buffer was
+ *       allocated and registered by UCX via @c ucp_mem_map() with
+ *       @c UCP_MEM_MAP_ALLOCATE. Calling @c free() directly on a
+ *       UCX-managed buffer would bypass UCX's memory registration
+ *       and cause undefined behavior.
+ *
+ * @param[in]     ctx        DYAD context. Used for logging.
+ * @param[in]     ucp_ctx    UCX context used to unmap the memory.
+ *                           Must not be @c NULL.
+ * @param[in]     mem_handle UCX memory handle returned by
+ *                           @c ucp_mem_map(). Must not be @c NULL.
+ * @param[in,out] buf        Pointer to the buffer to release.
+ *                           @p *buf must be non-@c NULL on entry.
+ *                           Set to @c NULL on success.
+ *
+ * @return @c dyad_rc_t return code:
+ * @retval DYAD_RC_OK          Buffer unmapped and released successfully.
+ * @retval DYAD_RC_NOCTX       @p ucp_ctx is @c NULL.
+ * @retval DYAD_RC_UCXMMAP_FAIL @p mem_handle is @c NULL.
+ * @retval DYAD_RC_BADBUF      @p buf or @p *buf is @c NULL.
+ */
+static dyad_rc_t ucx_free_buffer (const dyad_ctx_t *ctx,
                                   ucp_context_h ucp_ctx,
                                   ucp_mem_h mem_handle,
-                                  void** buf)
+                                  void **buf)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
@@ -199,9 +390,76 @@ ucx_free_buf_done:;
     return rc;
 }
 
-static inline ucs_status_ptr_t ucx_send_no_wait (const dyad_ctx_t* ctx,
+/**
+ * @brief Initiates a non-blocking UCX RDMA push operation.
+ *
+ * @details
+ * Performs a one-sided RDMA put of @p buf into the consumer's
+ * pre-registered memory buffer using @c ucp_put_nbx(). The operation
+ * proceeds in three steps:
+ *
+ *  1. Deserializes the consumer's remote key from @c dtl_handle->rkey_buf
+ *     into a live @c ucp_rkey_t handle via @c ucp_ep_rkey_unpack().
+ *     @c rkey_buf contains the serialized RDMA access credentials for the
+ *     consumer's registered memory region, received and decoded from the
+ *     RPC payload in @c dyad_dtl_ucx_rpc_unpack(). @c ucp_ep_rkey_unpack()
+ *     is a local operation — it deserializes the credentials already
+ *     present in @c rkey_buf into a @c ucp_rkey_t object in the format
+ *     required by the UCX transport negotiated for @c dtl_handle->ep.
+ *     No additional network communication takes place. The resulting
+ *     @c ucp_rkey_t is stored in @c dtl_handle->rkey and remains valid
+ *     until destroyed by @c dyad_dtl_ucx_close_connection().
+ *  2. Initiates the RDMA put via @c ucp_put_nbx() with
+ *     @c dyad_send_callback registered as the completion callback.
+ *     The destination address is @c dtl_handle->cons_buf_ptr, which
+ *     holds the consumer's remote buffer address (received in the RPC
+ *     payload and stored by @c dyad_dtl_ucx_rpc_unpack()). Together,
+ *     @c rkey (access credentials) and @c cons_buf_ptr (remote address)
+ *     fully identify the RDMA target in the consumer's address space.
+ *  3. Returns the @c ucs_status_ptr_t from @c ucp_put_nbx() without
+ *     waiting for completion. The caller is responsible for passing the
+ *     returned pointer to @c dyad_ucx_request_wait() to block until the
+ *     operation finishes before calling
+ *     @c dyad_dtl_ucx_close_connection().
+ *
+ * @note @c dtl_handle->rkey_buf is freed by
+ *       @c dyad_dtl_ucx_close_connection() after the transfer completes,
+ *       not by this function. It must remain valid until
+ *       @c ucp_ep_rkey_unpack() returns.
+ *
+ * @note The @p is_warmup parameter is accepted for interface consistency
+ *       with the receive path (@c ucx_recv_no_wait()) but is not used —
+ *       no warmup distinction is made on the send path.
+ *
+ * @note This function uses the push RDMA model: the producer pushes data
+ *       directly into the consumer's pre-registered memory buffer via
+ *       @c ucp_put_nbx(), in contrast to the Margo backend which uses a
+ *       pull model where the consumer pulls from the producer's buffer
+ *       via @c HG_BULK_PULL.
+ *
+ * @param[in] ctx       DYAD context. The UCX endpoint, remote key buffer,
+ *                      and consumer buffer pointer are read from the UCX
+ *                      DTL internal state.
+ * @param[in] is_warmup Unused. Accepted for interface consistency with
+ *                      the receive path.
+ * @param[in] buf       Local buffer containing the data to send.
+ * @param[in] buflen    Number of bytes to send.
+ *
+ * @return @c ucs_status_ptr_t:
+ * @retval UCS_OK                The operation completed immediately and
+ *                               successfully (returned as a status, not
+ *                               a pointer).
+ * @retval valid pointer         The operation is in progress. Pass to
+ *                               @c dyad_ucx_request_wait() to wait for
+ *                               completion.
+ * @retval UCS_ERR_NOT_CONNECTED @c dtl_handle->ep is @c NULL,
+ *                               @c dtl_handle->rkey_buf is @c NULL,
+ *                               @c ucp_ep_rkey_unpack() failed, or
+ *                               @c ucp_put_nbx() returned an error.
+ */
+static inline ucs_status_ptr_t ucx_send_no_wait (const dyad_ctx_t *ctx,
                                                  bool is_warmup,
-                                                 void* buf,
+                                                 void *buf,
                                                  size_t buflen)
 {
     /**
@@ -210,17 +468,22 @@ static inline ucs_status_ptr_t ucx_send_no_wait (const dyad_ctx_t* ctx,
     (void)is_warmup;
     DYAD_C_FUNCTION_START ();
     ucs_status_ptr_t stat_ptr = NULL;
-    dyad_dtl_ucx_t* dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
+    dyad_dtl_ucx_t *dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
     if (dtl_handle->ep == NULL) {
         DYAD_LOG_ERROR (ctx, "UCP endpoint was not created prior to invoking send!");
-        stat_ptr = (void*)UCS_ERR_NOT_CONNECTED;
+        stat_ptr = (void *)UCS_ERR_NOT_CONNECTED;
+        goto ucx_send_no_wait_done;
+    }
+    if (dtl_handle->rkey_buf == NULL) {
+        DYAD_LOG_ERROR (ctx, "UCP remote key buffer is NULL prior to invoking send!");
+        stat_ptr = (void *)UCS_ERR_NOT_CONNECTED;
         goto ucx_send_no_wait_done;
     }
     ucs_status_t status =
         ucp_ep_rkey_unpack (dtl_handle->ep, dtl_handle->rkey_buf, &(dtl_handle->rkey));
     if (UCX_STATUS_FAIL (status)) {
         DYAD_LOG_ERROR (ctx, "ucp_ep_rkey_unpack failed");
-        stat_ptr = (void*)UCS_ERR_NOT_CONNECTED;
+        stat_ptr = (void *)UCS_ERR_NOT_CONNECTED;
         goto ucx_send_no_wait_done;
     }
     ucp_request_param_t params;
@@ -237,7 +500,7 @@ static inline ucs_status_ptr_t ucx_send_no_wait (const dyad_ctx_t* ctx,
                         "ucp_put_nbx() failed %s (%d)\n",
                         ucs_status_string (UCS_PTR_STATUS (stat_ptr)),
                         UCS_PTR_STATUS (stat_ptr));
-        stat_ptr = (void*)UCS_ERR_NOT_CONNECTED;
+        stat_ptr = (void *)UCS_ERR_NOT_CONNECTED;
         goto ucx_send_no_wait_done;
     }
     DYAD_LOG_INFO (ctx, "written data buf of length %lu", buflen);
@@ -246,14 +509,72 @@ ucx_send_no_wait_done:;
     return stat_ptr;
 }
 
-static inline ucs_status_ptr_t ucx_recv_no_wait (const dyad_ctx_t* ctx,
+/**
+ * @brief Waits for incoming RDMA data by polling the consumer's
+ *        pre-registered buffer.
+ *
+ * @details
+ * Busy-polls the first @c sizeof(ssize_t) bytes of
+ * @c dtl_handle->net_buf, which the producer prepends with the file
+ * size before initiating the RDMA push via @c ucp_put_nbx(). The
+ * consumer spins until this value becomes non-zero, indicating that
+ * the producer has started writing data into the buffer.
+ *
+ * On each iteration the UCX worker is progressed via
+ * @c ucp_worker_progress() to process incoming network events, and
+ * the thread sleeps for 10 microseconds to avoid saturating the CPU.
+ *
+ * This approach works because the UCX backend uses a push RDMA model —
+ * the producer writes directly into the consumer's pre-registered
+ * memory buffer (@c dtl_handle->net_buf) via @c ucp_put_nbx(). The
+ * prepended file size acts as a sentinel: once the producer has
+ * initiated the RDMA put, the first bytes of the buffer are non-zero,
+ * signalling to the consumer that data is arriving.
+ *
+ * @note Unlike @c dyad_ucx_request_wait() which polls a UCX request
+ *       handle for a specific operation, this function polls the buffer
+ *       contents directly. This is necessary because the consumer has
+ *       no UCX request handle for the producer's @c ucp_put_nbx() call
+ *       — the put is one-sided and the consumer is not notified by UCX
+ *       when it completes.
+ *
+ * @note The @p buf and @p buflen output parameters are accepted for
+ *       interface consistency but are not populated by this function.
+ *       The actual buffer pointer and length are read from
+ *       @c dtl_handle->net_buf and the prepended size field by the
+ *       caller (@c dyad_dtl_ucx_recv()) after this function returns.
+ *
+ * @note The @p is_warmup parameter controls whether this is a warmup
+ *       iteration used to prime the RDMA connection before the actual
+ *       data transfer. During warmup the buffer sentinel check still
+ *       applies but the received data is discarded by the caller.
+ *
+ * @param[in]  ctx      DYAD context. The UCX worker and network buffer
+ *                      are read from the UCX DTL internal state.
+ * @param[in]  is_warmup If @c true, this is a warmup receive used to
+ *                      prime the RDMA connection.
+ * @param[out] buf      Unused by this function. Populated by the caller
+ *                      after return.
+ * @param[out] buflen   Unused by this function. Populated by the caller
+ *                      after return.
+ *
+ * @return Always returns @c NULL. The actual data is read directly from
+ *         @c dtl_handle->net_buf by the caller.
+ *
+ * @todo Replace the busy-poll with a more efficient notification
+ *       mechanism. The current approach wastes CPU cycles and adds
+ *       latency from the 10-microsecond sleep. UCX Active Messages
+ *       or a lightweight atomic flag could provide lower-latency
+ *       completion notification.
+ */
+static inline ucs_status_ptr_t ucx_recv_no_wait (const dyad_ctx_t *ctx,
                                                  bool is_warmup,
-                                                 void** buf,
-                                                 size_t* buflen)
+                                                 void **buf,
+                                                 size_t *buflen)
 {
     DYAD_C_FUNCTION_START ();
     ucs_status_ptr_t stat_ptr = NULL;
-    dyad_dtl_ucx_t* dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
+    dyad_dtl_ucx_t *dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
     ssize_t temp = 0l;
     int is_first = 1;
     do {
@@ -270,12 +591,63 @@ static inline ucs_status_ptr_t ucx_recv_no_wait (const dyad_ctx_t* ctx,
     return stat_ptr;
 }
 
-static dyad_rc_t ucx_warmup (const dyad_ctx_t* ctx)
+/**
+ * @brief Performs a UCX connection warmup by sending a 1-byte message
+ *        to self.
+ *
+ * @details
+ * Warms up the UCX RDMA connection by performing a loopback send from
+ * the local worker to itself. This primes the UCX connection machinery
+ * — endpoint creation, remote key exchange, and RDMA registration —
+ * so that the first real data transfer does not pay the full connection
+ * establishment cost.
+ *
+ * The warmup sequence is:
+ *  1. Allocates a 1-byte UCX-registered send buffer via
+ *     @c dyad_dtl_ucx_get_buffer() and a plain 1-byte receive buffer
+ *     via @c malloc().
+ *  2. Connects to the local worker's own address via @c ucx_connect(),
+ *     creating a loopback endpoint.
+ *  3. Initiates a non-blocking 1-byte RDMA put to self via
+ *     @c ucx_send_no_wait() with @c is_warmup=true.
+ *  4. Waits for the send to complete via @c dyad_ucx_request_wait().
+ *  5. Disconnects from self via @c ucx_disconnect() and frees both
+ *     buffers.
+ *
+ * On any failure, both buffers are freed and the appropriate error
+ * code is returned before cleanup.
+ *
+ * @note The receive buffer is allocated with @c malloc() rather than
+ *       @c dyad_dtl_ucx_get_buffer() because the warmup receive is not
+ *       a real RDMA operation — the loopback send writes into the
+ *       UCX-registered send buffer itself, and the plain receive buffer
+ *       is only allocated to mirror the real transfer path without
+ *       being used.
+ *
+ * @note The warmup is only performed on the producer side during
+ *       @c dyad_dtl_ucx_init(). The consumer side does not need a
+ *       warmup because it waits passively for the producer to initiate
+ *       the connection.
+ *
+ * @param[in] ctx DYAD context. The UCX worker, local address, and
+ *                endpoint are read from and written to the UCX DTL
+ *                internal state.
+ *
+ * @return @c dyad_rc_t return code:
+ * @retval DYAD_RC_OK            Warmup completed successfully.
+ * @retval DYAD_RC_SYSFAIL       Failed to allocate the plain receive
+ *                               buffer via @c malloc().
+ * @retval DYAD_RC_UCXCOMM_FAIL  The warmup send operation failed.
+ * @retval other                 Any error code returned by
+ *                               @c dyad_dtl_ucx_get_buffer() or
+ *                               @c ucx_connect().
+ */
+static dyad_rc_t ucx_warmup (const dyad_ctx_t *ctx)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
-    void* send_buf = NULL;
-    void* recv_buf = NULL;
+    void *send_buf = NULL;
+    void *recv_buf = NULL;
     ucs_status_ptr_t send_stat_ptr = NULL;
     ucs_status_t send_status = UCS_OK;
     ucs_status_t recv_status = UCS_OK;
@@ -335,7 +707,7 @@ warmup_region_done:;
     return rc;
 }
 
-dyad_rc_t dyad_dtl_ucx_init (const dyad_ctx_t* ctx,
+dyad_rc_t dyad_dtl_ucx_init (const dyad_ctx_t *ctx,
                              dyad_dtl_mode_t mode,
                              dyad_dtl_comm_mode_t comm_mode,
                              bool debug)
@@ -343,10 +715,10 @@ dyad_rc_t dyad_dtl_ucx_init (const dyad_ctx_t* ctx,
     DYAD_C_FUNCTION_START ();
     ucp_params_t ucx_params;
     ucp_worker_params_t worker_params;
-    ucp_config_t* config;
+    ucp_config_t *config;
     ucs_status_t status;
     dyad_rc_t rc = DYAD_RC_OK;
-    dyad_dtl_ucx_t* dtl_handle = NULL;
+    dyad_dtl_ucx_t *dtl_handle = NULL;
 
     ctx->dtl_handle->private_dtl.ucx_dtl_handle = malloc (sizeof (struct dyad_dtl_ucx));
     if (ctx->dtl_handle->private_dtl.ucx_dtl_handle == NULL) {
@@ -357,7 +729,7 @@ dyad_rc_t dyad_dtl_ucx_init (const dyad_ctx_t* ctx,
     dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
     // Allocation/Freeing of the Flux handle should be
     // handled by the DYAD context
-    dtl_handle->h = (flux_t*)ctx->h;
+    dtl_handle->h = (flux_t *)ctx->h;
     dtl_handle->comm_mode = comm_mode;
     dtl_handle->debug = debug;
     dtl_handle->ucx_ctx = NULL;
@@ -365,13 +737,18 @@ dyad_rc_t dyad_dtl_ucx_init (const dyad_ctx_t* ctx,
     dtl_handle->mem_handle = NULL;
     dtl_handle->net_buf = NULL;
     dtl_handle->max_transfer_size = UCX_MAX_TRANSFER_SIZE;
-    dtl_handle->ep = NULL;
-    dtl_handle->ep_cache = NULL;
     dtl_handle->local_address = NULL;
-    dtl_handle->local_addr_len = 0;
+    dtl_handle->local_addr_len = 0ul;
     dtl_handle->remote_address = NULL;
-    dtl_handle->remote_addr_len = 0;
-    dtl_handle->comm_tag = 0;
+    dtl_handle->remote_addr_len = 0ul;
+    dtl_handle->ep = NULL;
+    dtl_handle->comm_tag = 0ul;
+    dtl_handle->ep_cache = NULL;
+    dtl_handle->consumer_conn_key = 0ul;
+    dtl_handle->rkey_buf = NULL;
+    dtl_handle->rkey_size = 0ul;
+    dtl_handle->cons_buf_ptr = 0ul;
+    dtl_handle->rkey = NULL;
 
     // Read the UCX configuration
     DYAD_LOG_INFO (ctx, "Reading UCP config\n");
@@ -465,26 +842,27 @@ error:;
     DYAD_C_FUNCTION_END ();
     return DYAD_RC_UCXINIT_FAIL;
 }
-dyad_rc_t dyad_dtl_ucx_rpc_pack (const dyad_ctx_t* ctx,
-                                 const char* restrict upath,
+
+dyad_rc_t dyad_dtl_ucx_rpc_pack (const dyad_ctx_t *ctx,
+                                 const char *restrict upath,
                                  uint32_t producer_rank,
-                                 json_t** restrict packed_obj)
+                                 json_t **restrict packed_obj)
 {
     DYAD_C_FUNCTION_START ();
     DYAD_C_FUNCTION_UPDATE_STR ("upath", upath);
     DYAD_C_FUNCTION_UPDATE_INT ("producer_rank", producer_rank);
     DYAD_C_FUNCTION_UPDATE_INT ("pid", ctx->pid);
-    dyad_dtl_ucx_t* dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
+    dyad_dtl_ucx_t *dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
     /**
      * Reset the Buffer so that we can loop on it
      * as we expect a size_t lets put int -1 as a check.
      */
-    ssize_t temp = 0;
+    ssize_t temp = 0l;
     memcpy (dtl_handle->net_buf, &temp, sizeof (temp));
     dyad_rc_t rc = DYAD_RC_OK;
-    size_t cons_enc_len = 0;
-    char* cons_enc_buf = NULL;
-    ssize_t cons_enc_size = 0;
+    size_t cons_enc_len = 0ul;
+    char *cons_enc_buf = NULL;
+    ssize_t cons_enc_size = 0l;
 
     if (dtl_handle->local_address == NULL) {
         DYAD_LOG_ERROR (dtl_handle, "Tried to pack an RPC payload without a local UCX address");
@@ -507,9 +885,9 @@ dyad_rc_t dyad_dtl_ucx_rpc_pack (const dyad_ctx_t* ctx,
     cons_enc_size = base64_encode_using_maps (&base64_maps_rfc4648,
                                               cons_enc_buf,
                                               cons_enc_len + 1,
-                                              (const char*)dtl_handle->local_address,
+                                              (const char *)dtl_handle->local_address,
                                               dtl_handle->local_addr_len);
-    if (cons_enc_size < 0) {
+    if (cons_enc_size < 0l) {
         DYAD_LOG_ERROR (ctx, "Unable to encode address\n");
         // TODO log error
         free (cons_enc_buf);
@@ -518,9 +896,9 @@ dyad_rc_t dyad_dtl_ucx_rpc_pack (const dyad_ctx_t* ctx,
     }
 
     DYAD_LOG_INFO (ctx, "Encode UCP rkey using base64\n");
-    size_t rkey_enc_len = 0;
-    char* rkey_enc_buf = NULL;
-    ssize_t rkey_enc_size = 0;
+    size_t rkey_enc_len = 0ul;
+    char *rkey_enc_buf = NULL;
+    ssize_t rkey_enc_size = 0l;
     rkey_enc_len = base64_encoded_length (dtl_handle->rkey_size);
     // Add 1 to encoded length because the encoded buffer will be
     // packed as if it is a string
@@ -536,16 +914,16 @@ dyad_rc_t dyad_dtl_ucx_rpc_pack (const dyad_ctx_t* ctx,
     rkey_enc_size = base64_encode_using_maps (&base64_maps_rfc4648,
                                               rkey_enc_buf,
                                               rkey_enc_len + 1,
-                                              (const char*)dtl_handle->rkey_buf,
+                                              (const char *)dtl_handle->rkey_buf,
                                               dtl_handle->rkey_size);
-    if (rkey_enc_size < 0) {
+    if (rkey_enc_size < 0l) {
         DYAD_LOG_ERROR (ctx, "Unable to encode rkey\n");
         // TODO log error
         free (rkey_enc_buf);
         rc = DYAD_RC_BADPACK;
         goto dtl_ucx_rpc_pack_region_finish;
     }
-    char* tag_name = "cons_buf";
+    char *tag_name = "cons_buf";
     uint64_t tag_val = dtl_handle->cons_buf_ptr;
     char tag_val_buf[128];
     memset (tag_val_buf, 0x00, 128);
@@ -580,24 +958,24 @@ dtl_ucx_rpc_pack_region_finish:;
     return rc;
 }
 
-dyad_rc_t dyad_dtl_ucx_rpc_unpack (const dyad_ctx_t* ctx, const flux_msg_t* msg, char** upath)
+dyad_rc_t dyad_dtl_ucx_rpc_unpack (const dyad_ctx_t *ctx, const flux_msg_t *msg, char **upath)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
-    char* enc_addr = NULL;
+    char *enc_addr = NULL;
     size_t enc_addr_len = 0;
-    char* enc_rkey = NULL;
+    char *enc_rkey = NULL;
     size_t enc_rkey_len = 0;
     int errcode = 0;
     uint64_t tag_prod = 0;
     uint64_t tag_cons = 0;
     uint64_t pid = 0;
     ssize_t decoded_len = 0;
-    dyad_dtl_ucx_t* dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
+    dyad_dtl_ucx_t *dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
     DYAD_LOG_INFO (ctx, "Unpacking RPC payload\n");
     uint64_t tag_val;
-    char* tag_name = "cons_buf";
-    char* tag_value_str = NULL;
+    char *tag_name = "cons_buf";
+    char *tag_value_str = NULL;
     errcode = flux_request_unpack (msg,
                                    NULL,
                                    "{s:s, s:i, s:s, s:i, s:s%, s:s%}",
@@ -632,14 +1010,14 @@ dyad_rc_t dyad_dtl_ucx_rpc_unpack (const dyad_ctx_t* ctx, const flux_msg_t* msg,
     DYAD_LOG_INFO (ctx, "Obtained UCP tag from RPC payload: %lu\n", dtl_handle->comm_tag);
     DYAD_LOG_INFO (ctx, "Decoding consumer UCP address using base64\n");
     dtl_handle->remote_addr_len = base64_decoded_length (enc_addr_len);
-    dtl_handle->remote_address = (ucp_address_t*)malloc (dtl_handle->remote_addr_len);
+    dtl_handle->remote_address = (ucp_address_t *)malloc (dtl_handle->remote_addr_len);
     if (dtl_handle->remote_address == NULL) {
         DYAD_LOG_ERROR (ctx, "Could not allocate memory for consumer address");
         rc = DYAD_RC_SYSFAIL;
         goto dtl_ucx_rpc_unpack_region_finish;
     }
     decoded_len = base64_decode_using_maps (&base64_maps_rfc4648,
-                                            (char*)dtl_handle->remote_address,
+                                            (char *)dtl_handle->remote_address,
                                             dtl_handle->remote_addr_len,
                                             enc_addr,
                                             enc_addr_len);
@@ -654,14 +1032,28 @@ dyad_rc_t dyad_dtl_ucx_rpc_unpack (const dyad_ctx_t* ctx, const flux_msg_t* msg,
 
     DYAD_LOG_INFO (ctx, "Decoding consumer UCP rkey using base64\n");
     dtl_handle->rkey_size = base64_decoded_length (enc_rkey_len);
+
+    /* Guard against a previous RPC where dyad_dtl_ucx_close_connection()
+     * was skipped on an error path, which would leave rkey_buf non-NULL. */
+    if (dtl_handle->rkey_buf != NULL) {
+        free (dtl_handle->rkey_buf);
+        // dtl_handle->rkey_buf = NULL;
+    }
+
+    /* rkey_buf here is a plain malloc() allocation holding the consumer's
+     * packed key decoded from the RPC payload, distinct from the consumer's
+     * own UCX-allocated rkey_buf produced by ucp_rkey_pack(). It must be
+     * freed with free() in dyad_dtl_ucx_close_connection(), not with
+     * ucp_rkey_buffer_release(). */
     dtl_handle->rkey_buf = malloc (dtl_handle->rkey_size);
+
     if (dtl_handle->rkey_buf == NULL) {
         DYAD_LOG_ERROR (ctx, "Could not allocate memory for consumer rkey");
         rc = DYAD_RC_SYSFAIL;
         goto dtl_ucx_rpc_unpack_region_finish;
     }
     decoded_len = base64_decode_using_maps (&base64_maps_rfc4648,
-                                            (char*)dtl_handle->rkey_buf,
+                                            (char *)dtl_handle->rkey_buf,
                                             dtl_handle->rkey_size,
                                             enc_rkey,
                                             enc_rkey_len);
@@ -679,25 +1071,25 @@ dtl_ucx_rpc_unpack_region_finish:;
     return rc;
 }
 
-dyad_rc_t dyad_dtl_ucx_rpc_respond (const dyad_ctx_t* ctx, const flux_msg_t* orig_msg)
+dyad_rc_t dyad_dtl_ucx_rpc_respond (const dyad_ctx_t *ctx, const flux_msg_t *orig_msg)
 {
     DYAD_C_FUNCTION_START ();
     DYAD_C_FUNCTION_END ();
     return DYAD_RC_OK;
 }
 
-dyad_rc_t dyad_dtl_ucx_rpc_recv_response (const dyad_ctx_t* ctx, flux_future_t* f)
+dyad_rc_t dyad_dtl_ucx_rpc_recv_response (const dyad_ctx_t *ctx, flux_future_t *f)
 {
     DYAD_C_FUNCTION_START ();
     DYAD_C_FUNCTION_END ();
     return DYAD_RC_OK;
 }
 
-dyad_rc_t dyad_dtl_ucx_get_buffer (const dyad_ctx_t* ctx, size_t data_size, void** data_buf)
+dyad_rc_t dyad_dtl_ucx_get_buffer (const dyad_ctx_t *ctx, size_t data_size, void **data_buf)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
-    dyad_dtl_ucx_t* dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
+    dyad_dtl_ucx_t *dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
     DYAD_LOG_INFO (dtl_handle, "Validating data_buf in get_buffer");
     // TODO(Ian): the second part of this check is (for some reason) evaluating
     //            to true despite `data_buf` being a pointer to a NULL pointer.
@@ -726,7 +1118,7 @@ ucx_get_buffer_done:;
     return rc;
 }
 
-dyad_rc_t dyad_dtl_ucx_return_buffer (const dyad_ctx_t* ctx, void** data_buf)
+dyad_rc_t dyad_dtl_ucx_return_buffer (const dyad_ctx_t *ctx, void **data_buf)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
@@ -740,11 +1132,11 @@ dtl_ucx_return_buffer_done:;
     return rc;
 }
 
-dyad_rc_t dyad_dtl_ucx_establish_connection (const dyad_ctx_t* ctx)
+dyad_rc_t dyad_dtl_ucx_establish_connection (const dyad_ctx_t *ctx)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
-    dyad_dtl_ucx_t* dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
+    dyad_dtl_ucx_t *dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
     dyad_dtl_comm_mode_t comm_mode = dtl_handle->comm_mode;
     if (comm_mode == DYAD_COMM_SEND) {
         DYAD_LOG_INFO (ctx, "Create UCP endpoint for communication with consumer\n");
@@ -782,7 +1174,7 @@ dtl_ucx_establish_connection_region_finish:;
     return rc;
 }
 
-dyad_rc_t dyad_dtl_ucx_send (const dyad_ctx_t* ctx, void* buf, size_t buflen)
+dyad_rc_t dyad_dtl_ucx_send (const dyad_ctx_t *ctx, void *buf, size_t buflen)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
@@ -803,7 +1195,7 @@ dtl_ucx_send_region_finish:;
     return rc;
 }
 
-dyad_rc_t dyad_dtl_ucx_recv (const dyad_ctx_t* ctx, void** buf, size_t* buflen)
+dyad_rc_t dyad_dtl_ucx_recv (const dyad_ctx_t *ctx, void **buf, size_t *buflen)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
@@ -821,11 +1213,11 @@ dyad_rc_t dyad_dtl_ucx_recv (const dyad_ctx_t* ctx, void** buf, size_t* buflen)
     return rc;
 }
 
-dyad_rc_t dyad_dtl_ucx_close_connection (const dyad_ctx_t* ctx)
+dyad_rc_t dyad_dtl_ucx_close_connection (const dyad_ctx_t *ctx)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
-    dyad_dtl_ucx_t* dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
+    dyad_dtl_ucx_t *dtl_handle = ctx->dtl_handle->private_dtl.ucx_dtl_handle;
     dyad_dtl_comm_mode_t comm_mode = dtl_handle->comm_mode;
     if (comm_mode == DYAD_COMM_SEND) {
         if (dtl_handle != NULL) {
@@ -836,7 +1228,21 @@ dyad_rc_t dyad_dtl_ucx_close_connection (const dyad_ctx_t* ctx)
             //                   "Could not successfully close Endpoint! However, endpoint was "
             //                   "released.");
             // }
-            ucp_rkey_destroy (dtl_handle->rkey);
+            /* Destroy the unpacked rkey handle. Only the producer (DYAD_COMM_SEND)
+             * creates rkey via ucp_ep_rkey_unpack() in ucx_send_no_wait(). */
+            if (dtl_handle->rkey != NULL) {
+                ucp_rkey_destroy (dtl_handle->rkey);
+                dtl_handle->rkey = NULL;
+            }
+            /* Free the per-RPC malloc() allocation of producer's rkey_buf from
+             * dyad_dtl_ucx_rpc_unpack().
+             * The consumer's rkey_buf is UCX-allocated and freed in finalize(). */
+            if (dtl_handle->rkey_buf != NULL) {
+                free (dtl_handle->rkey_buf);
+                dtl_handle->rkey_buf = NULL;
+            }
+            /* ep is intentionally not destroyed here — it remains alive in
+             * ep_cache for reuse across RPCs and is destroyed in finalize(). */
             dtl_handle->ep = NULL;
             // Sender doesn't have a consumer address at this time
             // So, free the consumer address when closing the connection
@@ -868,10 +1274,10 @@ dyad_rc_t dyad_dtl_ucx_close_connection (const dyad_ctx_t* ctx)
     return rc;
 }
 
-dyad_rc_t dyad_dtl_ucx_finalize (const dyad_ctx_t* ctx)
+dyad_rc_t dyad_dtl_ucx_finalize (const dyad_ctx_t *ctx)
 {
     DYAD_C_FUNCTION_START ();
-    dyad_dtl_ucx_t* dtl_handle = NULL;
+    dyad_dtl_ucx_t *dtl_handle = NULL;
     dyad_rc_t rc = DYAD_RC_OK;
     if (ctx->dtl_handle == NULL || ctx->dtl_handle->private_dtl.ucx_dtl_handle == NULL) {
         rc = DYAD_RC_OK;
@@ -883,29 +1289,55 @@ dyad_rc_t dyad_dtl_ucx_finalize (const dyad_ctx_t* ctx)
         dyad_dtl_ucx_close_connection (ctx);
         dtl_handle->ep = NULL;
     }
+    /* Destroy all cached endpoints before the worker since they are
+     * bound to it. Actual connection teardown happens here, not in
+     * close_connection(). */
     if (dtl_handle->ep_cache != NULL) {
         dyad_ucx_ep_cache_finalize (ctx, &(dtl_handle->ep_cache), dtl_handle->ucx_worker);
         dtl_handle->ep_cache = NULL;
     }
-    // Release consumer address if not already released
+    /* local_address is UCX-allocated by ucp_worker_get_address() and must
+     * be released with ucp_worker_release_address(), not free(). */
     if (dtl_handle->local_address != NULL) {
         ucp_worker_release_address (dtl_handle->ucx_worker, dtl_handle->local_address);
         dtl_handle->local_address = NULL;
     }
+    // Free remote adddress structure if not already freed
+    if (dtl_handle->remote_address != NULL) {
+        free (dtl_handle->remote_address);
+        dtl_handle->remote_address = NULL;
+    }
+    /* rkey_buf deallocation differs by comm_mode:
+     * - DYAD_COMM_SEND: plain malloc() from rpc_unpack() ->free()
+     * - DYAD_COMM_RECV: UCX-allocated by ucp_rkey_pack() -> ucp_rkey_buffer_release() */
+    if (dtl_handle->rkey_buf != NULL) {
+        if (dtl_handle->comm_mode == DYAD_COMM_SEND)
+            free (dtl_handle->rkey_buf);
+        else
+            ucp_rkey_buffer_release (dtl_handle->rkey_buf);
+        dtl_handle->rkey_buf = NULL;
+    }
+    if (dtl_handle->rkey != NULL) {
+        ucp_rkey_destroy (dtl_handle->rkey);
+        dtl_handle->rkey = NULL;
+    }
     // Free memory buffer if not already freed
     if (dtl_handle->mem_handle != NULL) {
         ucx_free_buffer (ctx, dtl_handle->ucx_ctx, dtl_handle->mem_handle, &(dtl_handle->net_buf));
+        dtl_handle->mem_handle = NULL;
     }
-    // Release worker if not already released
+    /* Worker must be destroyed before the UCX context. */
     if (dtl_handle->ucx_worker != NULL) {
         ucp_worker_destroy (dtl_handle->ucx_worker);
         dtl_handle->ucx_worker = NULL;
     }
-    // Release context if not already released
+    /* UCX context destroyed last — all resources bound to it must
+     * already be released. */
     if (dtl_handle->ucx_ctx != NULL) {
         ucp_cleanup (dtl_handle->ucx_ctx);
         dtl_handle->ucx_ctx = NULL;
     }
+
     // Flux handle should be released by the
     // DYAD context, so it is not released here
     dtl_handle->h = NULL;

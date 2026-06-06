@@ -1,0 +1,97 @@
+<svg width="100%" viewBox="0 0 760 360" role="img" xmlns="http://www.w3.org/2000/svg">
+<title>Hierarchical File Locator — four cases</title>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="rgba(31,30,29,0.3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+</defs>
+
+<!-- CASE 1 -->
+<rect x="10" y="8" width="148" height="26" rx="5" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+<text x="84" y="21" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="13" font-weight="500" fill="#085041">Case 1: cached file</text>
+<rect x="10" y="40" width="148" height="238" rx="6" fill="white" stroke="#888" stroke-width="0.5" stroke-dasharray="4 3"/>
+<text x="84" y="54" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#3d3d3a">node 1</text>
+<circle cx="48" cy="85" r="15" fill="#F5F4ED" stroke="rgba(31,30,29,0.4)" stroke-width="0.5"/>
+<text x="48" y="85" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="11" fill="#3d3d3a">W1</text>
+<circle cx="120" cy="85" r="15" fill="#F5F4ED" stroke="rgba(31,30,29,0.4)" stroke-width="0.5"/>
+<text x="120" y="85" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="11" fill="#3d3d3a">W2</text>
+<text x="48" y="143" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="11" fill="#3d3d3a">Cache</text>
+<text x="120" y="143" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="11" fill="#3d3d3a">Discover</text>
+<rect x="26" y="240" width="116" height="26" rx="4" fill="#FAEEDA" stroke="#854F0B" stroke-width="0.5"/>
+<text x="84" y="253" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="13" font-weight="500" fill="#633806">DMD</text>
+<line x1="48" y1="100" x2="48" y2="133" stroke="rgba(31,30,29,0.3)" stroke-width="1"/>
+<line x1="48" y1="153" x2="48" y2="240" stroke="rgba(31,30,29,0.3)" stroke-width="1" marker-end="url(#arrow)"/>
+<line x1="120" y1="240" x2="120" y2="153" stroke="rgba(31,30,29,0.3)" stroke-width="1"/>
+<line x1="120" y1="133" x2="120" y2="100" stroke="rgba(31,30,29,0.3)" stroke-width="1" marker-end="url(#arrow)"/>
+
+<!-- CASE 2 -->
+<rect x="178" y="8" width="148" height="26" rx="5" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+<text x="252" y="21" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="13" font-weight="500" fill="#085041">Case 2: evicted file</text>
+<rect x="178" y="40" width="148" height="238" rx="6" fill="white" stroke="#888" stroke-width="0.5" stroke-dasharray="4 3"/>
+<text x="252" y="54" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#3d3d3a">node 1</text>
+<circle cx="204" cy="85" r="15" fill="#F5F4ED" stroke="rgba(31,30,29,0.4)" stroke-width="0.5"/>
+<text x="204" y="85" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="11" fill="#3d3d3a">W1</text>
+<circle cx="298" cy="85" r="15" fill="#F5F4ED" stroke="rgba(31,30,29,0.4)" stroke-width="0.5"/>
+<text x="298" y="85" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="11" fill="#3d3d3a">W2</text>
+<text x="204" y="143" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="11" fill="#3d3d3a">Cache</text>
+<text x="298" y="143" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="11" fill="#3d3d3a">Discover</text>
+<rect x="215" y="185" width="72" height="26" rx="4" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.5"/>
+<text x="251" y="198" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="11" fill="#534AB7">Local HFL</text>
+<rect x="193" y="240" width="116" height="26" rx="4" fill="#FAEEDA" stroke="#854F0B" stroke-width="0.5"/>
+<text x="251" y="253" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="13" font-weight="500" fill="#633806">DMD</text>
+<line x1="204" y1="100" x2="204" y2="133" stroke="rgba(31,30,29,0.3)" stroke-width="1"/>
+<line x1="204" y1="153" x2="204" y2="240" stroke="rgba(31,30,29,0.3)" stroke-width="1" marker-end="url(#arrow)"/>
+<path d="M219 85 L251 85 L251 185" fill="none" stroke="rgba(31,30,29,0.3)" stroke-width="1" marker-end="url(#arrow)"/>
+<path d="M287 198 L298 198 L298 153" fill="none" stroke="rgba(31,30,29,0.3)" stroke-width="1"/>
+<line x1="298" y1="133" x2="298" y2="100" stroke="rgba(31,30,29,0.3)" stroke-width="1" marker-end="url(#arrow)"/>
+<rect x="229" y="155" width="44" height="12" fill="white"/>
+<text x="251" y="165" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#3d3d3a">Notify</text>
+
+<!-- CASE 3 -->
+<rect x="346" y="8" width="219" height="26" rx="5" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+<text x="456" y="21" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="13" font-weight="500" fill="#085041">Case 3: file on different node</text>
+<rect x="346" y="40" width="122" height="238" rx="6" fill="white" stroke="#888" stroke-width="0.5" stroke-dasharray="4 3"/>
+<text x="407" y="54" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#3d3d3a">node 1</text>
+<rect x="498" y="40" width="50" height="70" rx="6" fill="white" stroke="#888" stroke-width="0.5" stroke-dasharray="4 3"/>
+<text x="523" y="54" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#3d3d3a">node 2</text>
+<circle cx="376" cy="85" r="15" fill="#F5F4ED" stroke="rgba(31,30,29,0.4)" stroke-width="0.5"/>
+<text x="376" y="85" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="11" fill="#3d3d3a">W1</text>
+<circle cx="523" cy="85" r="15" fill="#F5F4ED" stroke="rgba(31,30,29,0.4)" stroke-width="0.5"/>
+<text x="523" y="85" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="11" fill="#3d3d3a">W2</text>
+<text x="376" y="143" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="11" fill="#3d3d3a">Cache</text>
+<rect x="386" y="185" width="72" height="26" rx="4" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.5"/>
+<text x="422" y="198" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="11" fill="#534AB7">Local HFL</text>
+<rect x="357" y="240" width="100" height="26" rx="4" fill="#FAEEDA" stroke="#854F0B" stroke-width="0.5"/>
+<text x="407" y="253" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="13" font-weight="500" fill="#633806">DMD</text>
+<text x="523" y="155" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="11" fill="#3d3d3a">Discover</text>
+<rect x="483" y="240" width="80" height="26" rx="4" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.5"/>
+<text x="523" y="253" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="11" fill="#534AB7">Global HFL</text>
+<line x1="376" y1="100" x2="376" y2="133" stroke="rgba(31,30,29,0.3)" stroke-width="1"/>
+<line x1="376" y1="153" x2="376" y2="240" stroke="rgba(31,30,29,0.3)" stroke-width="1" marker-end="url(#arrow)"/>
+<path d="M391 85 L422 85 L422 185" fill="none" stroke="rgba(31,30,29,0.3)" stroke-width="1" marker-end="url(#arrow)"/>
+<line x1="523" y1="145" x2="523" y2="100" stroke="rgba(31,30,29,0.3)" stroke-width="1" marker-end="url(#arrow)"/>
+<line x1="523" y1="240" x2="523" y2="165" stroke="rgba(31,30,29,0.3)" stroke-width="1"/>
+<line x1="458" y1="198" x2="490" y2="198" stroke="rgba(31,30,29,0.3)" stroke-width="1.5"/>
+<rect x="400" y="155" width="44" height="12" fill="white"/>
+<text x="422" y="165" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#3d3d3a">Notify</text>
+<rect x="480" y="192" width="30" height="12" fill="white"/>
+<text x="495" y="202" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#3d3d3a">Notify</text>
+<line x1="495" y1="208" x2="495" y2="240" stroke="rgba(31,30,29,0.3)" stroke-width="1" marker-end="url(#arrow)"/>
+
+<!-- CASE 4 -->
+<rect x="583" y="8" width="130" height="26" rx="5" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+<text x="648" y="21" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="13" font-weight="500" fill="#085041">Case 4: no cache</text>
+<circle cx="653" cy="85" r="15" fill="#F5F4ED" stroke="rgba(31,30,29,0.4)" stroke-width="0.5"/>
+<text x="653" y="85" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="11" fill="#3d3d3a">W1</text>
+<text x="624" y="155" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="11" fill="#3d3d3a">Discover</text>
+<text x="684" y="155" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="11" fill="#3d3d3a">Cache</text>
+<rect x="644" y="192" width="70" height="26" rx="4" fill="#FAEEDA" stroke="#854F0B" stroke-width="0.5"/>
+<text x="679" y="205" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="13" font-weight="500" fill="#633806">DMD</text>
+<rect x="592" y="240" width="70" height="26" rx="4" fill="#FAEADA" stroke="#B04020" stroke-width="0.5"/>
+<text x="627" y="253" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="13" font-weight="500" fill="#7A2010">PFS</text>
+<path d="M668 85 L684 85 L684 145" fill="none" stroke="rgba(31,30,29,0.3)" stroke-width="1"/>
+<line x1="684" y1="165" x2="684" y2="192" stroke="rgba(31,30,29,0.3)" stroke-width="1" marker-end="url(#arrow)"/>
+<line x1="623" y1="240" x2="623" y2="165" stroke="rgba(31,30,29,0.3)" stroke-width="1"/>
+<path d="M623 145 L623 85 L638 85" fill="none" stroke="rgba(31,30,29,0.3)" stroke-width="1" marker-end="url(#arrow)"/>
+
+</svg>

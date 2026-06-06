@@ -85,7 +85,6 @@ void dyad_stream_core::finalize ()
 
 void dyad_stream_core::init (const bool reinit)
 {
-    DYAD_CPP_FUNCTION ();
     bool reinit_env = false;
     char *e = NULL;
 
@@ -109,6 +108,7 @@ void dyad_stream_core::init (const bool reinit)
         // m_ctx is non-NULL (assigned in the condition above)
         log_info ("Stream core skips initialization as it has already been initialized.");
     }
+    DYAD_CPP_FUNCTION ();
 
     if (m_ctx != NULL) {
         if ((e = getenv (DYAD_PATH_CONSUMER_ENV))) {
@@ -129,7 +129,6 @@ void dyad_stream_core::init (const bool reinit)
 
 void dyad_stream_core::init (const dyad_params &p)
 {
-    DYAD_CPP_FUNCTION ();
     DYAD_LOG_DEBUG (m_ctx, "DYAD_WRAPPER: Initializeing DYAD wrapper");
     dyad_rc_t rc = dyad_init (p.m_debug,
                               false,
@@ -147,6 +146,7 @@ void dyad_stream_core::init (const dyad_params &p)
                               dyad_dtl_mode_name[static_cast<dyad_dtl_mode_t> (p.m_dtl_mode)],
                               DYAD_COMM_RECV,
                               NULL);
+    DYAD_CPP_FUNCTION ();
     m_ctx = m_ctx_mutable = dyad_ctx_get ();
     if (!DYAD_IS_ERROR (rc) && m_ctx != NULL) {
         m_is_prod = !p.m_prod_managed_path.empty ();
@@ -154,8 +154,11 @@ void dyad_stream_core::init (const dyad_params &p)
 #if defined(DYAD_HAS_STD_FSTREAM_FD)
         m_ctx_mutable->use_fs_locks = true;
 #else
-        // Rely on the KVS-based synchronization and disable checking for fs lock
-        // based logic.
+        // Without DYAD_HAS_STD_FSTREAM_FD, the file descriptor cannot be
+        // extracted from the C++ stream object, so local filesystem locking
+        // is unavailable. Falling back to KVS-based synchronization only,
+        // which will perform worse than local locking for files on shared
+        // storage or between co-located producer and consumer.
         m_ctx_mutable->use_fs_locks = false;
 #endif
         log_info ("Stream core is initialized by parameters");
@@ -283,7 +286,7 @@ int dyad_stream_core::file_lock_shared (int fd) const
 {
     struct flock shared_flock;
 
-    dyad_rc_t rc = dyad_excl_flock (m_ctx, fd, &shared_flock);
+    dyad_rc_t rc = dyad_shared_flock (m_ctx, fd, &shared_flock);
 
     if (DYAD_IS_ERROR (rc)) {
         dyad_release_flock (m_ctx, fd, &shared_flock);

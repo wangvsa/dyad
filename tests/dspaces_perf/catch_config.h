@@ -19,6 +19,6 @@ int main(int argc, char* argv[]) {
     int test_return_code = session.run();
     returnCode = finalize();
     if (returnCode != 0) return returnCode;
-    exit(test_return_code);
+    return test_return_code;
 }
 #endif  // DYAD_CATCH_CONFIG_H

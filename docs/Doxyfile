@@ -1,0 +1,62 @@
+GENERATE_XML = YES
+XML_OUTPUT   = xml
+OUTPUT_DIRECTORY = doxygen
+INPUT = ../include/dyad/client \
+        ../include/dyad/common \
+        ../include/dyad/core \
+        ../include/dyad/stream \
+        ../src/dyad/client \
+        ../src/dyad/common \
+        ../src/dyad/core \
+        ../src/dyad/dtl \
+        ../src/dyad/service \
+        ../src/dyad/service/flux_module \
+        ../src/dyad/stream \
+        ../src/dyad/utils \
+        ../src/dyad/wrapper
+
+PREDEFINED = DYAD_DLL_EXPORTED= \
+             DYAD_PFA_ANNOTATE= \
+             DYAD_CORE_FUNC_MODS= \
+             DYAD_DLL_EXPORTED= \
+             __restrict__= \
+             restrict= \
+             "__attribute__(x)=" \
+             DYAD_SYNC_DIR=1 \
+             "MOD_NAME(x)=" \
+             "MERCURY_GEN_PROC(name,fields)=" \
+             "DEFINE_MARGO_RPC_HANDLER(fn)=" \
+             "UCX_STATUS_FAIL(rc)="
+
+PREDEFINED += "ucp_ep_h=void*" \
+              "ucs_status_t=int" \
+              "ucp_worker_h=void*" \
+              "ucp_context_h=void*" \
+              "ucp_mem_h=void*" \
+              "ucp_address_t=void" \
+              "ucp_tag_t=uint64_t" \
+              "ucp_rkey_h=void*" \
+              "ucs_status_ptr_t=void*" \
+              "ucx_ep_cache_h=void*" \
+              "hg_handle_t=void*" \
+              "hg_addr_t=void*" \
+              "hg_bulk_t=void*" \
+              "hg_return_t=int" \
+              "margo_instance_id=void*" \
+              "flux_t=void*" \
+              "flux_msg_t=void*" \
+              "flux_future_t=void*" \
+              "flux_kvs_txn_t=void*" \
+              "json_t=void*"
+
+MACRO_EXPANSION = YES
+EXPAND_ONLY_PREDEF = YES
+EXTRACT_ALL    = YES
+EXTRACT_STATIC = YES
+INTERNAL_DOCS  = YES
+FILE_PATTERNS  = *.c *.h *.cpp *.hpp
+
+WARN_IF_UNDOCUMENTED = YES
+WARN_NO_PARAMDOC     = YES
+WARN_IF_DOC_ERROR    = YES
+WARN_LOGFILE         = doxygen_warnings.log
