@@ -362,10 +362,12 @@ Running DYAD
 
 There are three steps to running DYAD-enabled applications:
 
-1. :ref:`Create a Flux key-value store (KVS) namespace <Create a Flux KVS Namespace>`
-2. :ref:`Determine the managed directories for each application <Determine the Managed Directories for Each Application>`
-3. :ref:`Load DYAD's Flux module <Load DYAD's Flux Module>`
-4. :ref:`Configure and run the DYAD-enabled applications <Configure and Run the DYAD-Enabled Applications>`
+1. :ref:`Create a Flux key-value store (KVS) namespace <DYAD_Flux_KVS_NS>`
+2. :ref:`Determine the managed directories for each application <DYAD_managed_dir>`
+3. :ref:`Load DYAD's Flux module <DYAD_user_service>`
+4. :ref:`Configure and run the DYAD-enabled applications <DYAD_enabling_apps>`
+
+.. _DYAD_Flux_KVS_NS:
 
 Create a Flux KVS Namespace
 ***************************
@@ -384,7 +386,7 @@ consumer. To create this namespace, run the following:
 The namespace can be whatever string value you want.
 
 
-.. _dyad_managed_dir:
+.. _DYAD_managed_dir:
 
 Determine the Managed Directories for Each Application
 ******************************************************
@@ -416,7 +418,7 @@ for each application. These directories will need to be provided to the commands
    files in the managed directories.
 
 
-.. _dyad_user_service:
+.. _DYAD_user_service:
 
 Load DYAD's Flux Module
 ***********************
@@ -443,6 +445,9 @@ do this by running:
 
    $ flux exec -r all flux module load path/to/dyad.so <DYAD_PATH_PRODUCER>
 
+
+.. _DYAD_enabling_apps:
+   
 Configure and Run the DYAD-Enabled Applications
 ***********************************************
 

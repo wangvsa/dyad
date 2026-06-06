@@ -14,6 +14,8 @@ A producer and consumer scenario sharing a file
 
 .. figure:: _static/figs/dyad_without_vs_with.svg
    :alt: Without DYAD vs With DYAD
+   :name: dyad-without-vs-with
+   :align: center
 
    Without DYAD, producer and consumer share data via a shared file system
    (e.g., Lustre) with explicit synchronization through dependent jobs, APIs,
@@ -23,8 +25,7 @@ A producer and consumer scenario sharing a file
    RDMA-based data movement, eliminating both the shared file system
    bottleneck and the need for explicit synchronization.
 
-   Check out our use case with a molecular dynamics simulation workflow
-   :ref:`Lumsden et al. 2024 <paper-ipdpsw-2024>`.
+   Check out our use case with a molecular dynamics simulation workflow :ref:`Lumsden et al. 2024 <paper-ipdpsw-2024>`.
 
 Deep Learning Training by Distributed Stochastic Gradient Descent (SGD)
 =======================================================================

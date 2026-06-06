@@ -1,0 +1,31 @@
+#dyad-without-vs-with a.reference {
+    display: block !important;
+}
+
+#dyad-without-vs-with img {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+#dyad-without-vs-with.align-default {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    width: 100% !important;
+}
+
+#dyad-without-vs-with figcaption {
+    text-align: left !important;
+}
+
+#dyad-without-vs-with {
+    width: 100% !important;
+}
+
+#dyad-without-vs-with img {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+#dyad-without-vs-with figcaption {
+    text-align: left !important;
+}
