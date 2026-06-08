@@ -84,10 +84,16 @@ In resolving these challenges, DYAD aims to provide the following to users:
 
    dyad_logos
 
+.. toctree::
+   :hidden:
+   :caption: Indices
+
+   genindex
+   search
+
 
 Indices and tables
 ==================
 
 * :ref:`genindex`
-* :ref:`modindex`
 * :ref:`search`
