@@ -184,4 +184,20 @@
  */
 #define DYAD_PATH_ORIGIN_ENV "DYAD_PATH_ORIGIN"
 
+/**
+ * @brief Number of worker threads the DYAD Flux module uses to service
+ *        @c dyad.fetch_range RPCs (@c dyad_fetch_range_request_cb()).
+ *
+ * @details
+ * The module's single Flux reactor thread hands each byte-range fetch's
+ * blocking file I/O (and, on the Margo DTL, the RDMA send itself) off to
+ * this worker pool instead of doing it inline, so concurrent requests from
+ * different ranks/nodes don't serialize behind whichever one happened to
+ * arrive first. Read directly via @c getenv() in @c mod_main(), not
+ * through @c dyad_init_env(), since it configures the module's own
+ * internal servicing, not context state shared with client processes.
+ * Default: @c 8.
+ */
+#define DYAD_FETCH_WORKER_THREADS_ENV "DYAD_FETCH_WORKER_THREADS"
+
 #endif  // DYAD_COMMON_DYAD_ENVS_H

@@ -26,6 +26,20 @@ struct dyad_dtl_margo {
 typedef struct dyad_dtl_margo dyad_dtl_margo_t;
 
 /**
+ * @brief Per-request state detached from the shared @c dyad_dtl_margo
+ *        fields by @c dyad_dtl_margo_detach_request(), so a request can be
+ *        finished (RDMA push via @c margo_forward()) directly from a
+ *        worker thread without racing a later request's
+ *        @c margo_addr_lookup() call, which would otherwise overwrite the
+ *        same shared @c remote_addr field.
+ */
+struct dyad_dtl_margo_req_state {
+    margo_instance_id mid;
+    hg_id_t sendrecv_rpc_id;
+    hg_addr_t remote_addr;  // owned; freed by dyad_dtl_margo_send_detached()
+};
+
+/**
  * @brief Initializes the Margo DTL internal state.
  *
  * @details
@@ -500,6 +514,90 @@ dyad_rc_t dyad_dtl_margo_recv (const dyad_ctx_t *ctx, void **buf, size_t *buflen
  *       side via @c margo_addr_free().
  */
 dyad_rc_t dyad_dtl_margo_close_connection (const dyad_ctx_t *ctx);
+
+/**
+ * @brief Detaches the current request's resolved consumer address from the
+ *        shared, single-slot @c remote_addr field into an
+ *        independently-owned request state blob.
+ *
+ * @details
+ * Copies @c mid, @c sendrecv_rpc_id (process-wide, immutable, just
+ * convenience copies so @c dyad_dtl_margo_send_detached() never has to
+ * touch the shared @c dyad_dtl_margo struct at all) and @c remote_addr
+ * (resolved by the preceding @c dyad_dtl_margo_rpc_unpack_range() call) out
+ * of the shared fields into a newly allocated
+ * @c struct dyad_dtl_margo_req_state, and clears the shared
+ * @c remote_addr field (transferring ownership -- this also fixes a
+ * pre-existing leak where the previous request's resolved address was
+ * never freed before being overwritten).
+ *
+ * @param[in]  ctx       DYAD context.
+ * @param[out] req_state Set to a newly allocated request-state blob owning
+ *                       the resolved consumer address. Must be passed to
+ *                       @c dyad_dtl_margo_send_detached() exactly once.
+ *
+ * @return Always returns @c DYAD_RC_OK, unless allocation fails
+ *         (@c DYAD_RC_SYSFAIL).
+ */
+dyad_rc_t dyad_dtl_margo_detach_request (const dyad_ctx_t *ctx, void **req_state);
+
+/**
+ * @brief Sends file data to the consumer via Margo RDMA using a previously
+ *        detached request's resolved address, instead of the shared
+ *        @c remote_addr field.
+ *
+ * @details
+ * Equivalent to @c dyad_dtl_margo_send(), but reads @c mid,
+ * @c sendrecv_rpc_id, and @c remote_addr from @p req_state (as produced by
+ * @c dyad_dtl_margo_detach_request()) instead of the shared fields.
+ * Frees @c remote_addr via @c margo_addr_free() and frees @p req_state
+ * before returning.
+ *
+ * @note Must be called from the module's reactor thread, like the Flux RPC
+ *       backend's equivalent -- @c margo_init() for this DTL's
+ *       producer/@c DYAD_COMM_SEND side creates no dedicated Argobots
+ *       execution stream, so @c mid is only a valid Argobots execution
+ *       context on the thread that called @c margo_init() (the reactor
+ *       thread). A plain worker-pool @c pthread is not an Argobots
+ *       ULT/execution-stream context, and calling @c margo_forward() from
+ *       one hangs (the consumer's RDMA pull is never triggered).
+ *       @see dyad_dtl::send_detached_is_thread_safe (false for this
+ *       backend).
+ *
+ * @param[in] ctx       DYAD context.
+ * @param[in] req_state Request state from a prior
+ *                      @c dyad_dtl_margo_detach_request() call. Freed by
+ *                      this call.
+ * @param[in] buf       Buffer containing the file data to send.
+ * @param[in] buflen    Number of bytes in @p buf.
+ *
+ * @return @c dyad_rc_t return code:
+ * @retval DYAD_RC_OK Always returned. Error handling for Margo calls is
+ *                    not yet implemented, matching @c dyad_dtl_margo_send()
+ *                    (see TODO there).
+ */
+dyad_rc_t dyad_dtl_margo_send_detached (const dyad_ctx_t *ctx,
+                                        void *req_state,
+                                        void *buf,
+                                        size_t buflen);
+
+/**
+ * @brief Frees a detached request's resolved address without sending
+ *        data, for use on an I/O-error path.
+ *
+ * @details
+ * Frees @c remote_addr via @c margo_addr_free() (mirroring
+ * @c dyad_dtl_margo_send_detached()'s cleanup) and frees @p req_state.
+ * Safe to call from any thread -- touches only Margo/Mercury state.
+ *
+ * @param[in] ctx       DYAD context.
+ * @param[in] req_state Request state from a prior
+ *                      @c dyad_dtl_margo_detach_request() call. Freed by
+ *                      this call.
+ *
+ * @return Always returns @c DYAD_RC_OK.
+ */
+dyad_rc_t dyad_dtl_margo_abort_detached (const dyad_ctx_t *ctx, void *req_state);
 
 /**
  * @brief Finalizes and frees the Margo DTL internal state.

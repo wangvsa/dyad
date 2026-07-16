@@ -49,6 +49,7 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <linux/limits.h>
+#include <pthread.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -90,9 +91,69 @@
  * module instance. Allocated per broker handle via @c get_mod_ctx() and
  * freed at module finalization time via @c freectx().
  */
+/**
+ * @brief One in-flight @c dyad.fetch_range request handed off from the
+ *        reactor thread to the worker-thread pool.
+ *
+ * @details
+ * Populated by @c dyad_fetch_range_request_cb() on the reactor thread
+ * (everything needed to do the request's file I/O without touching the DTL
+ * or Flux state again), then filled in by a worker thread
+ * (@c dyad_fetch_worker_process()) with the outcome. Freed by whichever
+ * code path finishes the request -- either a worker thread directly
+ * (Margo, @c send_detached_is_thread_safe) or the reactor-thread completion
+ * callback (Flux RPC).
+ */
+struct dyad_fetch_work_item {
+    char fullpath[PATH_MAX + 1];
+    char origin_fullpath[PATH_MAX + 1];
+    bool has_origin;
+    size_t offset;
+    size_t length;
+    void *inbuf;      ///< Allocated via dtl_handle->get_buffer() on the reactor thread.
+    void *req_state;  ///< From dtl_handle->rpc_detach_request().
+    flux_msg_t *msg;  ///< Incref'd; used only for flux_respond_error() on failure.
+    bool send_detached_is_thread_safe;
+    struct dyad_mod_ctx *mod_ctx;
+    // Outcome, filled in by the worker:
+    dyad_rc_t rc;
+    int saved_errno;
+    ssize_t range_len;
+    struct dyad_fetch_work_item *next;
+};
+
 typedef struct dyad_mod_ctx {
     flux_msg_handler_t **handlers;  ///< Flux message handler table.
     dyad_ctx_t *ctx;                ///< DYAD context for this module instance.
+
+    // --- Worker-thread pool for dyad_fetch_range_request_cb()'s blocking
+    // I/O (and, for the Margo DTL, the RDMA send itself). See
+    // DYAD_FETCH_WORKER_THREADS_ENV. NULL/0/unset until mod_main() creates
+    // the pool; dyad_fetch_range_request_cb() falls back to the original
+    // fully-synchronous inline path whenever the active DTL backend's
+    // rpc_detach_request is NULL (currently UCX), so these fields are only
+    // ever touched when Flux RPC or Margo is active.
+    int num_fetch_workers;
+    pthread_t *fetch_workers;
+    pthread_mutex_t work_mutex;
+    pthread_cond_t work_cond;
+    struct dyad_fetch_work_item *work_head;
+    struct dyad_fetch_work_item *work_tail;
+    bool workers_shutdown;
+
+    // --- Completion hand-back to the reactor thread, needed only for
+    // DTL backends where send_detached_is_thread_safe is false (Flux RPC):
+    // flux_respond_raw()/flux_respond_error() touch the module's flux_t
+    // handle, which must only be touched from the thread that owns its
+    // reactor. A worker thread finishing such a request pushes it onto
+    // completion_head/tail and writes one byte to completion_pipe[1]; the
+    // reactor-thread fd-watcher (completion_watcher) drains the pipe and
+    // finishes each item on completion_head/tail.
+    int completion_pipe[2];
+    flux_watcher_t *completion_watcher;
+    pthread_mutex_t completion_mutex;
+    struct dyad_fetch_work_item *completion_head;
+    struct dyad_fetch_work_item *completion_tail;
 } dyad_mod_ctx_t;
 
 const struct dyad_mod_ctx dyad_mod_ctx_default = {0};
@@ -147,6 +208,19 @@ static void freectx (void *arg)
         dyad_ctx_fini ();
         mod_ctx->ctx = NULL;
     }
+    // The worker pool (if created) is already stopped and joined by
+    // mod_main() before it returns, and completion_watcher already
+    // destroyed there too -- this only frees the primitives themselves.
+    free (mod_ctx->fetch_workers);
+    pthread_mutex_destroy (&mod_ctx->work_mutex);
+    pthread_cond_destroy (&mod_ctx->work_cond);
+    pthread_mutex_destroy (&mod_ctx->completion_mutex);
+    if (mod_ctx->completion_pipe[0] != -1) {
+        close (mod_ctx->completion_pipe[0]);
+    }
+    if (mod_ctx->completion_pipe[1] != -1) {
+        close (mod_ctx->completion_pipe[1]);
+    }
     free (mod_ctx);
 }
 
@@ -176,6 +250,19 @@ static dyad_mod_ctx_t *get_mod_ctx (flux_t *h)
         }
         mod_ctx->handlers = NULL;
         mod_ctx->ctx = NULL;
+        mod_ctx->num_fetch_workers = 0;
+        mod_ctx->fetch_workers = NULL;
+        mod_ctx->work_head = NULL;
+        mod_ctx->work_tail = NULL;
+        mod_ctx->workers_shutdown = false;
+        mod_ctx->completion_pipe[0] = -1;
+        mod_ctx->completion_pipe[1] = -1;
+        mod_ctx->completion_watcher = NULL;
+        mod_ctx->completion_head = NULL;
+        mod_ctx->completion_tail = NULL;
+        pthread_mutex_init (&mod_ctx->work_mutex, NULL);
+        pthread_cond_init (&mod_ctx->work_cond, NULL);
+        pthread_mutex_init (&mod_ctx->completion_mutex, NULL);
 
         if (flux_aux_set (h, "dyad", mod_ctx, freectx) < 0) {
             DYAD_LOG_STDERR ("DYAD_MOD: flux_aux_set() failed!");
@@ -429,6 +516,350 @@ end_fetch_cb:;
     return;
 }
 
+// =========================================================================
+// Worker-thread pool for dyad_fetch_range_request_cb()'s blocking I/O.
+//
+// dyad_fetch_range_request_cb() (below) does the cheap, message-parsing
+// part inline on the reactor thread, then -- for DTL backends that support
+// it (Flux RPC, Margo; see dyad_dtl::rpc_detach_request) -- hands the rest
+// of the request off to one of these worker threads as a
+// dyad_fetch_work_item, so concurrent requests to this broker don't
+// serialize behind whichever one happened to arrive first.
+//
+// Every completed item, regardless of backend, ends up on
+// completion_head/tail and gets a wakeup byte written to completion_pipe --
+// even for backends where dyad_fetch_worker_finish() already did the data
+// send directly on the worker thread (send_detached_is_thread_safe) --
+// because the trailing flux_respond_error(..., ENODATA, ...) call that
+// closes the streaming RPC always touches the module's flux_t handle, and
+// must therefore always run on the reactor thread
+// (dyad_fetch_completion_watcher_cb()), regardless of backend.
+// =========================================================================
+
+// Frees everything a work item owns. rpc_send_detached()/rpc_abort_detached()
+// must already have been called (req_state consumed) before this runs.
+static void dyad_fetch_work_item_destroy (dyad_mod_ctx_t *mod_ctx,
+                                          struct dyad_fetch_work_item *item)
+{
+    if (item->inbuf != NULL) {
+        mod_ctx->ctx->dtl_handle->return_buffer (mod_ctx->ctx, (void **)&item->inbuf);
+    }
+    if (item->msg != NULL) {
+        flux_msg_decref (item->msg);
+    }
+    free (item);
+}
+
+// Runs on the reactor thread (registered as a flux_fd_watcher_create()
+// callback on completion_pipe's read end): drains the pipe, then finishes
+// every item on the completion queue -- the data send, for backends where
+// it wasn't already done on a worker thread (item->req_state still set),
+// and always the trailing flux_respond_error() that closes the streaming
+// RPC.
+static void dyad_fetch_completion_watcher_cb (flux_reactor_t *r,
+                                              flux_watcher_t *w,
+                                              int revents,
+                                              void *arg)
+{
+    dyad_mod_ctx_t *mod_ctx = (dyad_mod_ctx_t *)arg;
+    dyad_ctx_t *ctx = mod_ctx->ctx;
+    char drain_buf[256];
+    ssize_t n;
+    struct dyad_fetch_work_item *items = NULL;
+
+    do {
+        n = read (mod_ctx->completion_pipe[0], drain_buf, sizeof (drain_buf));
+    } while (n > 0);
+
+    pthread_mutex_lock (&mod_ctx->completion_mutex);
+    items = mod_ctx->completion_head;
+    mod_ctx->completion_head = NULL;
+    mod_ctx->completion_tail = NULL;
+    pthread_mutex_unlock (&mod_ctx->completion_mutex);
+
+    while (items != NULL) {
+        struct dyad_fetch_work_item *item = items;
+        items = items->next;
+        item->next = NULL;
+
+        if (!DYAD_IS_ERROR (item->rc)) {
+            if (item->req_state != NULL) {
+                dyad_rc_t rc = ctx->dtl_handle->rpc_send_detached (ctx,
+                                                                   item->req_state,
+                                                                   item->inbuf,
+                                                                   (size_t)item->range_len);
+                if (DYAD_IS_ERROR (rc)) {
+                    DYAD_LOG_ERROR (ctx,
+                                    "DYAD_MOD: rpc_send_detached failed for \"%s\".",
+                                    item->fullpath);
+                }
+            }
+            if (flux_respond_error (ctx->h, item->msg, ENODATA, NULL) < 0) {
+                DYAD_LOG_DEBUG (ctx,
+                                "DYAD_MOD: %s: flux_respond_error with ENODATA failed\n",
+                                __func__);
+            }
+        } else {
+            if (item->req_state != NULL) {
+                ctx->dtl_handle->rpc_abort_detached (ctx, item->req_state);
+            }
+            if (flux_respond_error (ctx->h, item->msg, item->saved_errno, NULL) < 0) {
+                DYAD_LOG_ERROR (ctx, "DYAD_MOD: %s: flux_respond_error", __func__);
+            }
+        }
+        dyad_fetch_work_item_destroy (mod_ctx, item);
+    }
+}
+
+// Hands a finished (or failed) item to the completion queue and wakes the
+// reactor thread. For thread-safe backends (Margo), the data send has
+// already happened by the time this is called (item->req_state cleared);
+// for others (Flux RPC) it's still pending and item->req_state is left set
+// for dyad_fetch_completion_watcher_cb() to finish.
+static void dyad_fetch_worker_finish (dyad_mod_ctx_t *mod_ctx, struct dyad_fetch_work_item *item)
+{
+    dyad_ctx_t *ctx = mod_ctx->ctx;
+    char byte = 1;
+    ssize_t written;
+
+    if (item->send_detached_is_thread_safe) {
+        if (!DYAD_IS_ERROR (item->rc)) {
+            dyad_rc_t rc = ctx->dtl_handle->rpc_send_detached (ctx,
+                                                               item->req_state,
+                                                               item->inbuf,
+                                                               (size_t)item->range_len);
+            if (DYAD_IS_ERROR (rc)) {
+                item->rc = rc;
+                item->saved_errno = ECOMM;
+            }
+        } else {
+            ctx->dtl_handle->rpc_abort_detached (ctx, item->req_state);
+        }
+        item->req_state = NULL;  // consumed -- the completion callback must not touch it
+    }
+
+    pthread_mutex_lock (&mod_ctx->completion_mutex);
+    item->next = NULL;
+    if (mod_ctx->completion_tail == NULL) {
+        mod_ctx->completion_head = item;
+    } else {
+        mod_ctx->completion_tail->next = item;
+    }
+    mod_ctx->completion_tail = item;
+    pthread_mutex_unlock (&mod_ctx->completion_mutex);
+
+    do {
+        written = write (mod_ctx->completion_pipe[1], &byte, 1);
+    } while (written < 0 && errno == EINTR);
+    // A lost wakeup (e.g. EAGAIN on a full pipe -- vanishingly unlikely for
+    // single-byte writes) is harmless: the queue is drained in full on
+    // every wakeup, so any later completion's wakeup picks this item up
+    // too.
+}
+
+// Runs entirely on a worker thread: the blocking file I/O that used to be
+// inline in dyad_fetch_range_request_cb(). Touches no Flux/DTL state
+// directly -- only item->req_state (opaque, backend-specific) via
+// dyad_fetch_worker_finish() above.
+static void dyad_fetch_worker_process (dyad_mod_ctx_t *mod_ctx, struct dyad_fetch_work_item *item)
+{
+    dyad_ctx_t *ctx = mod_ctx->ctx;
+    int fd = -1;
+    ssize_t file_size = 0l;
+    ssize_t range_len = 0l;
+    dyad_rc_t rc = DYAD_RC_OK;
+    int saved_errno = 0;
+    struct flock shared_lock;
+
+    if (item->has_origin) {
+        rc = dyad_range_cache_ensure (ctx,
+                                      item->fullpath,
+                                      item->origin_fullpath,
+                                      item->offset,
+                                      item->length);
+        if (DYAD_IS_ERROR (rc)) {
+            DYAD_LOG_STDERR ("DYAD_MOD: dyad_range_cache_ensure failed for file \"%s\".\n",
+                             item->fullpath);
+            saved_errno = EIO;
+            goto worker_error_no_fd;
+        }
+    }
+
+    fd = open (item->fullpath, O_RDONLY);
+    if (fd < 0) {
+        DYAD_LOG_STDERR ("DYAD_MOD: Failed to open file \"%s\".\n", item->fullpath);
+        saved_errno = errno;
+        goto worker_error_no_fd;
+    }
+    rc = dyad_shared_flock (ctx, fd, &shared_lock);
+    if (DYAD_IS_ERROR (rc)) {
+        saved_errno = errno;
+        goto worker_error_fd;
+    }
+    file_size = get_file_size (fd);
+    // Clamp against the real file size for safety -- offset/length come
+    // from the consumer's own index and should already be valid, but a
+    // stale/corrupt index must not turn into an out-of-bounds pread().
+    if ((ssize_t)item->offset >= file_size) {
+        range_len = 0;
+    } else if ((ssize_t)(item->offset + item->length) > file_size) {
+        range_len = file_size - (ssize_t)item->offset;
+    } else {
+        range_len = (ssize_t)item->length;
+    }
+
+    if (range_len > 0l) {
+        ssize_t read_data = 0;
+        int granularity = DYAD_POSIX_TRANSFER_GRANULARITY;
+        while (read_data < range_len) {
+            ssize_t read_size =
+                (range_len - read_data) > granularity ? granularity : (range_len - read_data);
+            ssize_t inlen = pread (fd,
+                                   (char *)item->inbuf + read_data,
+                                   (size_t)read_size,
+                                   (off_t)(item->offset + (size_t)read_data));
+            if (inlen <= 0) {
+                DYAD_LOG_STDERR ("DYAD_MOD: Failed to load range of file \"%s\" (errno %d: %s).\n",
+                                 item->fullpath,
+                                 errno,
+                                 strerror (errno));
+                saved_errno = errno ? errno : EIO;
+                dyad_release_flock (ctx, fd, &shared_lock);
+                goto worker_error_fd;
+            }
+            read_data += inlen;
+        }
+    }
+    dyad_release_flock (ctx, fd, &shared_lock);
+    close (fd);
+
+    item->rc = DYAD_RC_OK;
+    item->range_len = range_len;
+    dyad_fetch_worker_finish (mod_ctx, item);
+    return;
+
+worker_error_fd:;
+    close (fd);
+worker_error_no_fd:;
+    item->rc = DYAD_RC_BADFIO;
+    item->saved_errno = saved_errno;
+    dyad_fetch_worker_finish (mod_ctx, item);
+}
+
+// Worker-thread entry point: pops items off the shared work queue and
+// processes them until told to shut down.
+static void *dyad_fetch_worker_main (void *arg)
+{
+    dyad_mod_ctx_t *mod_ctx = (dyad_mod_ctx_t *)arg;
+    for (;;) {
+        struct dyad_fetch_work_item *item = NULL;
+        pthread_mutex_lock (&mod_ctx->work_mutex);
+        while (mod_ctx->work_head == NULL && !mod_ctx->workers_shutdown) {
+            pthread_cond_wait (&mod_ctx->work_cond, &mod_ctx->work_mutex);
+        }
+        if (mod_ctx->work_head == NULL && mod_ctx->workers_shutdown) {
+            pthread_mutex_unlock (&mod_ctx->work_mutex);
+            break;
+        }
+        item = mod_ctx->work_head;
+        mod_ctx->work_head = item->next;
+        if (mod_ctx->work_head == NULL) {
+            mod_ctx->work_tail = NULL;
+        }
+        pthread_mutex_unlock (&mod_ctx->work_mutex);
+        item->next = NULL;
+
+        dyad_fetch_worker_process (mod_ctx, item);
+    }
+    return NULL;
+}
+
+// Creates completion_pipe/completion_watcher and the fetch-worker pool
+// (size from DYAD_FETCH_WORKER_THREADS_ENV, default 8). On any failure,
+// leaves mod_ctx->num_fetch_workers at 0 -- dyad_fetch_range_request_cb()
+// checks this and falls back to the fully-synchronous path, so a pool
+// start failure degrades performance but is not fatal to the module.
+static dyad_rc_t dyad_fetch_pool_start (dyad_mod_ctx_t *mod_ctx)
+{
+    int i = 0;
+    int num_workers = 8;
+    int flags = 0;
+    const char *env_workers = getenv (DYAD_FETCH_WORKER_THREADS_ENV);
+    if (env_workers != NULL) {
+        int parsed = atoi (env_workers);
+        if (parsed > 0) {
+            num_workers = parsed;
+        }
+    }
+
+    if (pipe (mod_ctx->completion_pipe) != 0) {
+        DYAD_LOG_STDERR ("DYAD_MOD: pipe() failed for fetch completion queue: %s\n",
+                         strerror (errno));
+        return DYAD_RC_SYSFAIL;
+    }
+    // Non-blocking on both ends: the reactor thread must never block
+    // draining an empty pipe, and a worker thread must never block writing
+    // a single wakeup byte (see the "lost wakeup" comment in
+    // dyad_fetch_worker_finish()).
+    flags = fcntl (mod_ctx->completion_pipe[0], F_GETFL, 0);
+    fcntl (mod_ctx->completion_pipe[0], F_SETFL, flags | O_NONBLOCK);
+    flags = fcntl (mod_ctx->completion_pipe[1], F_GETFL, 0);
+    fcntl (mod_ctx->completion_pipe[1], F_SETFL, flags | O_NONBLOCK);
+
+    mod_ctx->completion_watcher = flux_fd_watcher_create (flux_get_reactor (mod_ctx->ctx->h),
+                                                          mod_ctx->completion_pipe[0],
+                                                          FLUX_POLLIN,
+                                                          dyad_fetch_completion_watcher_cb,
+                                                          mod_ctx);
+    if (mod_ctx->completion_watcher == NULL) {
+        DYAD_LOG_STDERR ("DYAD_MOD: flux_fd_watcher_create() failed for fetch completion queue\n");
+        return DYAD_RC_SYSFAIL;
+    }
+    flux_watcher_start (mod_ctx->completion_watcher);
+
+    mod_ctx->fetch_workers = (pthread_t *)calloc ((size_t)num_workers, sizeof (pthread_t));
+    if (mod_ctx->fetch_workers == NULL) {
+        return DYAD_RC_SYSFAIL;
+    }
+    for (i = 0; i < num_workers; i++) {
+        if (pthread_create (&mod_ctx->fetch_workers[i], NULL, dyad_fetch_worker_main, mod_ctx)
+            != 0) {
+            DYAD_LOG_STDERR ("DYAD_MOD: pthread_create() failed for fetch worker %d\n", i);
+            break;
+        }
+    }
+    mod_ctx->num_fetch_workers = i;
+    if (mod_ctx->num_fetch_workers == 0) {
+        return DYAD_RC_SYSFAIL;
+    }
+    DYAD_LOG_STDOUT ("DYAD_MOD: started %d fetch-worker thread(s)\n", mod_ctx->num_fetch_workers);
+    return DYAD_RC_OK;
+}
+
+// Signals shutdown and joins all fetch-worker threads, then stops the
+// completion watcher. Safe to call even if dyad_fetch_pool_start() was
+// never called or failed before creating any threads.
+static void dyad_fetch_pool_stop (dyad_mod_ctx_t *mod_ctx)
+{
+    int i;
+    if (mod_ctx->fetch_workers == NULL) {
+        return;
+    }
+    pthread_mutex_lock (&mod_ctx->work_mutex);
+    mod_ctx->workers_shutdown = true;
+    pthread_cond_broadcast (&mod_ctx->work_cond);
+    pthread_mutex_unlock (&mod_ctx->work_mutex);
+
+    for (i = 0; i < mod_ctx->num_fetch_workers; i++) {
+        pthread_join (mod_ctx->fetch_workers[i], NULL);
+    }
+    if (mod_ctx->completion_watcher != NULL) {
+        flux_watcher_stop (mod_ctx->completion_watcher);
+        flux_watcher_destroy (mod_ctx->completion_watcher);
+        mod_ctx->completion_watcher = NULL;
+    }
+}
+
 /**
  * @brief Flux message handler callback that serves a byte range of a file
  *        to a consumer via RPC.
@@ -513,6 +944,75 @@ static void dyad_fetch_range_request_cb (flux_t *h,
     concat_str (fullpath, upath, "/", PATH_MAX);
     DYAD_C_FUNCTION_UPDATE_STR ("fullpath", fullpath);
 
+    if (mod_ctx->ctx->dtl_handle->rpc_detach_request != NULL && mod_ctx->num_fetch_workers > 0) {
+        // Threaded path (Flux RPC or Margo, worker pool available): hand
+        // the blocking I/O -- and, for thread-safe backends, the send
+        // itself -- off to the worker-thread pool instead of doing it
+        // inline on this reactor thread. See the worker-pool block above
+        // dyad_fetch_range_request_cb() for the full design.
+        struct dyad_fetch_work_item *item =
+            (struct dyad_fetch_work_item *)calloc (1ul, sizeof (struct dyad_fetch_work_item));
+        if (item == NULL) {
+            DYAD_LOG_ERROR (mod_ctx->ctx, "DYAD_MOD: Could not allocate fetch work item");
+            errno = ENOMEM;
+            goto fetch_range_error_wo_flock;
+        }
+        snprintf (item->fullpath, sizeof (item->fullpath), "%s", fullpath);
+        item->has_origin = (mod_ctx->ctx->origin_path != NULL);
+        if (item->has_origin) {
+            strncpy (item->origin_fullpath, mod_ctx->ctx->origin_path, PATH_MAX - 1);
+            concat_str (item->origin_fullpath, upath, "/", PATH_MAX);
+        }
+        item->offset = offset;
+        item->length = length;
+        item->send_detached_is_thread_safe = mod_ctx->ctx->dtl_handle->send_detached_is_thread_safe;
+        item->mod_ctx = mod_ctx;
+        // Standard Flux idiom: retain a reference to the request message
+        // past this synchronous callback -- needed regardless of backend
+        // for the trailing flux_respond_error() call in
+        // dyad_fetch_completion_watcher_cb().
+        item->msg = (flux_msg_t *)flux_msg_incref (msg);
+
+        rc = mod_ctx->ctx->dtl_handle->rpc_detach_request (mod_ctx->ctx, &item->req_state);
+        if (DYAD_IS_ERROR (rc)) {
+            DYAD_LOG_ERROR (mod_ctx->ctx, "DYAD_MOD: rpc_detach_request failed");
+            flux_msg_decref (item->msg);
+            free (item);
+            errno = EPROTO;
+            goto fetch_range_error_wo_flock;
+        }
+        // Sized to the client-requested length as an upper bound -- the
+        // true clamped range_len isn't known until the worker opens the
+        // file, functionally identical to the fallback path below, just
+        // computed earlier.
+        rc = mod_ctx->ctx->dtl_handle->get_buffer (mod_ctx->ctx, length, &item->inbuf);
+        if (DYAD_IS_ERROR (rc)) {
+            DYAD_LOG_ERROR (mod_ctx->ctx,
+                            "DYAD_MOD: Could not allocate DTL buffer for ranged fetch");
+            mod_ctx->ctx->dtl_handle->rpc_abort_detached (mod_ctx->ctx, item->req_state);
+            flux_msg_decref (item->msg);
+            free (item);
+            errno = ENOMEM;
+            goto fetch_range_error_wo_flock;
+        }
+
+        pthread_mutex_lock (&mod_ctx->work_mutex);
+        item->next = NULL;
+        if (mod_ctx->work_tail == NULL) {
+            mod_ctx->work_head = item;
+        } else {
+            mod_ctx->work_tail->next = item;
+        }
+        mod_ctx->work_tail = item;
+        pthread_cond_signal (&mod_ctx->work_cond);
+        pthread_mutex_unlock (&mod_ctx->work_mutex);
+
+        DYAD_C_FUNCTION_END ();
+        return;
+    }
+
+    // Fallback path (UCX, or if the worker pool failed to start): fully
+    // synchronous, unchanged from before threaded servicing existed.
     if (mod_ctx->ctx->origin_path != NULL) {
         char origin_fullpath[PATH_MAX + 1] = {'\0'};
         strncpy (origin_fullpath, mod_ctx->ctx->origin_path, PATH_MAX - 1);
@@ -1077,10 +1577,21 @@ DYAD_DLL_EXPORTED int mod_main (flux_t *h, int argc, char **argv)
         goto mod_error;
     }
 
+    // Not fatal if it fails -- dyad_fetch_range_request_cb() checks
+    // num_fetch_workers and falls back to the fully-synchronous path, so a
+    // pool-start failure degrades performance but not correctness.
+    if (DYAD_IS_ERROR (dyad_fetch_pool_start (mod_ctx))) {
+        DYAD_LOG_STDERR (
+            "DYAD_MOD: fetch worker pool failed to start; falling back to "
+            "synchronous fetch servicing\n");
+    }
+
     if (flux_reactor_run (flux_get_reactor (mod_ctx->ctx->h), 0) < 0) {
         DYAD_LOG_ERROR (mod_ctx->ctx, "DYAD_MOD: flux_reactor_run: %s\n", strerror (errno));
+        dyad_fetch_pool_stop (mod_ctx);
         goto mod_error;
     }
+    dyad_fetch_pool_stop (mod_ctx);
     DYAD_LOG_STDOUT ("DYAD_MOD: Finished\n");
     goto mod_done;
 

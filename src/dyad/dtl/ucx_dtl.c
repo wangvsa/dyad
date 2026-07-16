@@ -830,6 +830,15 @@ dyad_rc_t dyad_dtl_ucx_init (const dyad_ctx_t *ctx,
     ctx->dtl_handle->send = dyad_dtl_ucx_send;
     ctx->dtl_handle->recv = dyad_dtl_ucx_recv;
     ctx->dtl_handle->close_connection = dyad_dtl_ucx_close_connection;
+    // Detached/threaded servicing (worker-thread offload in
+    // dyad_fetch_range_request_cb()) is only implemented for FLUX_RPC and
+    // MARGO. Leaving rpc_detach_request NULL makes the module fall back to
+    // its fully-synchronous inline path for UCX, unchanged from before
+    // that offload existed.
+    ctx->dtl_handle->rpc_detach_request = NULL;
+    ctx->dtl_handle->rpc_send_detached = NULL;
+    ctx->dtl_handle->rpc_abort_detached = NULL;
+    ctx->dtl_handle->send_detached_is_thread_safe = false;
 
     rc = ucx_warmup (ctx);
     if (DYAD_IS_ERROR (rc)) {

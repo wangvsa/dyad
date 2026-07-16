@@ -13,13 +13,16 @@ set(DYAD_MURMUR3_SRC ${CMAKE_CURRENT_SOURCE_DIR}/murmur3.c)
 set(DYAD_MURMUR3_PRIVATE_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/murmur3.h)
 set(DYAD_MURMUR3_PUBLIC_HEADERS)
 
+find_package(Threads REQUIRED)
+
 add_library(${PROJECT_NAME}_utils SHARED ${DYAD_UTILS_SRC}
             ${DYAD_UTILS_PRIVATE_HEADERS} ${DYAD_UTILS_PUBLIC_HEADERS})
 # set_target_properties(${PROJECT_NAME}_utils PROPERTIES CMAKE_INSTALL_RPATH
 #                       "${DYAD_INSTALL_LIBDIR}")
 target_link_libraries(${PROJECT_NAME}_utils PUBLIC
                       ${PROJECT_NAME}_base64
-                      ${PROJECT_NAME}_murmur3)
+                      ${PROJECT_NAME}_murmur3
+                      Threads::Threads)
 
 if(DYAD_LOGGER STREQUAL "CPP_LOGGER")
     target_link_libraries(${PROJECT_NAME}_utils PRIVATE ${cpp-logger_LIBRARIES})

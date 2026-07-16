@@ -383,6 +383,21 @@ dyad_rc_t dyad_dtl_margo_init (const dyad_ctx_t *ctx,
     ctx->dtl_handle->send = dyad_dtl_margo_send;
     ctx->dtl_handle->recv = dyad_dtl_margo_recv;
     ctx->dtl_handle->close_connection = dyad_dtl_margo_close_connection;
+    ctx->dtl_handle->rpc_detach_request = dyad_dtl_margo_detach_request;
+    ctx->dtl_handle->rpc_send_detached = dyad_dtl_margo_send_detached;
+    ctx->dtl_handle->rpc_abort_detached = dyad_dtl_margo_abort_detached;
+    // send_detached() touches no Flux state, but IS Argobots/Mercury state
+    // -- and this DTL's producer-side margo_init() (DYAD_COMM_SEND, below)
+    // creates no dedicated Argobots execution stream, so `mid` is only a
+    // valid Argobots execution context on the thread that called
+    // margo_init() (the module's reactor thread). A plain pthread from the
+    // fetch-worker pool is not an Argobots ULT/execution-stream context at
+    // all, and calling margo_forward() from one hangs (confirmed: the
+    // consumer's RDMA pull is never triggered). So, despite touching no
+    // Flux handle, send_detached() must still be bounced back to the
+    // reactor thread like Flux RPC's -- worker threads only get the
+    // blocking file I/O off the reactor thread, not the RDMA send itself.
+    ctx->dtl_handle->send_detached_is_thread_safe = false;
 
     if (comm_mode == DYAD_COMM_SEND) {
         DYAD_LOG_DEBUG (ctx, "[MARGO DTL] margo dtl initialized - flux side");
@@ -648,13 +663,20 @@ dyad_rc_t dyad_dtl_margo_establish_connection (const dyad_ctx_t *ctx)
     return rc;
 }
 
-dyad_rc_t dyad_dtl_margo_send (const dyad_ctx_t *ctx, void *buf, size_t buflen)
+// Shared body for dyad_dtl_margo_send() and dyad_dtl_margo_send_detached():
+// registers buf as a bulk handle and RDMA-pushes it to remote_addr. Safe to
+// call from any thread -- touches only Margo/Argobots/Mercury state, no
+// Flux handle.
+static dyad_rc_t dyad_dtl_margo_send_to (const dyad_ctx_t *ctx,
+                                         margo_instance_id mid,
+                                         hg_id_t sendrecv_rpc_id,
+                                         hg_addr_t remote_addr,
+                                         void *buf,
+                                         size_t buflen)
 {
     DYAD_C_FUNCTION_START ();
     dyad_rc_t rc = DYAD_RC_OK;
     hg_return_t ret = HG_SUCCESS;
-
-    dyad_dtl_margo_t *margo_handle = ctx->dtl_handle->private_dtl.margo_dtl_handle;
 
     DYAD_LOG_DEBUG (ctx, "[MARGO DTL] margo_send is called, buflen: %ld.", buflen);
 
@@ -667,12 +689,7 @@ dyad_rc_t dyad_dtl_margo_send (const dyad_ctx_t *ctx, void *buf, size_t buflen)
 
     // Register my local data
     // which will be pulled by the consumer
-    ret = margo_bulk_create (margo_handle->mid,
-                             1,
-                             segment_ptrs,
-                             segment_sizes,
-                             HG_BULK_READ_ONLY,
-                             &local_bulk);
+    ret = margo_bulk_create (mid, 1, segment_ptrs, segment_sizes, HG_BULK_READ_ONLY, &local_bulk);
     if (ret != HG_SUCCESS) {
         DYAD_LOG_ERROR (ctx, "margo_bulk_create failed: %d", (int)ret);
         goto margo_error_bulk;
@@ -682,7 +699,7 @@ dyad_rc_t dyad_dtl_margo_send (const dyad_ctx_t *ctx, void *buf, size_t buflen)
     args.bulk = local_bulk;
 
     // send a message to the consumer, notifying it that my data is ready
-    ret = margo_create (margo_handle->mid, margo_handle->remote_addr, margo_handle->sendrecv_rpc_id, &mh);
+    ret = margo_create (mid, remote_addr, sendrecv_rpc_id, &mh);
     if (ret != HG_SUCCESS) {
         DYAD_LOG_ERROR (ctx, "margo_create failed: %d", (int)ret);
         goto margo_error;
@@ -717,6 +734,74 @@ margo_error_bulk:;
     }
 
     return DYAD_RC_MARGOINIT_FAIL;
+}
+
+dyad_rc_t dyad_dtl_margo_send (const dyad_ctx_t *ctx, void *buf, size_t buflen)
+{
+    dyad_dtl_margo_t *margo_handle = ctx->dtl_handle->private_dtl.margo_dtl_handle;
+    return dyad_dtl_margo_send_to (ctx,
+                                   margo_handle->mid,
+                                   margo_handle->sendrecv_rpc_id,
+                                   margo_handle->remote_addr,
+                                   buf,
+                                   buflen);
+}
+
+dyad_rc_t dyad_dtl_margo_detach_request (const dyad_ctx_t *ctx, void **req_state)
+{
+    DYAD_C_FUNCTION_START ();
+    struct dyad_dtl_margo_req_state *state = NULL;
+    dyad_dtl_margo_t *margo_handle = ctx->dtl_handle->private_dtl.margo_dtl_handle;
+
+    state = (struct dyad_dtl_margo_req_state *)malloc (sizeof (struct dyad_dtl_margo_req_state));
+    if (state == NULL) {
+        DYAD_C_FUNCTION_END ();
+        return DYAD_RC_SYSFAIL;
+    }
+    state->mid = margo_handle->mid;
+    state->sendrecv_rpc_id = margo_handle->sendrecv_rpc_id;
+    state->remote_addr = margo_handle->remote_addr;
+    // Transfer ownership out of the shared field so a later request's
+    // margo_addr_lookup() can't be mistaken for this one, and so this
+    // address gets freed exactly once (by send_detached()) instead of
+    // being silently overwritten/leaked as today's serial code does.
+    margo_handle->remote_addr = NULL;
+    *req_state = state;
+
+    DYAD_C_FUNCTION_END ();
+    return DYAD_RC_OK;
+}
+
+dyad_rc_t dyad_dtl_margo_send_detached (const dyad_ctx_t *ctx,
+                                        void *req_state,
+                                        void *buf,
+                                        size_t buflen)
+{
+    dyad_rc_t rc = DYAD_RC_OK;
+    struct dyad_dtl_margo_req_state *state = (struct dyad_dtl_margo_req_state *)req_state;
+
+    rc = dyad_dtl_margo_send_to (ctx,
+                                 state->mid,
+                                 state->sendrecv_rpc_id,
+                                 state->remote_addr,
+                                 buf,
+                                 buflen);
+
+    if (state->remote_addr != NULL) {
+        margo_addr_free (state->mid, state->remote_addr);
+    }
+    free (state);
+    return rc;
+}
+
+dyad_rc_t dyad_dtl_margo_abort_detached (const dyad_ctx_t *ctx, void *req_state)
+{
+    struct dyad_dtl_margo_req_state *state = (struct dyad_dtl_margo_req_state *)req_state;
+    if (state->remote_addr != NULL) {
+        margo_addr_free (state->mid, state->remote_addr);
+    }
+    free (state);
+    return DYAD_RC_OK;
 }
 
 dyad_rc_t dyad_dtl_margo_recv (const dyad_ctx_t *ctx, void **buf, size_t *buflen)

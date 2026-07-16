@@ -250,6 +250,108 @@ struct dyad_dtl {
      */
     dyad_rc_t (*close_connection) (const dyad_ctx_t *ctx);
 
+    /**
+     * @brief Detaches the current request's DTL state from the shared,
+     *        single-slot @c private_dtl fields into an independently-owned
+     *        blob, so the request can be finished (@c rpc_send_detached())
+     *        later/concurrently without racing a subsequent request's
+     *        @c rpc_unpack_range() call, which would otherwise overwrite the
+     *        same shared field (e.g. Flux RPC's @c msg, Margo's
+     *        @c remote_addr).
+     *
+     * @details
+     * Optional: @c NULL for backends that do not support detached/threaded
+     * servicing (currently UCX). Callers must check for @c NULL before use
+     * and fall back to the fully-synchronous @c establish_connection()/
+     * @c send()/@c close_connection() sequence on the shared fields instead.
+     *
+     * Must be called on the same thread as -- and immediately after -- the
+     * @c rpc_unpack_range() call whose state it is detaching, while the
+     * shared field is still valid for this request.
+     *
+     * @param[in]  ctx       DYAD context.
+     * @param[out] req_state Set to a newly allocated, backend-specific blob
+     *                       owning this request's DTL state. Must be passed
+     *                       to @c rpc_send_detached() exactly once to
+     *                       complete the request and free it.
+     * @return @c DYAD_RC_OK on success, or an error code on failure.
+     */
+    dyad_rc_t (*rpc_detach_request) (const dyad_ctx_t *ctx, void **req_state);
+
+    /**
+     * @brief Sends file data to the consumer using a previously detached
+     *        request's state, instead of the shared @c private_dtl fields.
+     *
+     * @details
+     * Optional: @c NULL for backends that do not support detached/threaded
+     * servicing (currently UCX). Equivalent to
+     * @c establish_connection()+@c send()+@c close_connection(), but reads
+     * per-request state from @p req_state instead of the shared fields, and
+     * frees @p req_state before returning (success or failure).
+     *
+     * Whether this may be called from a thread other than the reactor
+     * thread that received the request is backend-specific --
+     * @see send_detached_is_thread_safe.
+     *
+     * @param[in] ctx       DYAD context.
+     * @param[in] req_state Request state from a prior @c rpc_detach_request()
+     *                      call. Freed by this call; must not be reused
+     *                      afterward.
+     * @param[in] buf       Buffer containing the data to send.
+     * @param[in] buflen    Number of bytes to send.
+     * @return @c DYAD_RC_OK on success, or an error code on failure.
+     */
+    dyad_rc_t (*rpc_send_detached) (const dyad_ctx_t *ctx,
+                                    void *req_state,
+                                    void *buf,
+                                    size_t buflen);
+
+    /**
+     * @brief Frees a detached request's state without sending data, for
+     *        use on an I/O-error path where the fetch never reached
+     *        @c rpc_send_detached().
+     *
+     * @details
+     * Optional: @c NULL for backends that do not support detached/threaded
+     * servicing (currently UCX; never called when @c rpc_detach_request is
+     * @c NULL). Frees whatever @p req_state owns (e.g. Flux RPC's message
+     * reference, Margo's resolved address) without attempting a send. Safe
+     * to call from the same threads as @c rpc_send_detached() -- see
+     * @c send_detached_is_thread_safe.
+     *
+     * @param[in] ctx       DYAD context.
+     * @param[in] req_state Request state from a prior
+     *                      @c rpc_detach_request() call. Freed by this
+     *                      call; must not be reused afterward.
+     * @return @c DYAD_RC_OK on success, or an error code on failure.
+     */
+    dyad_rc_t (*rpc_abort_detached) (const dyad_ctx_t *ctx, void *req_state);
+
+    /**
+     * @brief Whether @c rpc_send_detached() is safe to call from a worker
+     *        thread other than the reactor thread that received the
+     *        request.
+     *
+     * @details
+     * @c false for both backends currently implemented. Flux RPC's
+     * @c send() calls @c flux_respond_raw(), which touches the module's
+     * @c flux_t handle and must only be touched from the reactor thread
+     * that owns it. Margo's @c send() touches no Flux state but is
+     * Argobots/Mercury state, and this DTL's producer-side @c margo_init()
+     * creates no dedicated Argobots execution stream, so its @c mid is
+     * only a valid execution context on the thread that called
+     * @c margo_init() (the reactor thread) -- a plain worker-pool
+     * @c pthread is not an Argobots ULT/execution-stream context, and
+     * calling @c margo_forward() from one hangs. Callers must hand the
+     * completed request back to the reactor thread (e.g. via a self-pipe +
+     * reactor fd-watcher) before calling @c rpc_send_detached() for either
+     * backend. This field exists for a future backend where it may
+     * legitimately be @c true (e.g. one whose send touches neither Flux
+     * nor an Argobots-only execution context). Meaningless (left @c false)
+     * when @c rpc_send_detached is @c NULL.
+     */
+    bool send_detached_is_thread_safe;
+
 } __attribute__ ((aligned (256)));
 typedef struct dyad_dtl dyad_dtl_t;
 
