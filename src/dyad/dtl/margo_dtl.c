@@ -135,6 +135,13 @@ static void data_ready_rpc (hg_handle_t h)
 
     // DYAD_LOG_DEBUG(ctx, "[MARGO DTL] RDMA pulled from the producer.");
 
+    // Every margo_bulk_create() above must be paired with a free, or the
+    // registration leaks on the CXI NIC's finite memory-registration table
+    // (fi_mr_enable() ENOSPC after a few dozen requests under concurrent
+    // load -- this was previously unfreed on every single request).
+    ret = margo_bulk_free (local_bulk);
+    assert (ret == HG_SUCCESS);
+
     out.ret = 0;
     ret = margo_respond (h, &out);
     assert (ret == HG_SUCCESS);
@@ -293,6 +300,9 @@ dyad_rc_t dyad_dtl_margo_init (const dyad_ctx_t *ctx,
     margo_handle->h = (flux_t *)ctx->h;  // flux handle
     margo_handle->debug = debug;
     margo_handle->recv_ready = 0;
+    margo_handle->addr_cache = NULL;
+    margo_handle->addr_cache_len = 0;
+    margo_handle->addr_cache_cap = 0;
 
     // Determine the Mercury network abstraction (NA) protocol (communication fabric) to use.
     //
@@ -368,7 +378,13 @@ dyad_rc_t dyad_dtl_margo_init (const dyad_ctx_t *ctx,
     }
 
     // both margo client and server
-    margo_addr_self (margo_handle->mid, &margo_handle->local_addr);
+    {
+        hg_return_t addr_self_ret = margo_addr_self (margo_handle->mid, &margo_handle->local_addr);
+        if (addr_self_ret != HG_SUCCESS) {
+            DYAD_LOG_ERROR (ctx, "[MARGO DTL] margo_addr_self failed: %d", (int)addr_self_ret);
+            goto error;
+        }
+    }
     margo_handle->remote_addr = NULL;
 
     ctx->dtl_handle->rpc_pack = dyad_dtl_margo_rpc_pack;
@@ -416,6 +432,54 @@ error: __attribute__((unused));
     dyad_dtl_margo_finalize (ctx);
     DYAD_C_FUNCTION_END ();
     return DYAD_RC_MARGOINIT_FAIL;
+}
+
+dyad_rc_t dyad_dtl_margo_addr_cache_lookup (const dyad_ctx_t *ctx,
+                                            const char *addr_str,
+                                            hg_addr_t *out_addr)
+{
+    dyad_dtl_margo_t *margo_handle = ctx->dtl_handle->private_dtl.margo_dtl_handle;
+
+    for (size_t i = 0; i < margo_handle->addr_cache_len; i++) {
+        if (strcmp (margo_handle->addr_cache[i].addr_str, addr_str) == 0) {
+            *out_addr = margo_handle->addr_cache[i].addr;
+            return DYAD_RC_OK;
+        }
+    }
+
+    hg_addr_t addr = HG_ADDR_NULL;
+    hg_return_t ret = margo_addr_lookup (margo_handle->mid, addr_str, &addr);
+    if (ret != HG_SUCCESS) {
+        DYAD_LOG_ERROR (ctx, "[MARGO DTL] margo_addr_lookup failed for '%s': %d", addr_str, (int)ret);
+        return DYAD_RC_MARGOINIT_FAIL;
+    }
+
+    if (margo_handle->addr_cache_len == margo_handle->addr_cache_cap) {
+        size_t new_cap = margo_handle->addr_cache_cap == 0 ? 8 : margo_handle->addr_cache_cap * 2;
+        struct dyad_dtl_margo_addr_cache_entry *grown =
+            (struct dyad_dtl_margo_addr_cache_entry *)realloc (
+                margo_handle->addr_cache, new_cap * sizeof (*grown));
+        if (grown == NULL) {
+            DYAD_LOG_ERROR (ctx, "[MARGO DTL] Could not grow address cache");
+            margo_addr_free (margo_handle->mid, addr);
+            return DYAD_RC_SYSFAIL;
+        }
+        margo_handle->addr_cache = grown;
+        margo_handle->addr_cache_cap = new_cap;
+    }
+
+    char *addr_str_copy = strdup (addr_str);
+    if (addr_str_copy == NULL) {
+        DYAD_LOG_ERROR (ctx, "[MARGO DTL] Could not duplicate address string for cache");
+        margo_addr_free (margo_handle->mid, addr);
+        return DYAD_RC_SYSFAIL;
+    }
+    margo_handle->addr_cache[margo_handle->addr_cache_len].addr_str = addr_str_copy;
+    margo_handle->addr_cache[margo_handle->addr_cache_len].addr = addr;
+    margo_handle->addr_cache_len++;
+
+    *out_addr = addr;
+    return DYAD_RC_OK;
 }
 
 dyad_rc_t dyad_dtl_margo_rpc_pack (const dyad_ctx_t *ctx,
@@ -513,7 +577,11 @@ dyad_rc_t dyad_dtl_margo_rpc_unpack (const dyad_ctx_t *ctx, const flux_msg_t *ms
                     "[MARGO DTL] recv/unpack margo sever addr: %s, %ld.",
                     addr_str,
                     addr_str_size);
-    margo_addr_lookup (margo_handle->mid, addr_str, &margo_handle->remote_addr);
+    rc = dyad_dtl_margo_addr_cache_lookup (ctx, addr_str, &margo_handle->remote_addr);
+    if (DYAD_IS_ERROR (rc)) {
+        DYAD_LOG_ERROR (ctx, "[MARGO DTL] Could not resolve consumer address '%s'", addr_str);
+        goto dtl_margo_rpc_unpack_region_finish;
+    }
 
 dtl_margo_rpc_unpack_region_finish:;
     DYAD_C_FUNCTION_END ();
@@ -634,7 +702,11 @@ dyad_rc_t dyad_dtl_margo_rpc_unpack_range (const dyad_ctx_t *ctx,
                     "[MARGO DTL] recv/unpack ranged margo sever addr: %s, %ld.",
                     addr_str,
                     addr_str_size);
-    margo_addr_lookup (margo_handle->mid, addr_str, &margo_handle->remote_addr);
+    rc = dyad_dtl_margo_addr_cache_lookup (ctx, addr_str, &margo_handle->remote_addr);
+    if (DYAD_IS_ERROR (rc)) {
+        DYAD_LOG_ERROR (ctx, "[MARGO DTL] Could not resolve consumer address '%s'", addr_str);
+        goto dtl_margo_rpc_unpack_range_region_finish;
+    }
 
 dtl_margo_rpc_unpack_range_region_finish:;
     DYAD_C_FUNCTION_END ();
@@ -717,6 +789,12 @@ static dyad_rc_t dyad_dtl_margo_send_to (const dyad_ctx_t *ctx,
     }
     margo_free_output (mh, &resp);
     margo_destroy (mh);
+    // Every margo_bulk_create() above must be paired with a free, or the
+    // registration leaks on the CXI NIC's finite memory-registration table
+    // (fi_mr_enable() ENOSPC after a few dozen requests under concurrent
+    // load -- this was previously unfreed on this, the success, path; only
+    // the error paths below freed it).
+    margo_bulk_free (local_bulk);
 
     DYAD_LOG_DEBUG (ctx, "[MARGO DTL] margo_send completed, buflen: %lu", buflen);
 
@@ -787,9 +865,10 @@ dyad_rc_t dyad_dtl_margo_send_detached (const dyad_ctx_t *ctx,
                                  buf,
                                  buflen);
 
-    if (state->remote_addr != NULL) {
-        margo_addr_free (state->mid, state->remote_addr);
-    }
+    // state->remote_addr is borrowed from the address cache (see
+    // struct dyad_dtl_margo_addr_cache_entry) -- NOT freed here. It's
+    // reused by future requests to the same consumer and only freed at
+    // dyad_dtl_margo_finalize().
     free (state);
     return rc;
 }
@@ -797,9 +876,8 @@ dyad_rc_t dyad_dtl_margo_send_detached (const dyad_ctx_t *ctx,
 dyad_rc_t dyad_dtl_margo_abort_detached (const dyad_ctx_t *ctx, void *req_state)
 {
     struct dyad_dtl_margo_req_state *state = (struct dyad_dtl_margo_req_state *)req_state;
-    if (state->remote_addr != NULL) {
-        margo_addr_free (state->mid, state->remote_addr);
-    }
+    // state->remote_addr is borrowed from the address cache -- not freed
+    // here. See dyad_dtl_margo_send_detached().
     free (state);
     return DYAD_RC_OK;
 }
@@ -861,8 +939,13 @@ dyad_rc_t dyad_dtl_margo_finalize (const dyad_ctx_t *ctx)
         margo_addr_free (margo_handle->mid, margo_handle->local_addr);
         if (margo_handle->remote_addr != NULL)
             margo_addr_free (margo_handle->mid, margo_handle->remote_addr);
+        for (size_t i = 0; i < margo_handle->addr_cache_len; i++) {
+            margo_addr_free (margo_handle->mid, margo_handle->addr_cache[i].addr);
+            free (margo_handle->addr_cache[i].addr_str);
+        }
         margo_finalize (margo_handle->mid);
     }
+    free (margo_handle->addr_cache);
     free (margo_handle);
     ctx->dtl_handle->private_dtl.margo_dtl_handle = NULL;
 
