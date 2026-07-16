@@ -1,10 +1,12 @@
 add_subdirectory(base64)
 
 set(DYAD_UTILS_SRC ${CMAKE_CURRENT_SOURCE_DIR}/utils.c
-                   ${CMAKE_CURRENT_SOURCE_DIR}/read_all.c)
+                   ${CMAKE_CURRENT_SOURCE_DIR}/read_all.c
+                   ${CMAKE_CURRENT_SOURCE_DIR}/range_cache.c)
 set(DYAD_UTILS_PRIVATE_HEADERS  ${CMAKE_CURRENT_SOURCE_DIR}/utils.h
                                 ${CMAKE_CURRENT_SOURCE_DIR}/../common/dyad_structures_int.h
-                                ${CMAKE_CURRENT_SOURCE_DIR}/read_all.h)
+                                ${CMAKE_CURRENT_SOURCE_DIR}/read_all.h
+                                ${CMAKE_CURRENT_SOURCE_DIR}/range_cache.h)
 set(DYAD_UTILS_PUBLIC_HEADERS)
 
 set(DYAD_MURMUR3_SRC ${CMAKE_CURRENT_SOURCE_DIR}/murmur3.c)

@@ -12,6 +12,12 @@
 #include <dyad/common/dyad_structures.h>
 
 #ifdef __cplusplus
+#include <cstdint>
+#else
+#include <stdint.h>
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -87,9 +93,10 @@ DYAD_DLL_EXPORTED void dyad_ctx_fini (void);
  *  3. Compute @c node_idx from @c rank / @c service_mux.
  *  4. Copy the KVS namespace string.
  *  5. Initialize the DTL via @c dyad_set_and_init_dtl_mode().
- *  6. Set the producer-managed path via @c dyad_set_prod_path().
- *  7. Set the consumer-managed path via @c dyad_set_cons_path().
- *  8. Redirect log output to per-process log files under @c logs/.
+ *  6. Initialize the cache-eviction policy via @c dyad_set_and_init_cache_policy().
+ *  7. Set the producer-managed path via @c dyad_set_prod_path().
+ *  8. Set the consumer-managed path via @c dyad_set_cons_path().
+ *  9. Redirect log output to per-process log files under @c logs/.
  *
  * On any failure after allocation, @c dyad_clear() is called to release
  * partially initialized resources and the context is reset to
@@ -123,6 +130,26 @@ DYAD_DLL_EXPORTED void dyad_ctx_fini (void);
  * @param[in] flux_handle               Optional existing Flux handle. If
  *                                      @c NULL, a new handle is opened via
  *                                      @c flux_open().
+ * @param[in] cache_capacity_bytes      Maximum bytes DYAD may use in a
+ *                                      managed directory before evicting
+ *                                      cached files. @c 0 disables eviction.
+ * @param[in] cache_policy_str          Name of the cache-eviction policy to
+ *                                      use once @p cache_capacity_bytes is
+ *                                      nonzero (@c "LRU", @c "FIFO", or
+ *                                      @c "NONE"). Ignored if
+ *                                      @p cache_capacity_bytes is @c 0.
+ * @param[in] cache_low_watermark       Fraction (0..1) of
+ *                                      @p cache_capacity_bytes to evict
+ *                                      down to once eviction triggers.
+ * @param[in] cache_grace_period_sec    Skip eviction candidates accessed
+ *                                      more recently than this many seconds.
+ * @param[in] origin_path               Optional fallback source path (e.g.
+ *                                      on the parallel file system) used by
+ *                                      @c dyad_range_cache_ensure() to
+ *                                      lazily fill missing spans of a
+ *                                      managed file on demand. @c NULL
+ *                                      (default) disables lazy origin-backed
+ *                                      caching, preserving prior behavior.
  *
  * @return @c dyad_rc_t return code indicating the outcome:
  * @retval DYAD_RC_OK       Initialization succeeded, or was already
@@ -156,7 +183,12 @@ DYAD_DLL_EXPORTED dyad_rc_t dyad_init (bool debug,
                                        bool relative_to_managed_path,
                                        const char *dtl_mode_str,
                                        const dyad_dtl_comm_mode_t dtl_comm_mode,
-                                       void *flux_handle);
+                                       void *flux_handle,
+                                       uint64_t cache_capacity_bytes,
+                                       const char *cache_policy_str,
+                                       double cache_low_watermark,
+                                       unsigned int cache_grace_period_sec,
+                                       const char *origin_path);
 
 /**
  * @brief Initializes DYAD by reading configuration from environment variables.
@@ -181,6 +213,11 @@ DYAD_DLL_EXPORTED dyad_rc_t dyad_init (bool debug,
  *  | @c DYAD_PATH_PRODUCER      | @c NULL          | Producer-managed directory path      |
  *  | @c DYAD_PATH_RELATIVE      | @c false         | Paths are relative to managed dirs   |
  *  | @c DYAD_DTL_MODE           | @c DYAD_DTL_DEFAULT | Data transport layer mode         |
+ *  | @c DYAD_CACHE_CAPACITY     | @c 0 (disabled) | Max bytes DYAD may use in a managed dir  |
+ *  | @c DYAD_CACHE_POLICY       | @c LRU           | Cache-eviction policy: LRU/FIFO/NONE     |
+ *  | @c DYAD_CACHE_LOW_WATERMARK | @c 0.8          | Fraction of capacity to evict down to    |
+ *  | @c DYAD_CACHE_GRACE_PERIOD | @c 5             | Skip candidates accessed within N seconds |
+ *  | @c DYAD_PATH_ORIGIN        | @c NULL (disabled) | Fallback path for lazy origin-backed range caching |
  *
  * If @c DYAD_DTL_MODE is not set, defaults to @c DYAD_DTL_DEFAULT and logs
  * a warning to @c stderr.
@@ -224,6 +261,29 @@ DYAD_DLL_EXPORTED dyad_rc_t dyad_init_env (const dyad_dtl_comm_mode_t dtl_comm_m
  */
 DYAD_DLL_EXPORTED dyad_rc_t dyad_set_and_init_dtl_mode (const char *dtl_mode_name,
                                                         dyad_dtl_comm_mode_t dtl_comm_mode);
+
+/**
+ * @brief Switches DYAD's cache-eviction policy to a new mode.
+ *
+ * @details
+ * Resolves @p cache_policy_name to a @c dyad_cache_policy_mode_t value,
+ * finalizes the current policy handle via @c dyad_cache_policy_finalize(),
+ * and reinitializes it via @c dyad_cache_policy_init(). Mirrors
+ * @c dyad_set_and_init_dtl_mode() for the cache-eviction subsystem.
+ *
+ * @param[in] cache_policy_name    Name of the policy to switch to: @c "LRU",
+ *                                 @c "FIFO", or @c "NONE". Must not be @c NULL.
+ * @param[in] cache_capacity_bytes Maximum bytes DYAD may use in a managed
+ *                                 directory. @c 0 disables eviction
+ *                                 regardless of @p cache_policy_name.
+ *
+ * @return @c dyad_rc_t return code indicating the outcome:
+ * @retval DYAD_RC_OK            The policy was successfully switched and initialized.
+ * @retval DYAD_RC_BADCACHEMODE  @p cache_policy_name is @c NULL or does not
+ *                               match any supported policy name.
+ */
+DYAD_DLL_EXPORTED dyad_rc_t dyad_set_and_init_cache_policy (const char *cache_policy_name,
+                                                            uint64_t cache_capacity_bytes);
 
 /**
  * @brief Sets the producer-managed directory path in the DYAD context.

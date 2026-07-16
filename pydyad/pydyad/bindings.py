@@ -27,6 +27,10 @@ class DyadDTLHandle(ctypes.Structure):
     pass
 
 
+class DyadCachePolicyHandle(ctypes.Structure):
+    pass
+
+
 class DyadCtxWrapper(ctypes.Structure):
     _fields_ = [
         ("h", ctypes.POINTER(FluxHandle)),
@@ -61,6 +65,12 @@ class DyadCtxWrapper(ctypes.Structure):
         ("prod_managed_path", ctypes.c_char_p),
         ("cons_managed_path", ctypes.c_char_p),
         ("relative_to_managed_path", ctypes.c_bool),
+        ("cache_policy", ctypes.POINTER(DyadCachePolicyHandle)),
+        ("cache_policy_mode", ctypes.c_int),
+        ("cache_capacity_bytes", ctypes.c_uint64),
+        ("cache_low_watermark_frac", ctypes.c_double),
+        ("cache_grace_period_sec", ctypes.c_uint),
+        ("origin_path", ctypes.c_char_p),
     ]
 
 
@@ -107,6 +117,15 @@ class DTLCommMode(enum.IntEnum):
     DYAD_COMM_RECV = 1
     DYAD_COMM_SEND = 2
     DYAD_COMM_END = 3
+
+
+class CachePolicyMode(enum.Enum):
+    DYAD_CACHE_NONE = "NONE"
+    DYAD_CACHE_LRU = "LRU"
+    DYAD_CACHE_FIFO = "FIFO"
+
+    def __str__(self):
+        return self.value
 
 
 class Dyad:
@@ -169,6 +188,11 @@ class Dyad:
             ctypes.c_char_p,  # dtl_mode
             ctypes.c_int,  # dtl_comm_mode
             ctypes.c_void_p,  # flux_handle
+            ctypes.c_uint64,  # cache_capacity_bytes
+            ctypes.c_char_p,  # cache_policy
+            ctypes.c_double,  # cache_low_watermark
+            ctypes.c_uint,  # cache_grace_period_sec
+            ctypes.c_char_p,  # origin_path
         ]
         self.dyad_init.restype = ctypes.c_int
 
@@ -216,6 +240,17 @@ class Dyad:
         ]
         self.dyad_consume_w_metadata.restype = ctypes.c_int
 
+        self.dyad_consume_range = self.dyad_client_lib.dyad_consume_range
+        self.dyad_consume_range.argtypes = [
+            ctypes.POINTER(DyadCtxWrapper),
+            ctypes.c_char_p,
+            ctypes.c_size_t,  # offset
+            ctypes.c_size_t,  # length
+            ctypes.POINTER(ctypes.c_void_p),  # data (out)
+            ctypes.POINTER(ctypes.c_size_t),  # data_len (out)
+        ]
+        self.dyad_consume_range.restype = ctypes.c_int
+
         self.dyad_finalize = self.dyad_ctx_lib.dyad_finalize
         self.dyad_finalize.argtypes = []
         self.dyad_finalize.restype = ctypes.c_int
@@ -242,6 +277,11 @@ class Dyad:
         dtl_mode=None,
         dtl_comm_mode=DTLCommMode.DYAD_COMM_RECV,
         flux_handle=None,
+        cache_capacity_bytes=0,
+        cache_policy=None,
+        cache_low_watermark=0.8,
+        cache_grace_period_sec=5,
+        origin_path=None,
     ):
         self.log_inst = dftracer.initialize_log(
             logfile=None, data_dir=None, process_id=-1
@@ -269,6 +309,11 @@ class Dyad:
             str(dtl_mode).encode() if dtl_mode is not None else None,
             ctypes.c_int(dtl_comm_mode),
             ctypes.c_void_p(flux_handle),
+            ctypes.c_uint64(cache_capacity_bytes),
+            str(cache_policy).encode() if cache_policy is not None else None,
+            ctypes.c_double(cache_low_watermark),
+            ctypes.c_uint(cache_grace_period_sec),
+            origin_path.encode() if origin_path is not None else None,
         )
         self.ctx = self.dyad_ctx_get()
 
@@ -399,6 +444,42 @@ class Dyad:
         res = self.dyad_consume_w_metadata(self.ctx, fname.encode(), metadata_wrapper)
         if int(res) != 0:
             raise RuntimeError("Cannot consume data with metadata with DYAD!")
+
+    @dft_log.log
+    def consume_range(self, fname, offset, length):
+        """Fetch a byte range [offset, offset + length) of fname without
+        materializing a local copy of the whole file. Only supported under
+        DYAD_DTL_FLUX_RPC and DYAD_DTL_MARGO. Returns the requested bytes
+        directly as a Python `bytes` object.
+        """
+        if self.dyad_consume_range is None:
+            warnings.warn(
+                "Trying to consume a byte range with DYAD when libdyad_client.so was not found",
+                RuntimeWarning,
+            )
+            return None
+        data_ptr = ctypes.c_void_p()
+        data_len = ctypes.c_size_t()
+        res = self.dyad_consume_range(
+            self.ctx,
+            fname.encode(),
+            ctypes.c_size_t(offset),
+            ctypes.c_size_t(length),
+            ctypes.byref(data_ptr),
+            ctypes.byref(data_len),
+        )
+        if int(res) != 0:
+            raise RuntimeError("Cannot consume byte range with DYAD!")
+        data = ctypes.string_at(data_ptr, data_len.value)
+        # dyad_consume_range() returns a plain malloc()-family buffer (either
+        # a direct malloc() for the local-pread path, or the DTL's
+        # get_buffer() allocation for the remote-RPC path -- both
+        # free()-compatible for FLUX_RPC/MARGO). ctypes.string_at() already
+        # copied the bytes into Python-owned memory above, so free the C
+        # buffer now via libc directly (DYAD has no dedicated free function
+        # for this, unlike dyad_free_metadata()).
+        ctypes.CDLL(None).free(data_ptr)
+        return data
 
     @dft_log.log
     def finalize(self):

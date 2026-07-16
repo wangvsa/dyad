@@ -52,6 +52,12 @@ DYAD_DLL_EXPORTED dyad_rc_t dyad_get_data (const dyad_ctx_t *ctx,
                                            const dyad_metadata_t *mdata,
                                            char **file_data,
                                            size_t *file_len);
+DYAD_DLL_EXPORTED dyad_rc_t dyad_get_data_range (const dyad_ctx_t *ctx,
+                                                 const dyad_metadata_t *mdata,
+                                                 size_t offset,
+                                                 size_t length,
+                                                 char **file_data,
+                                                 size_t *file_len);
 DYAD_DLL_EXPORTED dyad_rc_t dyad_commit (dyad_ctx_t *ctx, const char *fname);
 
 DYAD_DLL_EXPORTED dyad_rc_t dyad_kvs_read (const dyad_ctx_t *ctx,

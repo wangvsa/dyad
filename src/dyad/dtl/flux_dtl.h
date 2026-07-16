@@ -134,6 +134,57 @@ dyad_rc_t dyad_dtl_flux_rpc_pack (const dyad_ctx_t *ctx,
 dyad_rc_t dyad_dtl_flux_rpc_unpack (const dyad_ctx_t *ctx, const flux_msg_t *msg, char **upath);
 
 /**
+ * @brief Packs a byte-range fetch request into a JSON object for a Flux RPC call.
+ *
+ * @details
+ * Same as @c dyad_dtl_flux_rpc_pack() but additionally packs @p offset and
+ * @p length, producing @c {"upath": "<upath>", "offset": <offset>, "length": <length>}.
+ *
+ * @param[in]  ctx           DYAD context.
+ * @param[in]  upath         Relative path of the file to fetch from.
+ * @param[in]  producer_rank Flux rank of the producer broker. Not embedded
+ *                           in the payload for Flux RPC.
+ * @param[in]  offset        Starting byte offset of the requested range.
+ * @param[in]  length        Number of bytes requested.
+ * @param[out] packed_obj    Set to the allocated JSON object on success.
+ *
+ * @return @c dyad_rc_t return code:
+ * @retval DYAD_RC_OK      The JSON object was created successfully.
+ * @retval DYAD_RC_BADPACK @c json_pack() failed to create the object.
+ */
+dyad_rc_t dyad_dtl_flux_rpc_pack_range (const dyad_ctx_t *ctx,
+                                        const char *restrict upath,
+                                        uint32_t producer_rank,
+                                        size_t offset,
+                                        size_t length,
+                                        json_t **restrict packed_obj);
+
+/**
+ * @brief Unpacks a byte-range fetch request from an incoming Flux RPC message.
+ *
+ * @details
+ * Same as @c dyad_dtl_flux_rpc_unpack() but additionally extracts @p offset
+ * and @p length from the JSON payload.
+ *
+ * @param[in]  ctx    DYAD context.
+ * @param[in]  msg    Incoming Flux RPC message containing the JSON payload.
+ * @param[out] upath  Relative path of the requested file. Valid for the
+ *                    lifetime of @p msg.
+ * @param[out] offset Starting byte offset of the requested range.
+ * @param[out] length Number of bytes requested.
+ *
+ * @return @c dyad_rc_t return code:
+ * @retval DYAD_RC_OK        Unpacking succeeded.
+ * @retval DYAD_RC_BADUNPACK @c flux_request_unpack() failed to extract the
+ *                           fields from the message.
+ */
+dyad_rc_t dyad_dtl_flux_rpc_unpack_range (const dyad_ctx_t *ctx,
+                                          const flux_msg_t *msg,
+                                          char **upath,
+                                          size_t *offset,
+                                          size_t *length);
+
+/**
  * @brief Sends the initial RPC acknowledgement from the service to the consumer.
  *
  * @details

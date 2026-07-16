@@ -31,6 +31,8 @@ dyad_rc_t dyad_dtl_flux_init (const dyad_ctx_t *ctx,
 
     ctx->dtl_handle->rpc_pack = dyad_dtl_flux_rpc_pack;
     ctx->dtl_handle->rpc_unpack = dyad_dtl_flux_rpc_unpack;
+    ctx->dtl_handle->rpc_pack_range = dyad_dtl_flux_rpc_pack_range;
+    ctx->dtl_handle->rpc_unpack_range = dyad_dtl_flux_rpc_unpack_range;
     ctx->dtl_handle->rpc_respond = dyad_dtl_flux_rpc_respond;
     ctx->dtl_handle->rpc_recv_response = dyad_dtl_flux_rpc_recv_response;
     ctx->dtl_handle->get_buffer = dyad_dtl_flux_get_buffer;
@@ -81,6 +83,69 @@ dyad_rc_t dyad_dtl_flux_rpc_unpack (const dyad_ctx_t *ctx, const flux_msg_t *msg
     dyad_rc = DYAD_RC_OK;
     DYAD_C_FUNCTION_UPDATE_STR ("upath", *upath);
 dtl_flux_rpc_unpack_region_finish:
+    DYAD_C_FUNCTION_END ();
+    return dyad_rc;
+}
+
+dyad_rc_t dyad_dtl_flux_rpc_pack_range (const dyad_ctx_t *ctx,
+                                        const char *restrict upath,
+                                        uint32_t producer_rank,
+                                        size_t offset,
+                                        size_t length,
+                                        json_t **restrict packed_obj)
+{
+    DYAD_C_FUNCTION_START ();
+    DYAD_C_FUNCTION_UPDATE_STR ("upath", upath);
+    DYAD_C_FUNCTION_UPDATE_INT ("producer_rank", producer_rank);
+    dyad_rc_t rc = DYAD_RC_OK;
+    *packed_obj = json_pack ("{s:s, s:I, s:I}",
+                             "upath",
+                             upath,
+                             "offset",
+                             (json_int_t)offset,
+                             "length",
+                             (json_int_t)length);
+    if (*packed_obj == NULL) {
+        DYAD_LOG_ERROR (ctx, "Could not pack upath/offset/length for Flux DTL");
+        rc = DYAD_RC_BADPACK;
+        goto dtl_flux_rpc_pack_range;
+    }
+dtl_flux_rpc_pack_range:
+    DYAD_C_FUNCTION_END ();
+    return rc;
+}
+
+dyad_rc_t dyad_dtl_flux_rpc_unpack_range (const dyad_ctx_t *ctx,
+                                          const flux_msg_t *msg,
+                                          char **upath,
+                                          size_t *offset,
+                                          size_t *length)
+{
+    DYAD_C_FUNCTION_START ();
+    int rc = 0;
+    dyad_rc_t dyad_rc = DYAD_RC_OK;
+    json_int_t offset_val = 0;
+    json_int_t length_val = 0;
+    rc = flux_request_unpack (msg,
+                              NULL,
+                              "{s:s, s:I, s:I}",
+                              "upath",
+                              upath,
+                              "offset",
+                              &offset_val,
+                              "length",
+                              &length_val);
+    if (FLUX_IS_ERROR (rc)) {
+        DYAD_LOG_ERROR (ctx, "Could not unpack ranged Flux message from consumer");
+        dyad_rc = DYAD_RC_BADUNPACK;
+        goto dtl_flux_rpc_unpack_range_region_finish;
+    }
+    *offset = (size_t)offset_val;
+    *length = (size_t)length_val;
+    ctx->dtl_handle->private_dtl.flux_dtl_handle->msg = (flux_msg_t *)msg;
+    dyad_rc = DYAD_RC_OK;
+    DYAD_C_FUNCTION_UPDATE_STR ("upath", *upath);
+dtl_flux_rpc_unpack_range_region_finish:
     DYAD_C_FUNCTION_END ();
     return dyad_rc;
 }

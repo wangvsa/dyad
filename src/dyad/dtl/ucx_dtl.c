@@ -815,6 +815,13 @@ dyad_rc_t dyad_dtl_ucx_init (const dyad_ctx_t *ctx,
 
     ctx->dtl_handle->rpc_pack = dyad_dtl_ucx_rpc_pack;
     ctx->dtl_handle->rpc_unpack = dyad_dtl_ucx_rpc_unpack;
+    // Byte-range fetch (dyad_consume_range()) is only implemented for
+    // FLUX_RPC and MARGO. Explicitly NULL here (ctx->dtl_handle is malloc'd,
+    // not zero-initialized) rather than leaving these uninitialized, even
+    // though dyad_consume_range() gates on ctx->dtl_handle->mode before ever
+    // dereferencing them.
+    ctx->dtl_handle->rpc_pack_range = NULL;
+    ctx->dtl_handle->rpc_unpack_range = NULL;
     ctx->dtl_handle->rpc_respond = dyad_dtl_ucx_rpc_respond;
     ctx->dtl_handle->rpc_recv_response = dyad_dtl_ucx_rpc_recv_response;
     ctx->dtl_handle->get_buffer = dyad_dtl_ucx_get_buffer;

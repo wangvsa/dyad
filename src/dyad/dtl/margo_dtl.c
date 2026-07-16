@@ -373,6 +373,8 @@ dyad_rc_t dyad_dtl_margo_init (const dyad_ctx_t *ctx,
 
     ctx->dtl_handle->rpc_pack = dyad_dtl_margo_rpc_pack;
     ctx->dtl_handle->rpc_unpack = dyad_dtl_margo_rpc_unpack;
+    ctx->dtl_handle->rpc_pack_range = dyad_dtl_margo_rpc_pack_range;
+    ctx->dtl_handle->rpc_unpack_range = dyad_dtl_margo_rpc_unpack_range;
     ctx->dtl_handle->rpc_respond = dyad_dtl_margo_rpc_respond;
     ctx->dtl_handle->rpc_recv_response = dyad_dtl_margo_rpc_recv_response;
     ctx->dtl_handle->get_buffer = dyad_dtl_margo_get_buffer;
@@ -414,7 +416,24 @@ dyad_rc_t dyad_dtl_margo_rpc_pack (const dyad_ctx_t *ctx,
     // send my address (me as consumer and margo server)
     char addr_str[128];
     size_t addr_str_size = 128;
-    margo_addr_to_string (margo_handle->mid, addr_str, &addr_str_size, margo_handle->local_addr);
+    {
+        hg_return_t addr_str_ret = margo_addr_to_string (margo_handle->mid,
+                                                         addr_str,
+                                                         &addr_str_size,
+                                                         margo_handle->local_addr);
+        if (addr_str_ret != HG_SUCCESS) {
+            DYAD_LOG_ERROR (ctx, "[MARGO DTL] margo_addr_to_string failed: %d", (int)addr_str_ret);
+            rc = DYAD_RC_BADPACK;
+            goto dtl_margo_rpc_pack_region_finish;
+        }
+    }
+    // HG_Addr_to_string() sets addr_str_size to the string length *including*
+    // the null terminator; Jansson's "s%" format wants the length *excluding*
+    // it, so passing addr_str_size unadjusted packs one extra (the null)
+    // byte as string content.
+    if (addr_str_size > 0) {
+        addr_str_size -= 1;
+    }
 
     *packed_obj = json_pack ("{s:s, s:i, s:i, s:s%}",
                              "upath",  // s:s
@@ -486,6 +505,127 @@ dtl_margo_rpc_unpack_region_finish:;
     return rc;
 }
 
+dyad_rc_t dyad_dtl_margo_rpc_pack_range (const dyad_ctx_t *ctx,
+                                         const char *upath,
+                                         uint32_t producer_rank,
+                                         size_t offset,
+                                         size_t length,
+                                         json_t **packed_obj)
+{
+    DYAD_C_FUNCTION_START ();
+    dyad_rc_t rc = DYAD_RC_OK;
+
+    dyad_dtl_margo_t *margo_handle = ctx->dtl_handle->private_dtl.margo_dtl_handle;
+
+    // send my address (me as consumer and margo server)
+    char addr_str[128];
+    size_t addr_str_size = 128;
+    {
+        hg_return_t addr_str_ret = margo_addr_to_string (margo_handle->mid,
+                                                         addr_str,
+                                                         &addr_str_size,
+                                                         margo_handle->local_addr);
+        if (addr_str_ret != HG_SUCCESS) {
+            DYAD_LOG_ERROR (ctx, "[MARGO DTL] margo_addr_to_string failed: %d", (int)addr_str_ret);
+            rc = DYAD_RC_BADPACK;
+            goto dtl_margo_rpc_pack_range_region_finish;
+        }
+    }
+    // HG_Addr_to_string() sets addr_str_size to the string length *including*
+    // the null terminator; Jansson's "s%" format wants the length *excluding*
+    // it, so passing addr_str_size unadjusted packs one extra (the null)
+    // byte as string content.
+    if (addr_str_size > 0) {
+        addr_str_size -= 1;
+    }
+
+    *packed_obj = json_pack ("{s:s, s:i, s:i, s:s%, s:I, s:I}",
+                             "upath",  // s:s
+                             upath,
+                             "tag_prod",  // s:i
+                             (int)producer_rank,
+                             "pid_cons",  // s:s
+                             ctx->pid,
+                             "addr",  // s:s%
+                             addr_str,
+                             addr_str_size,
+                             "offset",  // s:I
+                             (json_int_t)offset,
+                             "length",  // s:I
+                             (json_int_t)length);
+
+    if (*packed_obj == NULL) {
+        DYAD_LOG_ERROR (ctx, "Could not pack upath/offset/length and Margo address for RPC.");
+        rc = DYAD_RC_BADPACK;
+        goto dtl_margo_rpc_pack_range_region_finish;
+    }
+
+    DYAD_LOG_DEBUG (ctx,
+                    "[MARGO DTL] pack/send ranged margo sever addr: %s, %ld.",
+                    addr_str,
+                    addr_str_size);
+
+dtl_margo_rpc_pack_range_region_finish:;
+    DYAD_C_FUNCTION_END ();
+    return rc;
+}
+
+dyad_rc_t dyad_dtl_margo_rpc_unpack_range (const dyad_ctx_t *ctx,
+                                           const flux_msg_t *msg,
+                                           char **upath,
+                                           size_t *offset,
+                                           size_t *length)
+{
+    DYAD_C_FUNCTION_START ();
+    dyad_rc_t rc = DYAD_RC_OK;
+
+    uint64_t tag_prod = 0;
+    uint64_t pid = 0;
+    char *addr_str = NULL;
+    size_t addr_str_size = 0;
+    json_int_t offset_val = 0;
+    json_int_t length_val = 0;
+    int errcode;
+
+    dyad_dtl_margo_t *margo_handle = ctx->dtl_handle->private_dtl.margo_dtl_handle;
+
+    // retrive and decode the consumer margo-server address, plus the
+    // requested byte range
+    errcode = flux_request_unpack (msg,
+                                   NULL,
+                                   "{s:s, s:i, s:i, s:s%, s:I, s:I}",
+                                   "upath",  // s:s
+                                   upath,
+                                   "tag_prod",  // s:i
+                                   &tag_prod,
+                                   "pid_cons",  // s:i
+                                   &pid,
+                                   "addr",  // s:s%
+                                   &addr_str,
+                                   &addr_str_size,
+                                   "offset",  // s:I
+                                   &offset_val,
+                                   "length",  // s:I
+                                   &length_val);
+    if (errcode < 0) {
+        DYAD_LOG_ERROR (ctx, "Could not unpack ranged Flux message from consumer!\n");
+        rc = DYAD_RC_BADUNPACK;
+        goto dtl_margo_rpc_unpack_range_region_finish;
+    }
+    *offset = (size_t)offset_val;
+    *length = (size_t)length_val;
+
+    DYAD_LOG_DEBUG (ctx,
+                    "[MARGO DTL] recv/unpack ranged margo sever addr: %s, %ld.",
+                    addr_str,
+                    addr_str_size);
+    margo_addr_lookup (margo_handle->mid, addr_str, &margo_handle->remote_addr);
+
+dtl_margo_rpc_unpack_range_region_finish:;
+    DYAD_C_FUNCTION_END ();
+    return rc;
+}
+
 dyad_rc_t dyad_dtl_margo_rpc_respond (const dyad_ctx_t *ctx, const flux_msg_t *orig_msg)
 {
     DYAD_C_FUNCTION_START ();
@@ -514,8 +654,9 @@ dyad_rc_t dyad_dtl_margo_send (const dyad_ctx_t *ctx, void *buf, size_t buflen)
     dyad_rc_t rc = DYAD_RC_OK;
     hg_return_t ret = HG_SUCCESS;
 
-    DYAD_LOG_DEBUG (ctx, "[MARGO DTL] margo_send is called, buflen: %ld.", buflen);
     dyad_dtl_margo_t *margo_handle = ctx->dtl_handle->private_dtl.margo_dtl_handle;
+
+    DYAD_LOG_DEBUG (ctx, "[MARGO DTL] margo_send is called, buflen: %ld.", buflen);
 
     hg_size_t segment_sizes[1] = {buflen};
     void *segment_ptrs[1] = {buf};
@@ -541,10 +682,7 @@ dyad_rc_t dyad_dtl_margo_send (const dyad_ctx_t *ctx, void *buf, size_t buflen)
     args.bulk = local_bulk;
 
     // send a message to the consumer, notifying it that my data is ready
-    ret = margo_create (margo_handle->mid,
-                        margo_handle->remote_addr,
-                        margo_handle->sendrecv_rpc_id,
-                        &mh);
+    ret = margo_create (margo_handle->mid, margo_handle->remote_addr, margo_handle->sendrecv_rpc_id, &mh);
     if (ret != HG_SUCCESS) {
         DYAD_LOG_ERROR (ctx, "margo_create failed: %d", (int)ret);
         goto margo_error;

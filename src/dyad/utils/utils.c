@@ -554,6 +554,44 @@ excl_flock_end:;
     return rc;
 }
 
+dyad_rc_t dyad_try_excl_flock (const dyad_ctx_t* __restrict__ ctx,
+                               int fd,
+                               struct flock* __restrict__ lock)
+{
+    dyad_rc_t rc = DYAD_RC_OK;
+    DYAD_C_FUNCTION_START ();
+    DYAD_C_FUNCTION_UPDATE_INT ("fd", fd);
+    DYAD_LOG_DEBUG (ctx,
+                    "DYAD UTIL: [node %u rank %u pid %d] Attempts a non-blocking exclusive lock "
+                    "on fd %d.",
+                    ctx->node_idx,
+                    ctx->rank,
+                    ctx->pid,
+                    fd);
+    if (!lock) {
+        rc = DYAD_RC_BADFIO;
+        goto try_excl_flock_end;
+    }
+    lock->l_type = F_WRLCK;
+    lock->l_whence = SEEK_SET;
+    lock->l_start = 0;
+    lock->l_len = 0;
+    lock->l_pid = ctx->pid;                 // getpid();
+    if (fcntl (fd, F_SETLK, lock) == -1) {  // returns immediately instead of waiting
+        if (errno == EAGAIN || errno == EACCES) {
+            rc = DYAD_RC_BUSY;
+        } else {
+            DYAD_LOG_ERROR (ctx, "DYAD UTIL: Cannot apply exclusive lock on fd %d.", fd);
+            rc = DYAD_RC_BADFIO;
+        }
+        goto try_excl_flock_end;
+    }
+    rc = DYAD_RC_OK;
+try_excl_flock_end:;
+    DYAD_C_FUNCTION_END ();
+    return rc;
+}
+
 dyad_rc_t dyad_shared_flock (const dyad_ctx_t* __restrict__ ctx,
                              int fd,
                              struct flock* __restrict__ lock)

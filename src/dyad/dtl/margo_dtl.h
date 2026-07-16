@@ -203,6 +203,65 @@ dyad_rc_t dyad_dtl_margo_rpc_pack (const dyad_ctx_t *ctx,
 dyad_rc_t dyad_dtl_margo_rpc_unpack (const dyad_ctx_t *ctx, const flux_msg_t *msg, char **upath);
 
 /**
+ * @brief Packs a byte-range fetch request into a JSON object for a Margo RPC call.
+ *
+ * @details
+ * Same as @c dyad_dtl_margo_rpc_pack() but additionally packs @p offset and
+ * @p length. The Mercury/RDMA data-transfer layer (@c margo_rpc_in_t,
+ * @c data_ready_rpc(), @c dyad_dtl_margo_send()/@c dyad_dtl_margo_recv())
+ * needs no range-awareness at all: @p offset only matters to the
+ * producer's Flux-side callback, which uses it to decide what to
+ * @c pread() from the file *before* ever registering a bulk buffer. By
+ * the time @c dyad_dtl_margo_send() is called, its buffer already holds
+ * just the requested sub-range, so the existing bulk-create/RDMA-pull
+ * path moves it identically to a whole-file transfer.
+ *
+ * @param[in]  ctx           DYAD context.
+ * @param[in]  upath         Relative path of the file to fetch from.
+ * @param[in]  producer_rank Flux rank of the producer broker.
+ * @param[in]  offset        Starting byte offset of the requested range.
+ * @param[in]  length        Number of bytes requested.
+ * @param[out] packed_obj    Set to the allocated JSON object on success.
+ *
+ * @return @c dyad_rc_t return code:
+ * @retval DYAD_RC_OK      The JSON object was created successfully.
+ * @retval DYAD_RC_BADPACK @c json_pack() failed to create the object.
+ */
+dyad_rc_t dyad_dtl_margo_rpc_pack_range (const dyad_ctx_t *ctx,
+                                         const char *upath,
+                                         uint32_t producer_rank,
+                                         size_t offset,
+                                         size_t length,
+                                         json_t **packed_obj);
+
+/**
+ * @brief Unpacks a byte-range fetch request from an incoming Flux RPC message
+ *        and resolves the consumer's Margo address.
+ *
+ * @details
+ * Same as @c dyad_dtl_margo_rpc_unpack() but additionally extracts @p offset
+ * and @p length from the JSON payload.
+ *
+ * @param[in]  ctx    DYAD context.
+ * @param[in]  msg    Incoming Flux RPC message containing the JSON payload
+ *                    packed by @c dyad_dtl_margo_rpc_pack_range().
+ * @param[out] upath  Relative path of the requested file. Valid for the
+ *                    lifetime of @p msg.
+ * @param[out] offset Starting byte offset of the requested range.
+ * @param[out] length Number of bytes requested.
+ *
+ * @return @c dyad_rc_t return code:
+ * @retval DYAD_RC_OK        Unpacking and address resolution succeeded.
+ * @retval DYAD_RC_BADUNPACK @c flux_request_unpack() failed to extract the
+ *                           required fields from the message.
+ */
+dyad_rc_t dyad_dtl_margo_rpc_unpack_range (const dyad_ctx_t *ctx,
+                                           const flux_msg_t *msg,
+                                           char **upath,
+                                           size_t *offset,
+                                           size_t *length);
+
+/**
  * @brief Sends the initial RPC acknowledgement from the service to the consumer.
  *
  * @details

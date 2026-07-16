@@ -16,7 +16,7 @@ target_include_directories(${PROJECT_NAME}_ctx PUBLIC
   $<INSTALL_INTERFACE:${DYAD_INSTALL_INCLUDE_DIR}>)
 target_include_directories(${PROJECT_NAME}_ctx SYSTEM PRIVATE ${JANSSON_INCLUDE_DIRS})
 target_include_directories(${PROJECT_NAME}_ctx SYSTEM PRIVATE ${FluxCore_INCLUDE_DIRS})
-target_link_libraries(${PROJECT_NAME}_ctx PRIVATE ${PROJECT_NAME}_dtl ${PROJECT_NAME}_utils)
+target_link_libraries(${PROJECT_NAME}_ctx PRIVATE ${PROJECT_NAME}_dtl ${PROJECT_NAME}_cache ${PROJECT_NAME}_utils)
 
 dyad_add_werror_if_needed(${PROJECT_NAME}_ctx)
 

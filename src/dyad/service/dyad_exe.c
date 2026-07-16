@@ -17,12 +17,13 @@
 struct dyad_cli_args {
     char* prod_managed_path;
     char* dtl_mode;
+    char* origin_path;
     bool debug;
 };
 typedef struct dyad_cli_args dyad_cli_args_t;
 
 // global variable to store parsed command line arguments
-static dyad_cli_args_t cli_args = {NULL, NULL, false};
+static dyad_cli_args_t cli_args = {NULL, NULL, NULL, false};
 
 typedef enum { INVALID_ACTION = -1, ACT_START = 0, ACT_STOP = 1, N_ACT = 2 } action_e;
 
@@ -61,7 +62,12 @@ static void usage (int status)
         "    -e, --error_log: Specify the file into which to redirect\n"
         "                     error logging. Does nothing if DYAD was\n"
         "                     not configured with '-DDYAD_LOGGER=PRINTF'\n"
-        "                     Need a filename as an argument.\n");
+        "                     Need a filename as an argument.\n"
+        "    -o, --origin_path: Fallback source path (e.g. on the parallel\n"
+        "                       file system) used to lazily fill missing\n"
+        "                       spans of a managed file on demand. Need a\n"
+        "                       path as an argument. Omit to require files\n"
+        "                       be fully staged upfront (default).\n");
     printf (
         "\n"
         "Command options for \"stop\":\n"
@@ -82,8 +88,9 @@ static void parse_cmd_arguments (int argc, char** argv)
                                            {"producer_managed_path", required_argument, 0, 'p'},
                                            {"info_log", required_argument, 0, 'i'},
                                            {"error_log", required_argument, 0, 'e'},
+                                           {"origin_path", required_argument, 0, 'o'},
                                            {0, 0, 0, 0}};
-    static char* short_options = "hdm:i:e:p:";
+    static char* short_options = "hdm:i:e:p:o:";
 
     while ((ch = getopt_long (argc, argv, short_options, long_options, &optidx)) >= 0) {
         switch (ch) {
@@ -103,6 +110,9 @@ static void parse_cmd_arguments (int argc, char** argv)
             case 'i':
                 break;
             case 'e':
+                break;
+            case 'o':
+                cli_args.origin_path = strdup (optarg);
                 break;
             case '?':
                 // getopt_long already printed an error message.
@@ -140,31 +150,29 @@ int dyad_start_service (dyad_cli_args_t* cli_args)
     char dyad_module_path[PATH_MAX + 1] = {0};
     sprintf (dyad_module_path, "%s/dyad.so", DYAD_INSTALL_LIBDIR);
 
+    // Fixed-size buffer sized for the largest possible combination of
+    // flags below; grow this if another optional flag is added.
+    char* argv[16];
+    int i = 0;
+    argv[i++] = "flux";
+    argv[i++] = "exec";
+    argv[i++] = "-r";
+    argv[i++] = "all";
+    argv[i++] = "flux";
+    argv[i++] = "module";
+    argv[i++] = "load";
+    argv[i++] = dyad_module_path;
     if (cli_args->dtl_mode != NULL) {
-        char* const argv[] = {"flux",
-                              "exec",
-                              "-r",
-                              "all",
-                              "flux",
-                              "module",
-                              "load",
-                              dyad_module_path,
-                              "--mode",
-                              cli_args->dtl_mode,
-                              cli_args->prod_managed_path,
-                              NULL};
-        return fork_exec_wait (argv);
+        argv[i++] = "--mode";
+        argv[i++] = cli_args->dtl_mode;
     }
-    char* const argv[] = {"flux",
-                          "exec",
-                          "-r",
-                          "all",
-                          "flux",
-                          "module",
-                          "load",
-                          dyad_module_path,
-                          cli_args->prod_managed_path,
-                          NULL};
+    if (cli_args->origin_path != NULL) {
+        argv[i++] = "--origin_path";
+        argv[i++] = cli_args->origin_path;
+    }
+    argv[i++] = cli_args->prod_managed_path;
+    argv[i++] = NULL;
+
     return fork_exec_wait (argv);
 }
 

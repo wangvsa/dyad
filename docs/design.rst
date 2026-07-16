@@ -56,5 +56,7 @@ representing PyTorch dataloader :ref:`Devarajan et al. 2024 <paper-sbacpad-2024>
 
 .. include:: _fragments/design_local_access.rst
 
+.. include:: _fragments/design_cache.rst
+
 .. include:: _fragments/design_init.rst
 

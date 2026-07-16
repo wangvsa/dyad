@@ -24,6 +24,7 @@
 #include <dyad/common/dyad_structures_int.h>
 #include <dyad/core/dyad_ctx.h>
 #include <dyad/dtl/dyad_dtl_api.h>
+#include <dyad/utils/range_cache.h>
 #include <dyad/utils/read_all.h>
 #include <dyad/utils/utils.h>
 // clang-format on
@@ -94,7 +95,7 @@ typedef struct dyad_mod_ctx {
     dyad_ctx_t *ctx;                ///< DYAD context for this module instance.
 } dyad_mod_ctx_t;
 
-const struct dyad_mod_ctx dyad_mod_ctx_default = {NULL, NULL};
+const struct dyad_mod_ctx dyad_mod_ctx_default = {0};
 
 static void dyad_mod_fini (void) __attribute__ ((destructor));
 
@@ -246,8 +247,10 @@ getctx_done:
 #if DYAD_PERFFLOW
 __attribute__ ((annotate ("@critical_path()")))
 #endif
-static void
-dyad_fetch_request_cb (flux_t *h, flux_msg_handler_t *w, const flux_msg_t *msg, void *arg)
+static void dyad_fetch_request_cb (flux_t *h,
+                                   flux_msg_handler_t *w,
+                                   const flux_msg_t *msg,
+                                   void *arg)
 {
     DYAD_C_FUNCTION_START ();
     dyad_mod_ctx_t *mod_ctx = get_mod_ctx (h);
@@ -427,21 +430,254 @@ end_fetch_cb:;
 }
 
 /**
+ * @brief Flux message handler callback that serves a byte range of a file
+ *        to a consumer via RPC.
+ *
+ * @details
+ * Registered as the handler for @c DYAD_DTL_RPC_RANGE_NAME requests in
+ * @c htab. Parallel to @c dyad_fetch_request_cb(), for @c dyad_consume_range()
+ * requests (FLUX_RPC and MARGO DTL modes only) — the existing whole-file
+ * handler is untouched. Differs only in:
+ *  - Unpacks @c upath, @c offset, and @c length via @c rpc_unpack_range()
+ *    instead of just @c upath.
+ *  - Reads only @c [offset, offset+length) from the file via @c pread()
+ *    (clamped against the real file size) instead of the whole file via
+ *    @c fstat()-sized sequential @c read().
+ *  - Allocates/sends a buffer sized to @c length instead of the whole
+ *    file size. No UCX file-size-prefix handling, since UCX does not
+ *    implement @c rpc_unpack_range() (out of scope for byte-range fetch).
+ *
+ * @param[in] h    Flux handle for the broker.
+ * @param[in] w    Flux message handler (unused directly).
+ * @param[in] msg  Incoming Flux RPC message containing @c upath/@c offset/
+ *                 @c length packed by the consumer.
+ * @param[in] arg  Auxiliary argument (the Flux handle, passed as @c void*
+ *                 from @c flux_msg_handler_addvec()).
+ */
+#if DYAD_PERFFLOW
+__attribute__ ((annotate ("@critical_path()")))
+#endif
+static void dyad_fetch_range_request_cb (flux_t *h,
+                                         flux_msg_handler_t *w,
+                                         const flux_msg_t *msg,
+                                         void *arg)
+{
+    DYAD_C_FUNCTION_START ();
+    dyad_mod_ctx_t *mod_ctx = get_mod_ctx (h);
+    DYAD_LOG_DEBUG (mod_ctx->ctx, "DYAD_MOD: Launched callback for %s", DYAD_DTL_RPC_RANGE_NAME);
+    ssize_t inlen = 0l;
+    char *inbuf = NULL;
+    int fd = -1;
+    uint32_t userid = 0u;
+    char *upath = NULL;
+    char fullpath[PATH_MAX + 1] = {'\0'};
+    int saved_errno = errno;
+    size_t offset = 0;
+    size_t length = 0;
+    ssize_t file_size = 0l;
+    ssize_t range_len = 0l;
+    dyad_rc_t rc = 0;
+    struct flock shared_lock;
+    if (!flux_msg_is_streaming (msg)) {
+        errno = EPROTO;
+        goto fetch_range_error_wo_flock;
+    }
+
+    if (flux_msg_get_userid (msg, &userid) < 0)
+        goto fetch_range_error_wo_flock;
+
+    DYAD_LOG_DEBUG (mod_ctx->ctx, "DYAD_MOD: unpacking ranged RPC message");
+
+    rc = mod_ctx->ctx->dtl_handle->rpc_unpack_range (mod_ctx->ctx, msg, &upath, &offset, &length);
+
+    if (DYAD_IS_ERROR (rc)) {
+        DYAD_LOG_ERROR (mod_ctx->ctx, "DYAD_MOD: Could not unpack ranged message from client");
+        errno = EPROTO;
+        goto fetch_range_error_wo_flock;
+    }
+    DYAD_C_FUNCTION_UPDATE_STR ("upath", upath);
+    DYAD_LOG_DEBUG (mod_ctx->ctx,
+                    "DYAD_MOD: requested user_path: %s, offset: %zu, length: %zu",
+                    upath,
+                    offset,
+                    length);
+    DYAD_LOG_DEBUG (mod_ctx->ctx, "DYAD_MOD: sending initial response to consumer");
+
+    rc = mod_ctx->ctx->dtl_handle->rpc_respond (mod_ctx->ctx, msg);
+    if (DYAD_IS_ERROR (rc)) {
+        DYAD_LOG_ERROR (mod_ctx->ctx, "DYAD_MOD: Could not send primary RPC response to client");
+        goto fetch_range_error_wo_flock;
+    }
+
+    strncpy (fullpath, mod_ctx->ctx->prod_managed_path, PATH_MAX - 1);
+    concat_str (fullpath, upath, "/", PATH_MAX);
+    DYAD_C_FUNCTION_UPDATE_STR ("fullpath", fullpath);
+
+    if (mod_ctx->ctx->origin_path != NULL) {
+        char origin_fullpath[PATH_MAX + 1] = {'\0'};
+        strncpy (origin_fullpath, mod_ctx->ctx->origin_path, PATH_MAX - 1);
+        concat_str (origin_fullpath, upath, "/", PATH_MAX);
+        rc = dyad_range_cache_ensure (mod_ctx->ctx, fullpath, origin_fullpath, offset, length);
+        if (DYAD_IS_ERROR (rc)) {
+            DYAD_LOG_ERROR (mod_ctx->ctx,
+                            "DYAD_MOD: dyad_range_cache_ensure failed for file \"%s\".",
+                            fullpath);
+            errno = EIO;
+            goto fetch_range_error_wo_flock;
+        }
+    }
+
+    DYAD_LOG_DEBUG (mod_ctx->ctx, "DYAD_MOD: Reading file %s for ranged transfer", fullpath);
+    fd = open (fullpath, O_RDONLY);
+
+    if (fd < 0) {
+        DYAD_LOG_ERROR (mod_ctx->ctx, "DYAD_MOD: Failed to open file \"%s\".", fullpath);
+        goto fetch_range_error_wo_flock;
+    }
+    rc = dyad_shared_flock (mod_ctx->ctx, fd, &shared_lock);
+    if (DYAD_IS_ERROR (rc)) {
+        goto fetch_range_error;
+    }
+    file_size = get_file_size (fd);
+    // Clamp against the real file size for safety -- offset/length come
+    // from the consumer's own index and should already be valid, but a
+    // stale/corrupt index must not turn into an out-of-bounds pread().
+    if ((ssize_t)offset >= file_size) {
+        range_len = 0;
+    } else if ((ssize_t)(offset + length) > file_size) {
+        range_len = file_size - (ssize_t)offset;
+    } else {
+        range_len = (ssize_t)length;
+    }
+    DYAD_LOG_DEBUG (mod_ctx->ctx,
+                    "DYAD_MOD: file %s has size %zd, serving range [%zu, %zu)",
+                    fullpath,
+                    file_size,
+                    offset,
+                    offset + (size_t)range_len);
+    rc = mod_ctx->ctx->dtl_handle->get_buffer (mod_ctx->ctx, (size_t)range_len, (void **)&inbuf);
+    if (DYAD_IS_ERROR (rc)) {
+        DYAD_LOG_ERROR (mod_ctx->ctx, "DYAD_MOD: Could not allocate DTL buffer for ranged fetch");
+        goto fetch_range_error;
+    }
+    if (range_len > 0l) {
+        if (range_len < DYAD_POSIX_TRANSFER_GRANULARITY) {
+            inlen = pread (fd, inbuf, (size_t)range_len, (off_t)offset);
+        } else {
+            ssize_t read_data = 0;
+            int granularity = DYAD_POSIX_TRANSFER_GRANULARITY;
+            while (read_data < range_len) {
+                ssize_t read_size =
+                    (range_len - read_data) > granularity ? granularity : (range_len - read_data);
+                inlen = pread (fd,
+                               inbuf + read_data,
+                               (size_t)read_size,
+                               (off_t)(offset + (size_t)read_data));
+                DYAD_LOG_DEBUG (mod_ctx->ctx,
+                                "DYAD_MOD: reading range of file %s with bytes %zd of %zd",
+                                fullpath,
+                                read_size,
+                                inlen);
+                if (inlen <= 0) {
+                    DYAD_LOG_ERROR (mod_ctx->ctx,
+                                    "DYAD_MOD: Failed to load range of file \"%s\" only read %zd "
+                                    "of %zd of %zd. with code %d:%s.",
+                                    fullpath,
+                                    inlen,
+                                    read_size,
+                                    range_len,
+                                    errno,
+                                    strerror (errno));
+                    goto fetch_range_error;
+                }
+                read_data += inlen;
+            }
+            inlen = read_data;
+        }
+        if (inlen != range_len) {
+            DYAD_LOG_ERROR (mod_ctx->ctx,
+                            "DYAD_MOD: Failed to load range of file \"%s\" only read %zd of %zd. "
+                            "with code %d:%s.",
+                            fullpath,
+                            inlen,
+                            range_len,
+                            errno,
+                            strerror (errno));
+            goto fetch_range_error;
+        }
+    }
+    DYAD_C_FUNCTION_UPDATE_INT ("range_len", range_len);
+    dyad_release_flock (mod_ctx->ctx, fd, &shared_lock);
+    close (fd);
+    DYAD_LOG_DEBUG (mod_ctx->ctx, "DYAD_MOD: Establish DTL connection with consumer");
+    rc = mod_ctx->ctx->dtl_handle->establish_connection (mod_ctx->ctx);
+    if (DYAD_IS_ERROR (rc)) {
+        DYAD_LOG_ERROR (mod_ctx->ctx, "DYAD_MOD: Could not establish DTL connection with client");
+        errno = ECONNREFUSED;
+        goto fetch_range_error_wo_flock;
+    }
+    DYAD_LOG_DEBUG (mod_ctx->ctx, "DYAD_MOD: Send file range to consumer with DTL");
+    rc = mod_ctx->ctx->dtl_handle->send (mod_ctx->ctx, inbuf, (size_t)range_len);
+    if (DYAD_IS_ERROR (rc)) {
+        DYAD_LOG_ERROR (mod_ctx->ctx, "DYAD_MOD: Could not send range data to client via DTL\n");
+        errno = ECOMM;
+        goto fetch_range_error_wo_flock;
+    }
+    DYAD_LOG_DEBUG (mod_ctx->ctx, "DYAD_MOD: Close DTL connection with consumer");
+    mod_ctx->ctx->dtl_handle->close_connection (mod_ctx->ctx);
+    mod_ctx->ctx->dtl_handle->return_buffer (mod_ctx->ctx, (void **)&inbuf);
+
+    DYAD_LOG_DEBUG (mod_ctx->ctx,
+                    "DYAD_MOD: Close RPC message stream with an ENODATA (%d) message",
+                    ENODATA);
+    if (flux_respond_error (h, msg, ENODATA, NULL) < 0) {
+        DYAD_LOG_DEBUG (mod_ctx->ctx,
+                        "DYAD_MOD: %s: flux_respond_error with ENODATA failed\n",
+                        __func__);
+    }
+    DYAD_LOG_DEBUG (mod_ctx->ctx,
+                    "DYAD_MOD: Finished %s module invocation\n",
+                    DYAD_DTL_RPC_RANGE_NAME);
+    goto end_fetch_range_cb;
+
+fetch_range_error:;
+    dyad_release_flock (mod_ctx->ctx, fd, &shared_lock);
+    close (fd);
+
+fetch_range_error_wo_flock:;
+    DYAD_LOG_ERROR (mod_ctx->ctx,
+                    "DYAD_MOD: Close RPC message stream with an error (errno = %d)\n",
+                    errno);
+    if (flux_respond_error (h, msg, errno, NULL) < 0) {
+        DYAD_LOG_ERROR (mod_ctx->ctx, "DYAD_MOD: %s: flux_respond_error", __func__);
+    }
+    errno = saved_errno;
+    DYAD_C_FUNCTION_END ();
+    return;
+
+end_fetch_range_cb:;
+    errno = saved_errno;
+    DYAD_C_FUNCTION_END ();
+    return;
+}
+
+/**
  * @brief Flux message handler table for the DYAD module.
  *
  * @details
- * Registers @c dyad_fetch_request_cb as the handler for all incoming
- * @c FLUX_MSGTYPE_REQUEST messages addressed to @c DYAD_DTL_RPC_NAME.
- * This is the single RPC endpoint exposed by the DYAD module — consumers
- * send file fetch requests to this name on the producer's broker, and the
- * reactor dispatches them to @c dyad_fetch_request_cb.
- * @c DYAD_DTL_RPC_NAME is defined as "dyad.fetch"
+ * Registers @c dyad_fetch_request_cb for whole-file @c DYAD_DTL_RPC_NAME
+ * ("dyad.fetch") requests and @c dyad_fetch_range_request_cb for byte-range
+ * @c DYAD_DTL_RPC_RANGE_NAME ("dyad.fetch_range") requests. Consumers send
+ * fetch requests to whichever topic matches the API they called
+ * (@c dyad_consume()/@c dyad_consume_w_metadata() vs @c dyad_consume_range()),
+ * and the reactor dispatches them to the corresponding handler.
  *
  * Passed to @c flux_msg_handler_addvec() in @c mod_main() and terminated
  * by @c FLUX_MSGHANDLER_TABLE_END as required by the Flux API.
  */
 static const struct flux_msg_handler_spec htab[] =
     {{FLUX_MSGTYPE_REQUEST, DYAD_DTL_RPC_NAME, dyad_fetch_request_cb, 0},
+     {FLUX_MSGTYPE_REQUEST, DYAD_DTL_RPC_RANGE_NAME, dyad_fetch_range_request_cb, 0},
      FLUX_MSGHANDLER_TABLE_END};
 
 static void show_help (void)
@@ -462,6 +698,12 @@ static void show_help (void)
         "                     error logging. Does nothing if DYAD was\n"
         "                     not configured with '-DDYAD_LOGGER=PRINTF'\n"
         "                     Need a filename as an argument.\n");
+    DYAD_LOG_STDOUT (
+        "    -o, --origin_path: Fallback source path (e.g. on the parallel\n"
+        "                       file system) used to lazily fill missing\n"
+        "                       spans of a managed file on demand. Need a\n"
+        "                       path as an argument. Omit to require files\n"
+        "                       be fully staged upfront (default).\n");
 }
 
 /**
@@ -470,6 +712,7 @@ static void show_help (void)
 struct opt_parse_out {
     const char *prod_managed_path;  ///< Producer-managed directory path, or @c NULL.
     const char *dtl_mode;           ///< DTL mode string, or @c NULL for default.
+    const char *origin_path;        ///< Fallback origin path, or @c NULL to disable.
     bool debug;                     ///< Whether debug logging is enabled.
     bool showed_help;               ///< Whether @c -h was passed and help was shown.
 };
@@ -492,6 +735,8 @@ typedef struct opt_parse_out opt_parse_out_t;
  *  - @c -m / @c --mode        Sets @c opt->dtl_mode.
  *  - @c -i / @c --info_log    Redirects info log output to a per-rank file.
  *  - @c -e / @c --error_log   Redirects error log output to a per-rank file.
+ *  - @c -o / @c --origin_path Sets @c opt->origin_path (lazy origin-backed
+ *                             range cache fallback source).
  *
  * Any remaining non-option argument is treated as the producer-managed
  * directory path and stored in @c opt->prod_managed_path.
@@ -552,10 +797,11 @@ int opt_parse (opt_parse_out_t *restrict opt,
                                            {"mode", required_argument, 0, 'm'},
                                            {"info_log", required_argument, 0, 'i'},
                                            {"error_log", required_argument, 0, 'e'},
+                                           {"origin_path", required_argument, 0, 'o'},
                                            {0, 0, 0, 0}};
 
     int c;
-    while ((c = getopt_long (_argc, _argv, "hdm:i:e:", long_options, NULL)) != -1) {
+    while ((c = getopt_long (_argc, _argv, "hdm:i:e:o:", long_options, NULL)) != -1) {
         switch (c) {
             case 'h':
                 show_help ();
@@ -585,6 +831,10 @@ int opt_parse (opt_parse_out_t *restrict opt,
                 DYAD_LOG_STDERR ("DYAD_MOD: 'error_log' option -e with value `%s'\n", optarg);
                 sprintf (err_file_name, "%s_%d.err", optarg, broker_rank);
 #endif  // DYAD_LOGGER_NO_LOG
+                break;
+            case 'o':
+                DYAD_LOG_STDERR ("DYAD_MOD: 'origin_path' option -o with value `%s'\n", optarg);
+                opt->origin_path = optarg;
                 break;
             case '?':
                 /* getopt_long already printed an error message. */
@@ -682,6 +932,13 @@ dyad_rc_t dyad_module_ctx_init (const opt_parse_out_t *opt, flux_t *h)
         DYAD_LOG_STDOUT ("DYAD_MOD: DTL mode option set. Setting env %s=%s\n",
                          DYAD_DTL_MODE_ENV,
                          opt->dtl_mode);
+    }
+
+    if (opt->origin_path) {
+        setenv (DYAD_PATH_ORIGIN_ENV, opt->origin_path, 1);
+        DYAD_LOG_STDOUT ("DYAD_MOD: origin_path option set. Setting env %s=%s\n",
+                         DYAD_PATH_ORIGIN_ENV,
+                         opt->origin_path);
     }
 
     char *kvs_namespace = getenv ("DYAD_KVS_NAMESPACE");
@@ -793,7 +1050,7 @@ DYAD_DLL_EXPORTED int mod_main (flux_t *h, int argc, char **argv)
 
     mod_ctx = get_mod_ctx (h);
 
-    opt_parse_out_t opt = {NULL, NULL, false, false};
+    opt_parse_out_t opt = {NULL, NULL, NULL, false, false};
 
     if (DYAD_IS_ERROR (opt_parse (&opt, broker_rank, argc, argv))) {
         DYAD_LOG_STDERR ("DYAD_MOD: Cannot parse command line arguments\n");

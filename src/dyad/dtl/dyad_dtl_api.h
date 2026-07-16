@@ -125,6 +125,49 @@ struct dyad_dtl {
     dyad_rc_t (*rpc_unpack) (const dyad_ctx_t *ctx, const flux_msg_t *packed_obj, char **upath);
 
     /**
+     * @brief Packs a byte-range fetch request into a JSON object for an RPC call.
+     *
+     * @details
+     * Only implemented for @c DYAD_DTL_FLUX_RPC and @c DYAD_DTL_MARGO. Left
+     * @c NULL for @c DYAD_DTL_UCX; callers must check @c ctx->dtl_handle->mode
+     * before invoking this (see @c dyad_consume_range()).
+     *
+     * @param[in]  ctx           DYAD context.
+     * @param[in]  upath         Relative path of the file to fetch from.
+     * @param[in]  producer_rank Flux rank of the producer broker.
+     * @param[in]  offset        Starting byte offset of the requested range.
+     * @param[in]  length        Number of bytes requested.
+     * @param[out] packed_obj    JSON object containing the packed request.
+     * @return @c DYAD_RC_OK on success, or an error code on failure.
+     */
+    dyad_rc_t (*rpc_pack_range) (const dyad_ctx_t *ctx,
+                                 const char *upath,
+                                 uint32_t producer_rank,
+                                 size_t offset,
+                                 size_t length,
+                                 json_t **packed_obj);
+
+    /**
+     * @brief Unpacks a byte-range fetch request from an incoming Flux RPC message.
+     *
+     * @details
+     * Only implemented for @c DYAD_DTL_FLUX_RPC and @c DYAD_DTL_MARGO. Left
+     * @c NULL for @c DYAD_DTL_UCX.
+     *
+     * @param[in]  ctx        DYAD context.
+     * @param[in]  packed_obj Incoming Flux RPC message.
+     * @param[out] upath      Relative path of the requested file.
+     * @param[out] offset     Starting byte offset of the requested range.
+     * @param[out] length     Number of bytes requested.
+     * @return @c DYAD_RC_OK on success, or an error code on failure.
+     */
+    dyad_rc_t (*rpc_unpack_range) (const dyad_ctx_t *ctx,
+                                   const flux_msg_t *packed_obj,
+                                   char **upath,
+                                   size_t *offset,
+                                   size_t *length);
+
+    /**
      * @brief Sends the initial RPC acknowledgement from the service to the consumer.
      *
      * @param[in] ctx      DYAD context.

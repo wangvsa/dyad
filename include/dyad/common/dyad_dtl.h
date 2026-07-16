@@ -94,6 +94,16 @@ typedef enum dyad_dtl_comm_mode dyad_dtl_comm_mode_t;
 #define DYAD_DTL_RPC_NAME "dyad.fetch"
 
 /**
+ * @brief Flux RPC topic name for DYAD byte-range fetch requests.
+ *
+ * @details
+ * Like @c DYAD_DTL_RPC_NAME, but for @c dyad_consume_range() requests
+ * (FLUX_RPC and MARGO DTL modes only). Registered as a separate topic so
+ * the existing whole-file @c DYAD_DTL_RPC_NAME handler is untouched.
+ */
+#define DYAD_DTL_RPC_RANGE_NAME "dyad.fetch_range"
+
+/**
  * @brief Opaque DTL handle.
  *
  * @details
