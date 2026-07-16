@@ -134,3 +134,5 @@ scripts/logs
 tests/integration/dlio_benchmark/perf_analysis/.ipynb_checkpoints
 
 /CLAUDE.md
+/deps
+/source-me.sh
