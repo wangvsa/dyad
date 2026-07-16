@@ -494,5 +494,11 @@ class Dyad:
             )
             return
         res = self.dyad_finalize()
+        # Without this, `initialized` stays True forever, so the guard at
+        # the top of this method never actually prevents a second call --
+        # e.g. an explicit finalize() followed by __del__() at interpreter
+        # exit -- from calling dyad_finalize() twice on already-freed C-side
+        # state (a double-finalize/use-after-free).
+        self.initialized = False
         if int(res) != 0:
             raise RuntimeError("Cannot finalize DYAD!")
