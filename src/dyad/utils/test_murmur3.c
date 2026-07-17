@@ -46,8 +46,8 @@
 
 #include "dyad/utils/murmur3.h"
 
-static int gen_path_key (const char* restrict str,
-                         char* restrict path_key,
+static int gen_path_key (const char *restrict str,
+                         char *restrict path_key,
                          const size_t len,
                          const uint32_t depth,
                          const uint32_t width)
@@ -60,7 +60,7 @@ static int gen_path_key (const char* restrict str,
     char buf[256] = {'\0'};
     size_t cx = 0ul;
     int n = 0;
-    const char* str_long = str;
+    const char *str_long = str;
     size_t str_len = strlen (str);
 
     if (str == NULL || path_key == NULL || len == 0ul || str_len == 0ul) {
@@ -97,7 +97,7 @@ static int gen_path_key (const char* restrict str,
     return 0;
 }
 
-int main (int argc, char** argv)
+int main (int argc, char **argv)
 {
     if (argc < 4) {
         printf ("Usage: %s depth width str1 [str2 [str3 ...]]\n", argv[0]);

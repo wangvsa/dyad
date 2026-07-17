@@ -52,29 +52,29 @@ const struct dyad_ctx dyad_ctx_default = {
     0u,     ///< cons_real_hash
     0u,     ///< delim_len
     // User facing
-    false,  ///< debug
-    false,  ///< check
-    false,  ///< reenter
-    true,   ///< initialized
-    false,  ///< shared_storage
-    false,  ///< async_publish
-    false,  ///< fsync_write
-    3u,     ///< key_depth
-    1024u,  ///< key_bins
-    0u,     ///< rank
-    1u,     ///< service_mux
-    0u,     ///< node_idx
-    -1,     ///< pid
-    NULL,   ///< kvs_namespace
-    NULL,   ///< prod_managed_path
-    NULL,   ///< cons_managed_path
-    false,  ///< relative_to_managed_path
-    NULL,   ///< cache_policy
+    false,            ///< debug
+    false,            ///< check
+    false,            ///< reenter
+    true,             ///< initialized
+    false,            ///< shared_storage
+    false,            ///< async_publish
+    false,            ///< fsync_write
+    3u,               ///< key_depth
+    1024u,            ///< key_bins
+    0u,               ///< rank
+    1u,               ///< service_mux
+    0u,               ///< node_idx
+    -1,               ///< pid
+    NULL,             ///< kvs_namespace
+    NULL,             ///< prod_managed_path
+    NULL,             ///< cons_managed_path
+    false,            ///< relative_to_managed_path
+    NULL,             ///< cache_policy
     DYAD_CACHE_NONE,  ///< cache_policy_mode
-    0ull,   ///< cache_capacity_bytes
-    0.8,    ///< cache_low_watermark_frac
-    5u,     ///< cache_grace_period_sec
-    NULL    ///< origin_path
+    0ull,             ///< cache_capacity_bytes
+    0.8,              ///< cache_low_watermark_frac
+    5u,               ///< cache_grace_period_sec
+    NULL              ///< origin_path
 };
 
 DYAD_DLL_EXPORTED dyad_ctx_t *dyad_ctx_get (void)
@@ -303,12 +303,12 @@ dyad_rc_t dyad_init (bool debug,
     // Initialize the cache-eviction policy. A NULL/unset cache_policy_str
     // is treated as DYAD_CACHE_NONE (eviction disabled) rather than an
     // error, since eviction is opt-in.
-    rc = dyad_set_and_init_cache_policy (
-        (cache_capacity_bytes == 0ull)
-            ? dyad_cache_policy_name[DYAD_CACHE_NONE]
-            : ((cache_policy_str != NULL) ? cache_policy_str
-                                          : dyad_cache_policy_name[DYAD_CACHE_DEFAULT]),
-        cache_capacity_bytes);
+    rc = dyad_set_and_init_cache_policy ((cache_capacity_bytes == 0ull)
+                                             ? dyad_cache_policy_name[DYAD_CACHE_NONE]
+                                             : ((cache_policy_str != NULL)
+                                                    ? cache_policy_str
+                                                    : dyad_cache_policy_name[DYAD_CACHE_DEFAULT]),
+                                         cache_capacity_bytes);
     if (DYAD_IS_ERROR (rc)) {
         DYAD_LOG_ERROR (ctx, "Cannot initialize the cache-eviction policy %s", cache_policy_str);
         goto init_region_failed;
@@ -594,12 +594,12 @@ DYAD_DLL_EXPORTED dyad_rc_t dyad_set_and_init_cache_policy (const char *cache_po
     } else if (strncmp (cache_policy_name,
                         dyad_cache_policy_name[DYAD_CACHE_LRU],
                         cache_policy_name_len)
-              == 0) {
+               == 0) {
         cache_policy_mode = DYAD_CACHE_LRU;
     } else if (strncmp (cache_policy_name,
                         dyad_cache_policy_name[DYAD_CACHE_FIFO],
                         cache_policy_name_len)
-              == 0) {
+               == 0) {
         cache_policy_mode = DYAD_CACHE_FIFO;
     } else {
         DYAD_LOG_STDERR ("Invalid env %s = %s.\n", DYAD_CACHE_POLICY_ENV, cache_policy_name);

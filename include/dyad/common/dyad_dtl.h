@@ -61,7 +61,7 @@ typedef enum dyad_dtl_mode dyad_dtl_mode_t;
  * Marked @c unused to suppress warnings when included in translation
  * units that do not reference it directly.
  */
-static const char* dyad_dtl_mode_name[DYAD_DTL_END + 1]
+static const char *dyad_dtl_mode_name[DYAD_DTL_END + 1]
     __attribute__ ((unused)) = {"UCX", "MARGO", "FLUX_RPC", "DTL_UNKNOWN"};
 
 /**

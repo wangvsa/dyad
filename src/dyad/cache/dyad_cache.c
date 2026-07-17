@@ -38,7 +38,8 @@ dyad_rc_t dyad_cache_scan_dir (const dyad_ctx_t *ctx,
 
     dirp = opendir (managed_path);
     if (dirp == NULL) {
-        DYAD_LOG_ERROR (ctx, "DYAD CACHE: Cannot open managed directory %s for scanning",
+        DYAD_LOG_ERROR (ctx,
+                        "DYAD CACHE: Cannot open managed directory %s for scanning",
                         managed_path);
         return DYAD_RC_BADFIO;
     }
@@ -67,7 +68,8 @@ dyad_rc_t dyad_cache_scan_dir (const dyad_ctx_t *ctx,
             struct dyad_cache_entry *new_entries =
                 realloc (entries, new_capacity * sizeof (struct dyad_cache_entry));
             if (new_entries == NULL) {
-                DYAD_LOG_ERROR (ctx, "DYAD CACHE: Cannot allocate memory while scanning %s",
+                DYAD_LOG_ERROR (ctx,
+                                "DYAD CACHE: Cannot allocate memory while scanning %s",
                                 managed_path);
                 free (entries);
                 closedir (dirp);
@@ -97,8 +99,10 @@ static int dyad_cache_entry_cmp (const void *a, const void *b)
 {
     const struct dyad_cache_entry *ea = (const struct dyad_cache_entry *)a;
     const struct dyad_cache_entry *eb = (const struct dyad_cache_entry *)b;
-    if (ea->recency_key < eb->recency_key) return -1;
-    if (ea->recency_key > eb->recency_key) return 1;
+    if (ea->recency_key < eb->recency_key)
+        return -1;
+    if (ea->recency_key > eb->recency_key)
+        return 1;
     return 0;
 }
 
@@ -123,7 +127,8 @@ dyad_rc_t dyad_cache_maybe_evict (dyad_ctx_t *ctx, const char *managed_path)
         return DYAD_RC_OK;
     }
 
-    if (DYAD_IS_ERROR (dyad_cache_scan_dir (ctx, managed_path, &entries, &n_entries, &total_size))) {
+    if (DYAD_IS_ERROR (
+            dyad_cache_scan_dir (ctx, managed_path, &entries, &n_entries, &total_size))) {
         // Best-effort: a scan failure should not fail the caller's produce/consume.
         return DYAD_RC_OK;
     }
@@ -150,7 +155,8 @@ dyad_rc_t dyad_cache_maybe_evict (dyad_ctx_t *ctx, const char *managed_path)
     }
 
     // Re-check: another process may have already evicted while we waited.
-    if (DYAD_IS_ERROR (dyad_cache_scan_dir (ctx, managed_path, &entries, &n_entries, &total_size))) {
+    if (DYAD_IS_ERROR (
+            dyad_cache_scan_dir (ctx, managed_path, &entries, &n_entries, &total_size))) {
         dyad_release_flock (ctx, lock_fd, &dir_lock);
         close (lock_fd);
         return DYAD_RC_OK;

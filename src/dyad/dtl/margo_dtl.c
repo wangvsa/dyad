@@ -450,15 +450,18 @@ dyad_rc_t dyad_dtl_margo_addr_cache_lookup (const dyad_ctx_t *ctx,
     hg_addr_t addr = HG_ADDR_NULL;
     hg_return_t ret = margo_addr_lookup (margo_handle->mid, addr_str, &addr);
     if (ret != HG_SUCCESS) {
-        DYAD_LOG_ERROR (ctx, "[MARGO DTL] margo_addr_lookup failed for '%s': %d", addr_str, (int)ret);
+        DYAD_LOG_ERROR (ctx,
+                        "[MARGO DTL] margo_addr_lookup failed for '%s': %d",
+                        addr_str,
+                        (int)ret);
         return DYAD_RC_MARGOINIT_FAIL;
     }
 
     if (margo_handle->addr_cache_len == margo_handle->addr_cache_cap) {
         size_t new_cap = margo_handle->addr_cache_cap == 0 ? 8 : margo_handle->addr_cache_cap * 2;
         struct dyad_dtl_margo_addr_cache_entry *grown =
-            (struct dyad_dtl_margo_addr_cache_entry *)realloc (
-                margo_handle->addr_cache, new_cap * sizeof (*grown));
+            (struct dyad_dtl_margo_addr_cache_entry *)realloc (margo_handle->addr_cache,
+                                                               new_cap * sizeof (*grown));
         if (grown == NULL) {
             DYAD_LOG_ERROR (ctx, "[MARGO DTL] Could not grow address cache");
             margo_addr_free (margo_handle->mid, addr);

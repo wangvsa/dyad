@@ -65,7 +65,7 @@ typedef enum dyad_cache_policy_mode dyad_cache_policy_mode_t;
  * Marked @c unused to suppress warnings when included in translation
  * units that do not reference it directly.
  */
-static const char* dyad_cache_policy_name[DYAD_CACHE_END + 1]
+static const char *dyad_cache_policy_name[DYAD_CACHE_END + 1]
     __attribute__ ((unused)) = {"NONE", "LRU", "FIFO", "CACHE_UNKNOWN"};
 
 /**

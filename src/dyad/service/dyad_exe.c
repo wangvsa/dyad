@@ -15,9 +15,9 @@
 #endif
 
 struct dyad_cli_args {
-    char* prod_managed_path;
-    char* dtl_mode;
-    char* origin_path;
+    char *prod_managed_path;
+    char *dtl_mode;
+    char *origin_path;
     bool debug;
 };
 typedef struct dyad_cli_args dyad_cli_args_t;
@@ -27,7 +27,7 @@ static dyad_cli_args_t cli_args = {NULL, NULL, NULL, false};
 
 typedef enum { INVALID_ACTION = -1, ACT_START = 0, ACT_STOP = 1, N_ACT = 2 } action_e;
 
-static char* actions[N_ACT] = {"start", "stop"};
+static char *actions[N_ACT] = {"start", "stop"};
 
 // global variable storing the action to perform
 static action_e action = INVALID_ACTION;
@@ -76,7 +76,7 @@ static void usage (int status)
     exit (status);
 }
 
-static void parse_cmd_arguments (int argc, char** argv)
+static void parse_cmd_arguments (int argc, char **argv)
 {
     int ch = 0;
     int optidx = 2;
@@ -90,7 +90,7 @@ static void parse_cmd_arguments (int argc, char** argv)
                                            {"error_log", required_argument, 0, 'e'},
                                            {"origin_path", required_argument, 0, 'o'},
                                            {0, 0, 0, 0}};
-    static char* short_options = "hdm:i:e:p:o:";
+    static char *short_options = "hdm:i:e:p:o:";
 
     while ((ch = getopt_long (argc, argv, short_options, long_options, &optidx)) >= 0) {
         switch (ch) {
@@ -124,7 +124,7 @@ static void parse_cmd_arguments (int argc, char** argv)
     }
 }
 
-static int fork_exec_wait (char* const argv[])
+static int fork_exec_wait (char *const argv[])
 {
     pid_t pid = fork ();
     if (pid < 0) {
@@ -144,7 +144,7 @@ static int fork_exec_wait (char* const argv[])
     return WIFEXITED (status) ? WEXITSTATUS (status) : EXIT_FAILURE;
 }
 
-int dyad_start_service (dyad_cli_args_t* cli_args)
+int dyad_start_service (dyad_cli_args_t *cli_args)
 {
     // DYAD_INSTALL_LIBDIR is defined in dyad_config.h.in
     char dyad_module_path[PATH_MAX + 1] = {0};
@@ -152,7 +152,7 @@ int dyad_start_service (dyad_cli_args_t* cli_args)
 
     // Fixed-size buffer sized for the largest possible combination of
     // flags below; grow this if another optional flag is added.
-    char* argv[16];
+    char *argv[16];
     int i = 0;
     argv[i++] = "flux";
     argv[i++] = "exec";
@@ -176,16 +176,16 @@ int dyad_start_service (dyad_cli_args_t* cli_args)
     return fork_exec_wait (argv);
 }
 
-int dyad_stop_service (dyad_cli_args_t* cli_args)
+int dyad_stop_service (dyad_cli_args_t *cli_args)
 {
     (void)cli_args;
-    char* const argv[] = {"flux", "exec", "-r", "all", "flux", "module", "remove", "dyad", NULL};
+    char *const argv[] = {"flux", "exec", "-r", "all", "flux", "module", "remove", "dyad", NULL};
     return fork_exec_wait (argv);
 }
 
-int main (int argc, char** argv)
+int main (int argc, char **argv)
 {
-    char* cmd = NULL;
+    char *cmd = NULL;
 
     // Usage: dyad start|stop [options]
     if (argc < 2) {

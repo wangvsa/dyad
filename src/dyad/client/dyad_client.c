@@ -841,8 +841,8 @@ DYAD_DLL_EXPORTED dyad_rc_t dyad_get_data_range (const dyad_ctx_t *restrict ctx,
     DYAD_LOG_DEBUG (ctx, "DYAD CLIENT: Packing ranged payload for RPC to DYAD module");
     DYAD_C_FUNCTION_UPDATE_INT ("owner_rank", mdata->owner_rank);
     DYAD_C_FUNCTION_UPDATE_STR ("fpath", mdata->fpath);
-    rc = ctx->dtl_handle->rpc_pack_range (ctx, mdata->fpath, mdata->owner_rank, offset, length,
-                                          &rpc_payload);
+    rc = ctx->dtl_handle
+             ->rpc_pack_range (ctx, mdata->fpath, mdata->owner_rank, offset, length, &rpc_payload);
     if (DYAD_IS_ERROR (rc)) {
         DYAD_LOG_ERROR (ctx,
                         "Cannot create JSON payload for ranged Flux RPC to "
@@ -900,7 +900,9 @@ get_range_done:;
             rc = DYAD_RC_BADRPC;
         }
     }
-    DYAD_LOG_DEBUG (ctx, "DYAD CLIENT: Read %zd bytes of range from %s file", *file_len,
+    DYAD_LOG_DEBUG (ctx,
+                    "DYAD CLIENT: Read %zd bytes of range from %s file",
+                    *file_len,
                     mdata->fpath);
     DYAD_LOG_DEBUG (ctx, "DYAD CLIENT: Destroy the Flux future for the RPC.");
     flux_future_destroy (f);

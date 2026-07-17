@@ -217,7 +217,8 @@ DYAD_DLL_EXPORTED dyad_rc_t dyad_init (bool debug,
  *  | @c DYAD_CACHE_POLICY       | @c LRU           | Cache-eviction policy: LRU/FIFO/NONE     |
  *  | @c DYAD_CACHE_LOW_WATERMARK | @c 0.8          | Fraction of capacity to evict down to    |
  *  | @c DYAD_CACHE_GRACE_PERIOD | @c 5             | Skip candidates accessed within N seconds |
- *  | @c DYAD_PATH_ORIGIN        | @c NULL (disabled) | Fallback path for lazy origin-backed range caching |
+ *  | @c DYAD_PATH_ORIGIN        | @c NULL (disabled) | Fallback path for lazy origin-backed range
+ * caching |
  *
  * If @c DYAD_DTL_MODE is not set, defaults to @c DYAD_DTL_DEFAULT and logs
  * a warning to @c stderr.
