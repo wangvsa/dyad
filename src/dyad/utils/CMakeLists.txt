@@ -22,6 +22,7 @@ add_library(${PROJECT_NAME}_utils SHARED ${DYAD_UTILS_SRC}
 target_link_libraries(${PROJECT_NAME}_utils PUBLIC
                       ${PROJECT_NAME}_base64
                       ${PROJECT_NAME}_murmur3
+                      flux::core
                       Threads::Threads)
 
 if(DYAD_LOGGER STREQUAL "CPP_LOGGER")
@@ -35,6 +36,7 @@ target_compile_definitions(${PROJECT_NAME}_utils PUBLIC DYAD_HAS_CONFIG)
 target_include_directories(${PROJECT_NAME}_utils PUBLIC
     $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/src>
     $<INSTALL_INTERFACE:${DYAD_INSTALL_INCLUDEDIR}>)
+target_include_directories(${PROJECT_NAME}_utils SYSTEM PRIVATE ${FluxCore_INCLUDE_DIRS})
 
 add_library(${PROJECT_NAME}_murmur3 SHARED ${DYAD_MURMUR3_SRC})
 # set_target_properties(${PROJECT_NAME}_murmur3 PROPERTIES CMAKE_INSTALL_RPATH
