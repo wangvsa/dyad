@@ -334,10 +334,8 @@ getctx_done:
 #if DYAD_PERFFLOW
 __attribute__ ((annotate ("@critical_path()")))
 #endif
-static void dyad_fetch_request_cb (flux_t *h,
-                                   flux_msg_handler_t *w,
-                                   const flux_msg_t *msg,
-                                   void *arg)
+static void
+dyad_fetch_request_cb (flux_t *h, flux_msg_handler_t *w, const flux_msg_t *msg, void *arg)
 {
     DYAD_C_FUNCTION_START ();
     dyad_mod_ctx_t *mod_ctx = get_mod_ctx (h);
@@ -888,10 +886,8 @@ static void dyad_fetch_pool_stop (dyad_mod_ctx_t *mod_ctx)
 #if DYAD_PERFFLOW
 __attribute__ ((annotate ("@critical_path()")))
 #endif
-static void dyad_fetch_range_request_cb (flux_t *h,
-                                         flux_msg_handler_t *w,
-                                         const flux_msg_t *msg,
-                                         void *arg)
+static void
+dyad_fetch_range_request_cb (flux_t *h, flux_msg_handler_t *w, const flux_msg_t *msg, void *arg)
 {
     DYAD_C_FUNCTION_START ();
     dyad_mod_ctx_t *mod_ctx = get_mod_ctx (h);
