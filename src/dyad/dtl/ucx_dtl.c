@@ -815,6 +815,13 @@ dyad_rc_t dyad_dtl_ucx_init (const dyad_ctx_t *ctx,
 
     ctx->dtl_handle->rpc_pack = dyad_dtl_ucx_rpc_pack;
     ctx->dtl_handle->rpc_unpack = dyad_dtl_ucx_rpc_unpack;
+    // Byte-range fetch (dyad_consume_range()) is only implemented for
+    // FLUX_RPC and MARGO. Explicitly NULL here (ctx->dtl_handle is malloc'd,
+    // not zero-initialized) rather than leaving these uninitialized, even
+    // though dyad_consume_range() gates on ctx->dtl_handle->mode before ever
+    // dereferencing them.
+    ctx->dtl_handle->rpc_pack_range = NULL;
+    ctx->dtl_handle->rpc_unpack_range = NULL;
     ctx->dtl_handle->rpc_respond = dyad_dtl_ucx_rpc_respond;
     ctx->dtl_handle->rpc_recv_response = dyad_dtl_ucx_rpc_recv_response;
     ctx->dtl_handle->get_buffer = dyad_dtl_ucx_get_buffer;
@@ -823,6 +830,15 @@ dyad_rc_t dyad_dtl_ucx_init (const dyad_ctx_t *ctx,
     ctx->dtl_handle->send = dyad_dtl_ucx_send;
     ctx->dtl_handle->recv = dyad_dtl_ucx_recv;
     ctx->dtl_handle->close_connection = dyad_dtl_ucx_close_connection;
+    // Detached/threaded servicing (worker-thread offload in
+    // dyad_fetch_range_request_cb()) is only implemented for FLUX_RPC and
+    // MARGO. Leaving rpc_detach_request NULL makes the module fall back to
+    // its fully-synchronous inline path for UCX, unchanged from before
+    // that offload existed.
+    ctx->dtl_handle->rpc_detach_request = NULL;
+    ctx->dtl_handle->rpc_send_detached = NULL;
+    ctx->dtl_handle->rpc_abort_detached = NULL;
+    ctx->dtl_handle->send_detached_is_thread_safe = false;
 
     rc = ucx_warmup (ctx);
     if (DYAD_IS_ERROR (rc)) {

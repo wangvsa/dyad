@@ -4,6 +4,8 @@
 #error "no config"
 #endif
 
+#include <dyad/cache/dyad_cache_api.h>
+#include <dyad/cache/dyad_cache_int.h>
 #include <dyad/common/dyad_envs.h>
 #include <dyad/common/dyad_logging.h>
 #include <dyad/common/dyad_profiler.h>
@@ -50,23 +52,29 @@ const struct dyad_ctx dyad_ctx_default = {
     0u,     ///< cons_real_hash
     0u,     ///< delim_len
     // User facing
-    false,  ///< debug
-    false,  ///< check
-    false,  ///< reenter
-    true,   ///< initialized
-    false,  ///< shared_storage
-    false,  ///< async_publish
-    false,  ///< fsync_write
-    3u,     ///< key_depth
-    1024u,  ///< key_bins
-    0u,     ///< rank
-    1u,     ///< service_mux
-    0u,     ///< node_idx
-    -1,     ///< pid
-    NULL,   ///< kvs_namespace
-    NULL,   ///< prod_managed_path
-    NULL,   ///< cons_managed_path
-    false   ///< relative_to_managed_path
+    false,            ///< debug
+    false,            ///< check
+    false,            ///< reenter
+    true,             ///< initialized
+    false,            ///< shared_storage
+    false,            ///< async_publish
+    false,            ///< fsync_write
+    3u,               ///< key_depth
+    1024u,            ///< key_bins
+    0u,               ///< rank
+    1u,               ///< service_mux
+    0u,               ///< node_idx
+    -1,               ///< pid
+    NULL,             ///< kvs_namespace
+    NULL,             ///< prod_managed_path
+    NULL,             ///< cons_managed_path
+    false,            ///< relative_to_managed_path
+    NULL,             ///< cache_policy
+    DYAD_CACHE_NONE,  ///< cache_policy_mode
+    0ull,             ///< cache_capacity_bytes
+    0.8,              ///< cache_low_watermark_frac
+    5u,               ///< cache_grace_period_sec
+    NULL              ///< origin_path
 };
 
 DYAD_DLL_EXPORTED dyad_ctx_t *dyad_ctx_get (void)
@@ -128,7 +136,12 @@ dyad_rc_t dyad_init (bool debug,
                      bool relative_to_managed_path,
                      const char *dtl_mode_str,
                      const dyad_dtl_comm_mode_t dtl_comm_mode,
-                     void *flux_handle)
+                     void *flux_handle,
+                     uint64_t cache_capacity_bytes,
+                     const char *cache_policy_str,
+                     double cache_low_watermark,
+                     unsigned int cache_grace_period_sec,
+                     const char *origin_path)
 {
     DYAD_LOGGER_INIT ();
     unsigned my_rank = 0u;
@@ -198,6 +211,9 @@ dyad_rc_t dyad_init (bool debug,
     ctx->fsync_write = fsync_write;
     ctx->key_depth = key_depth;
     ctx->key_bins = key_bins;
+    ctx->cache_capacity_bytes = cache_capacity_bytes;
+    ctx->cache_low_watermark_frac = cache_low_watermark;
+    ctx->cache_grace_period_sec = cache_grace_period_sec;
 
     // Open a Flux handle and store it in the dyad_ctx_t
     // object. If the open operation failed, return DYAD_FLUXFAIL
@@ -261,12 +277,40 @@ dyad_rc_t dyad_init (bool debug,
         DYAD_LOG_DEBUG (ctx, "DYAD_CORE: kvs_namespace %s", ctx->kvs_namespace);
     }
 
+    // Origin path is a plain fallback-read prefix, not part of the HFL key
+    // scheme -- unlike prod/cons managed paths, no hashing or realpath()
+    // resolution is needed, just a copy.
+    ctx->origin_path = NULL;
+    if (origin_path != NULL && strlen (origin_path) > 0ul) {
+        size_t origin_path_len = strlen (origin_path);
+        ctx->origin_path = (char *)calloc (origin_path_len + 1, sizeof (char));
+        if (ctx->origin_path == NULL) {
+            DYAD_LOG_ERROR (ctx, "Could not allocate buffer for origin path!\n");
+            goto init_region_failed;
+        }
+        memcpy (ctx->origin_path, origin_path, origin_path_len + 1);
+    }
+
     // Initialize the DTL based on the value of dtl_mode
     // If an error occurs, log it and return an error
     DYAD_LOG_DEBUG (ctx, "DYAD_CORE: inintializing DYAD DTL %s", dtl_mode_str);
     rc = dyad_set_and_init_dtl_mode (dtl_mode_str, dtl_comm_mode);
     if (DYAD_IS_ERROR (rc)) {
         DYAD_LOG_ERROR (ctx, "Cannot initialize the DTL %s", dtl_mode_str);
+        goto init_region_failed;
+    }
+
+    // Initialize the cache-eviction policy. A NULL/unset cache_policy_str
+    // is treated as DYAD_CACHE_NONE (eviction disabled) rather than an
+    // error, since eviction is opt-in.
+    rc = dyad_set_and_init_cache_policy ((cache_capacity_bytes == 0ull)
+                                             ? dyad_cache_policy_name[DYAD_CACHE_NONE]
+                                             : ((cache_policy_str != NULL)
+                                                    ? cache_policy_str
+                                                    : dyad_cache_policy_name[DYAD_CACHE_DEFAULT]),
+                                         cache_capacity_bytes);
+    if (DYAD_IS_ERROR (rc)) {
+        DYAD_LOG_ERROR (ctx, "Cannot initialize the cache-eviction policy %s", cache_policy_str);
         goto init_region_failed;
     }
 
@@ -341,6 +385,11 @@ DYAD_DLL_EXPORTED dyad_rc_t dyad_init_env (const dyad_dtl_comm_mode_t dtl_comm_m
     const char *prod_managed_path = NULL;
     const char *cons_managed_path = NULL;
     const char *dtl_mode = NULL;
+    uint64_t cache_capacity_bytes = 0ull;
+    const char *cache_policy_str = NULL;
+    double cache_low_watermark = 0.8;
+    unsigned int cache_grace_period_sec = 5u;
+    const char *origin_path = NULL;
 
     if ((e = getenv (DYAD_SYNC_DEBUG_ENV))) {
         debug = true;
@@ -427,6 +476,36 @@ DYAD_DLL_EXPORTED dyad_rc_t dyad_init_env (const dyad_dtl_comm_mode_t dtl_comm_m
         DYAD_LOG_STDERR ("%s is not set. Defaulting to %s\n", DYAD_DTL_MODE_ENV, dtl_mode);
     }
 
+    if ((e = getenv (DYAD_CACHE_CAPACITY_ENV))) {
+        cache_capacity_bytes = strtoull (e, NULL, 10);
+    } else {
+        cache_capacity_bytes = 0ull;  // disabled by default
+    }
+
+    if ((e = getenv (DYAD_CACHE_POLICY_ENV))) {
+        cache_policy_str = e;
+    } else {
+        cache_policy_str = dyad_cache_policy_name[DYAD_CACHE_DEFAULT];
+    }
+
+    if ((e = getenv (DYAD_CACHE_LOW_WATERMARK_ENV))) {
+        cache_low_watermark = atof (e);
+    } else {
+        cache_low_watermark = 0.8;
+    }
+
+    if ((e = getenv (DYAD_CACHE_GRACE_PERIOD_ENV))) {
+        cache_grace_period_sec = atoi (e);
+    } else {
+        cache_grace_period_sec = 5u;
+    }
+
+    if ((e = getenv (DYAD_PATH_ORIGIN_ENV))) {
+        origin_path = e;
+    } else {
+        origin_path = NULL;
+    }
+
     dyad_rc_t rc = dyad_init (debug,
                               check,
                               shared_storage,
@@ -442,7 +521,12 @@ DYAD_DLL_EXPORTED dyad_rc_t dyad_init_env (const dyad_dtl_comm_mode_t dtl_comm_m
                               relative_to_managed_path,
                               dtl_mode,
                               dtl_comm_mode,
-                              flux_handle);
+                              flux_handle,
+                              cache_capacity_bytes,
+                              cache_policy_str,
+                              cache_low_watermark,
+                              cache_grace_period_sec,
+                              origin_path);
     return rc;
 }
 
@@ -485,6 +569,64 @@ DYAD_DLL_EXPORTED dyad_rc_t dyad_set_and_init_dtl_mode (const char *dtl_name,
     }
 
 set_and_init_dtl_mode_region_finish:;
+    DYAD_C_FUNCTION_END ();
+    return rc;
+}
+
+DYAD_DLL_EXPORTED dyad_rc_t dyad_set_and_init_cache_policy (const char *cache_policy_name,
+                                                            uint64_t cache_capacity_bytes)
+{
+    int rc = DYAD_RC_OK;
+    size_t cache_policy_name_len = 0ul;
+    dyad_cache_policy_mode_t cache_policy_mode = DYAD_CACHE_NONE;
+
+    DYAD_C_FUNCTION_START ();
+
+    if (!cache_policy_name) {
+        DYAD_C_FUNCTION_END ();
+        return DYAD_RC_BADCACHEMODE;
+    }
+
+    cache_policy_name_len = strlen (cache_policy_name);
+    if (strncmp (cache_policy_name, dyad_cache_policy_name[DYAD_CACHE_NONE], cache_policy_name_len)
+        == 0) {
+        cache_policy_mode = DYAD_CACHE_NONE;
+    } else if (strncmp (cache_policy_name,
+                        dyad_cache_policy_name[DYAD_CACHE_LRU],
+                        cache_policy_name_len)
+               == 0) {
+        cache_policy_mode = DYAD_CACHE_LRU;
+    } else if (strncmp (cache_policy_name,
+                        dyad_cache_policy_name[DYAD_CACHE_FIFO],
+                        cache_policy_name_len)
+               == 0) {
+        cache_policy_mode = DYAD_CACHE_FIFO;
+    } else {
+        DYAD_LOG_STDERR ("Invalid env %s = %s.\n", DYAD_CACHE_POLICY_ENV, cache_policy_name);
+        DYAD_C_FUNCTION_END ();
+        return DYAD_RC_BADCACHEMODE;
+    }
+    // A capacity of 0 always disables eviction, regardless of the
+    // requested policy name.
+    if (cache_capacity_bytes == 0ull) {
+        cache_policy_mode = DYAD_CACHE_NONE;
+    }
+    ctx->cache_policy_mode = cache_policy_mode;
+
+    // If ctx->cache_policy is already null, it will just return success
+    rc = dyad_cache_policy_finalize (ctx);
+    if (DYAD_IS_ERROR (rc)) {
+        goto set_and_init_cache_policy_region_finish;
+    }
+
+    rc = dyad_cache_policy_init (ctx, cache_policy_mode);
+    if (DYAD_IS_ERROR (rc)) {
+        DYAD_LOG_ERROR (ctx,
+                        "Cannot initialize the cache-eviction policy %s\n",
+                        dyad_cache_policy_name[cache_policy_mode]);
+    }
+
+set_and_init_cache_policy_region_finish:;
     DYAD_C_FUNCTION_END ();
     return rc;
 }
@@ -751,6 +893,7 @@ DYAD_DLL_EXPORTED dyad_rc_t dyad_clear (void)
         goto clear_region_finish;
     }
     dyad_dtl_finalize (ctx);
+    dyad_cache_policy_finalize (ctx);
     if (ctx->h != NULL) {
         flux_close (ctx->h);
         ctx->h = NULL;
@@ -774,6 +917,10 @@ DYAD_DLL_EXPORTED dyad_rc_t dyad_clear (void)
     if (ctx->cons_real_path != NULL) {
         free (ctx->cons_real_path);
         ctx->cons_real_path = NULL;
+    }
+    if (ctx->origin_path != NULL) {
+        free (ctx->origin_path);
+        ctx->origin_path = NULL;
     }
     rc = DYAD_RC_OK;
 clear_region_finish:;

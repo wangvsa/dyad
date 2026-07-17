@@ -132,4 +132,72 @@
  */
 #define DYAD_MARGO_PROTO_ENV "DYAD_MARGO_PROTO"
 
+/**
+ * @brief Maximum bytes DYAD may use in a managed directory before evicting
+ *        cached files.
+ *
+ * @details
+ * @c 0 (the default) disables eviction entirely, preserving prior
+ * behavior for deployments that don't opt in.
+ */
+#define DYAD_CACHE_CAPACITY_ENV "DYAD_CACHE_CAPACITY"
+
+/**
+ * @brief Cache-eviction policy to use once @c DYAD_CACHE_CAPACITY is set.
+ *
+ * @details
+ * Valid values: @c LRU (default), @c FIFO, @c NONE. Ignored if
+ * @c DYAD_CACHE_CAPACITY is @c 0.
+ */
+#define DYAD_CACHE_POLICY_ENV "DYAD_CACHE_POLICY"
+
+/**
+ * @brief Fraction (0..1) of @c DYAD_CACHE_CAPACITY to evict down to once
+ *        eviction triggers.
+ *
+ * @details
+ * Evicting to a low-water mark rather than the exact capacity limit
+ * avoids evicting on every single produce/consume call while usage
+ * hovers at the boundary. Default: @c 0.8.
+ */
+#define DYAD_CACHE_LOW_WATERMARK_ENV "DYAD_CACHE_LOW_WATERMARK"
+
+/**
+ * @brief Skip eviction candidates accessed more recently than this many
+ *        seconds.
+ *
+ * @details
+ * Guards against evicting a file that may still be mid-access by another
+ * process. Default: @c 5.
+ */
+#define DYAD_CACHE_GRACE_PERIOD_ENV "DYAD_CACHE_GRACE_PERIOD"
+
+/**
+ * @brief Fallback source path (e.g. on the parallel file system) used by
+ *        @c dyad_range_cache_ensure() to lazily fill missing spans of a
+ *        DYAD-managed file on demand.
+ *
+ * @details
+ * Unset (the default) preserves prior behavior: managed files must already
+ * be fully present locally (e.g. pre-staged), and byte-range fetch never
+ * consults an origin.
+ */
+#define DYAD_PATH_ORIGIN_ENV "DYAD_PATH_ORIGIN"
+
+/**
+ * @brief Number of worker threads the DYAD Flux module uses to service
+ *        @c dyad.fetch_range RPCs (@c dyad_fetch_range_request_cb()).
+ *
+ * @details
+ * The module's single Flux reactor thread hands each byte-range fetch's
+ * blocking file I/O (and, on the Margo DTL, the RDMA send itself) off to
+ * this worker pool instead of doing it inline, so concurrent requests from
+ * different ranks/nodes don't serialize behind whichever one happened to
+ * arrive first. Read directly via @c getenv() in @c mod_main(), not
+ * through @c dyad_init_env(), since it configures the module's own
+ * internal servicing, not context state shared with client processes.
+ * Default: @c 8.
+ */
+#define DYAD_FETCH_WORKER_THREADS_ENV "DYAD_FETCH_WORKER_THREADS"
+
 #endif  // DYAD_COMMON_DYAD_ENVS_H

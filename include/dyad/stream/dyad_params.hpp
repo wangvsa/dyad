@@ -17,7 +17,9 @@
 #error "no config"
 #endif
 
+#include <dyad/common/dyad_cache.h>
 #include <dyad/common/dyad_dtl.h>
+#include <cstdint>
 #include <string>
 
 namespace dyad
@@ -81,6 +83,24 @@ struct dyad_params {
     /// A relative path is relative to a managed path
     bool m_relative_to_managed_path;
 
+    /// Maximum bytes DYAD may use in a managed directory before evicting
+    /// cached files. 0 (default) disables eviction.
+    uint64_t m_cache_capacity_bytes;
+    /// Cache-eviction policy name ("LRU", "FIFO", or "NONE"). Ignored if
+    /// m_cache_capacity_bytes is 0.
+    std::string m_cache_policy;
+    /// Fraction (0..1) of m_cache_capacity_bytes to evict down to once
+    /// eviction triggers.
+    double m_cache_low_watermark;
+    /// Skip eviction candidates accessed more recently than this many seconds.
+    unsigned int m_cache_grace_period_sec;
+
+    /// Optional fallback source path (e.g. on the parallel file system) used
+    /// by dyad_range_cache_ensure() to lazily fill missing spans of a
+    /// managed file on demand. Empty (default) disables lazy origin-backed
+    /// caching.
+    std::string m_origin_path;
+
     /**
      * @brief Constructs a @c dyad_params object with safe default values.
      *
@@ -104,7 +124,12 @@ struct dyad_params {
           m_kvs_namespace (""),
           m_cons_managed_path (""),
           m_prod_managed_path (""),
-          m_relative_to_managed_path (false)
+          m_relative_to_managed_path (false),
+          m_cache_capacity_bytes (0ull),
+          m_cache_policy (dyad_cache_policy_name[DYAD_CACHE_NONE]),
+          m_cache_low_watermark (0.8),
+          m_cache_grace_period_sec (5u),
+          m_origin_path ("")
     {
     }
 };

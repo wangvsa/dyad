@@ -43,7 +43,18 @@ variables is shown below.
 |                                    |                 |              |          |                                                                 |
 |                                    |                 |              |          | hierarchical KVS within DYAD's namespace.                       |
 +------------------------------------+-----------------+--------------+----------+-----------------------------------------------------------------+
-
+| :code:`DYAD_CACHE_CAPACITY`        | Integer (bytes) | No           | 0        | Maximum bytes DYAD may use in a managed directory before        |
+|                                    |                 |              |          | evicting files. 0 (default) disables eviction entirely.         |
++------------------------------------+-----------------+--------------+----------+-----------------------------------------------------------------+
+| :code:`DYAD_CACHE_POLICY`          | String          | No           | LRU      | Eviction policy: :code:`LRU`, :code:`FIFO`, or :code:`NONE`.    |
+|                                    |                 |              |          | Ignored if :code:`DYAD_CACHE_CAPACITY` is 0.                    |
++------------------------------------+-----------------+--------------+----------+-----------------------------------------------------------------+
+| :code:`DYAD_CACHE_LOW_WATERMARK`   | Float (0..1)    | No           | 0.8      | Fraction of :code:`DYAD_CACHE_CAPACITY` to evict down to once   |
+|                                    |                 |              |          | eviction triggers.                                              |
++------------------------------------+-----------------+--------------+----------+-----------------------------------------------------------------+
+| :code:`DYAD_CACHE_GRACE_PERIOD`    | Integer (sec)   | No           | 5        | Skip eviction candidates accessed more recently than this many  |
+|                                    |                 |              |          | seconds.                                                        |
++------------------------------------+-----------------+--------------+----------+-----------------------------------------------------------------+
 .. [#two] For DYAD to do anything, at least one of :code:`DYAD_PATH_PRODUCER` or :code:`DYAD_PATH_CONSUMER` must be provided.
    Applications will still work if neither are provided, but DYAD will not do anything.
 

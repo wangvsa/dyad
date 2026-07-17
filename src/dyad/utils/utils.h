@@ -459,6 +459,33 @@ dyad_rc_t dyad_excl_flock (const dyad_ctx_t *__restrict__ ctx,
                            int fd,
                            struct flock *__restrict__ lock);
 /**
+ * @brief Attempts to acquire an exclusive (write) lock without blocking.
+ *
+ * @details
+ * Sets a POSIX write lock (@c F_WRLCK) over the entire file using @c fcntl()
+ * with @c F_SETLK (non-blocking), returning immediately instead of waiting
+ * if the lock cannot be acquired. Used by the cache evictor to skip a
+ * candidate file that is currently locked by another in-flight
+ * @c dyad_produce()/@c dyad_consume() call, rather than blocking on it.
+ *
+ * If @p lock is @c NULL, the function returns without taking any action.
+ *
+ * @param[in]  ctx   DYAD context.
+ * @param[in]  fd    File descriptor of the open file to lock.
+ * @param[out] lock  Pointer to a @c flock structure populated by this function.
+ *                   Must not be @c NULL. The structure is used for subsequent
+ *                   unlock calls via @c dyad_release_flock().
+ *
+ * @return @c dyad_rc_t    Return code indicating the outcome:
+ * @retval DYAD_RC_OK      The lock was successfully acquired.
+ * @retval DYAD_RC_BUSY    The lock is currently held by another process.
+ * @retval DYAD_RC_BADFIO  The @c fcntl() call failed for a reason other than
+ *                        the lock being held (e.g. bad file descriptor).
+ */
+dyad_rc_t dyad_try_excl_flock (const dyad_ctx_t *__restrict__ ctx,
+                               int fd,
+                               struct flock *__restrict__ lock);
+/**
  * @brief Acquires a shared (read) lock on an open file descriptor.
  *
  * @details

@@ -261,6 +261,59 @@ DYAD_PFA_ANNOTATE DYAD_DLL_EXPORTED dyad_rc_t dyad_consume (dyad_ctx_t *ctx, con
 DYAD_PFA_ANNOTATE DYAD_DLL_EXPORTED dyad_rc_t
 dyad_consume_w_metadata (dyad_ctx_t *ctx, const char *fname, const dyad_metadata_t *mdata);
 
+/**
+ * @brief Fetches a byte range of a file without materializing a local copy.
+ *
+ * @details
+ * Unlike @c dyad_consume()/@c dyad_consume_w_metadata(), which always
+ * materialize a complete local file (required for GOTCHA @c open()
+ * interception compatibility), this function returns the requested
+ * @p [offset, offset + length) range of @p fname directly to the caller as
+ * an in-memory buffer -- no local file is created or written. Intended for
+ * callers (e.g. the pydyad HDF/flat-cache binding) that only need raw bytes,
+ * not a file descriptor.
+ *
+ * The file must already have been published via @c dyad_produce() by some
+ * rank (its full contents staged there beforehand -- this function does not
+ * stage or copy files, only fetches a sub-range of one that's already fully
+ * present somewhere). Behavior:
+ *  1. Resolves @p fname to a path relative to the consumer-managed
+ *     directory, same as @c dyad_consume().
+ *  2. Calls the existing @c dyad_fetch_metadata() unchanged: if the file is
+ *     already present on this node (KVS lookup returns @c NULL), reads
+ *     @p [offset, length) directly from the local copy via @c pread() --
+ *     no RPC. Otherwise, issues a byte-range RPC to the owning rank
+ *     returned in the metadata.
+ *  3. Only implemented for @c DYAD_DTL_FLUX_RPC and @c DYAD_DTL_MARGO --
+ *     returns @c DYAD_RC_BADDTLMODE immediately under @c DYAD_DTL_UCX.
+ *
+ * @param[in]  ctx      Pointer to the DYAD context. Must not be @c NULL.
+ * @param[in]  fname    Path to the file to fetch from. Must not be @c NULL.
+ * @param[in]  offset   Starting byte offset of the requested range.
+ * @param[in]  length   Number of bytes requested.
+ * @param[out] data     Set to a newly allocated buffer containing the
+ *                       requested bytes. The caller must @c free() it.
+ * @param[out] data_len Set to the number of bytes actually returned in
+ *                       @p data (normally equal to @p length).
+ *
+ * @return @c dyad_rc_t return code indicating the outcome:
+ * @retval DYAD_RC_OK           The requested range was retrieved successfully.
+ * @retval DYAD_RC_NOCTX        The context @p ctx or its Flux handle is @c NULL.
+ * @retval DYAD_RC_BADMANAGEDPATH The consumer-managed path in the context is @c NULL.
+ * @retval DYAD_RC_BADDTLMODE   The active DTL mode is @c DYAD_DTL_UCX, which
+ *                              does not implement byte-range fetch.
+ * @retval DYAD_RC_BADFIO       A local @c pread() failed.
+ * @retval DYAD_RC_*            Any error code propagated from
+ *                              @c dyad_fetch_metadata() or the internal
+ *                              RPC/DTL path.
+ */
+DYAD_PFA_ANNOTATE DYAD_DLL_EXPORTED dyad_rc_t dyad_consume_range (dyad_ctx_t *ctx,
+                                                                  const char *fname,
+                                                                  size_t offset,
+                                                                  size_t length,
+                                                                  void **data,
+                                                                  size_t *data_len);
+
 #ifdef __cplusplus
 }
 #endif

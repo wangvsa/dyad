@@ -62,7 +62,7 @@ namespace dyad
  */
 template <typename _Path,
           typename _Result = _Path,
-          typename _Path2 = decltype (std::declval<_Path&> ().make_preferred ().filename ())>
+          typename _Path2 = decltype (std::declval<_Path &> ().make_preferred ().filename ())>
 using dyad_if_fs_path = std::enable_if_t<std::is_same_v<_Path, _Path2>, _Result>;
 #endif  // c++17 filesystem
 
@@ -98,7 +98,7 @@ using dyad_if_fs_path = std::enable_if_t<std::is_same_v<_Path, _Path2>, _Result>
  *       https://stackoverflow.com/questions/676787 for background.
  */
 template <typename _CharT, typename _Traits>
-void fsync_ofstream (std::basic_ofstream<_CharT, _Traits>& os)
+void fsync_ofstream (std::basic_ofstream<_CharT, _Traits> &os)
 {
 #if defined(DYAD_HAS_STD_FSTREAM_FD)
     class my_filebuf : public std::basic_filebuf<_CharT>
@@ -112,7 +112,7 @@ void fsync_ofstream (std::basic_ofstream<_CharT, _Traits>& os)
 
     if (os.is_open ()) {
         os.flush ();
-        fsync (static_cast<my_filebuf&> (*os.rdbuf ()).handle ());
+        fsync (static_cast<my_filebuf &> (*os.rdbuf ()).handle ());
     }
 #else
     if (os.is_open ()) {
@@ -133,7 +133,7 @@ void fsync_ofstream (std::basic_ofstream<_CharT, _Traits>& os)
  * @param[in,out] os  File stream to flush and sync.
  */
 template <typename _CharT, typename _Traits>
-void fsync_fstream (std::basic_fstream<_CharT, _Traits>& os)
+void fsync_fstream (std::basic_fstream<_CharT, _Traits> &os)
 {
 #if defined(DYAD_HAS_STD_FSTREAM_FD)
     class my_filebuf : public std::basic_filebuf<_CharT>
@@ -147,7 +147,7 @@ void fsync_fstream (std::basic_fstream<_CharT, _Traits>& os)
 
     if (os.is_open ()) {
         os.flush ();
-        fsync (static_cast<my_filebuf&> (*os.rdbuf ()).handle ());
+        fsync (static_cast<my_filebuf &> (*os.rdbuf ()).handle ());
     }
 #else
     if (os.is_open ()) {
@@ -175,8 +175,8 @@ void fsync_fstream (std::basic_fstream<_CharT, _Traits>& os)
  *       across all standard library implementations.
  */
 template <typename _CharT, typename _Traits>
-void lock_exclusive_ofstream (std::basic_ofstream<_CharT, _Traits>& os,
-                              const dyad_stream_core& core)
+void lock_exclusive_ofstream (std::basic_ofstream<_CharT, _Traits> &os,
+                              const dyad_stream_core &core)
 {
     class my_filebuf : public std::basic_filebuf<_CharT>
     {
@@ -188,7 +188,7 @@ void lock_exclusive_ofstream (std::basic_ofstream<_CharT, _Traits>& os,
     };
 
     if (os.is_open ()) {
-        int fd = static_cast<my_filebuf&> (*os.rdbuf ()).handle ();
+        int fd = static_cast<my_filebuf &> (*os.rdbuf ()).handle ();
         core.file_lock_exclusive (fd);
     }
 }
@@ -206,7 +206,7 @@ void lock_exclusive_ofstream (std::basic_ofstream<_CharT, _Traits>& os,
  * @param[in]     core  DYAD stream core providing the locking operation.
  */
 template <typename _CharT, typename _Traits>
-void lock_exclusive_fstream (std::basic_fstream<_CharT, _Traits>& os, const dyad_stream_core& core)
+void lock_exclusive_fstream (std::basic_fstream<_CharT, _Traits> &os, const dyad_stream_core &core)
 {
     class my_filebuf : public std::basic_filebuf<_CharT>
     {
@@ -218,7 +218,7 @@ void lock_exclusive_fstream (std::basic_fstream<_CharT, _Traits>& os, const dyad
     };
 
     if (os.is_open ()) {
-        int fd = static_cast<my_filebuf&> (*os.rdbuf ()).handle ();
+        int fd = static_cast<my_filebuf &> (*os.rdbuf ()).handle ();
         core.file_lock_exclusive (fd);
     }
 }
@@ -240,7 +240,7 @@ void lock_exclusive_fstream (std::basic_fstream<_CharT, _Traits>& os, const dyad
  *       across all standard library implementations.
  */
 template <typename _CharT, typename _Traits>
-void lock_shared_ifstream (std::basic_ifstream<_CharT, _Traits>& is, const dyad_stream_core& core)
+void lock_shared_ifstream (std::basic_ifstream<_CharT, _Traits> &is, const dyad_stream_core &core)
 {
     class my_filebuf : public std::basic_filebuf<_CharT>
     {
@@ -252,7 +252,7 @@ void lock_shared_ifstream (std::basic_ifstream<_CharT, _Traits>& is, const dyad_
     };
 
     if (is.is_open ()) {
-        int fd = static_cast<my_filebuf&> (*is.rdbuf ()).handle ();
+        int fd = static_cast<my_filebuf &> (*is.rdbuf ()).handle ();
         core.file_lock_shared (fd);
     }
 }
@@ -269,7 +269,7 @@ void lock_shared_ifstream (std::basic_ifstream<_CharT, _Traits>& is, const dyad_
  * @param[in]     core  DYAD stream core providing the locking operation.
  */
 template <typename _CharT, typename _Traits>
-void lock_shared_fstream (std::basic_fstream<_CharT, _Traits>& is, const dyad_stream_core& core)
+void lock_shared_fstream (std::basic_fstream<_CharT, _Traits> &is, const dyad_stream_core &core)
 {
     class my_filebuf : public std::basic_filebuf<_CharT>
     {
@@ -281,7 +281,7 @@ void lock_shared_fstream (std::basic_fstream<_CharT, _Traits>& is, const dyad_st
     };
 
     if (is.is_open ()) {
-        int fd = static_cast<my_filebuf&> (*is.rdbuf ()).handle ();
+        int fd = static_cast<my_filebuf &> (*is.rdbuf ()).handle ();
         core.file_lock_shared (fd);
     }
 }
@@ -303,7 +303,7 @@ void lock_shared_fstream (std::basic_fstream<_CharT, _Traits>& is, const dyad_st
  *       across all standard library implementations.
  */
 template <typename _CharT, typename _Traits>
-void unlock_ofstream (std::basic_ofstream<_CharT, _Traits>& os, const dyad_stream_core& core)
+void unlock_ofstream (std::basic_ofstream<_CharT, _Traits> &os, const dyad_stream_core &core)
 {
     class my_filebuf : public std::basic_filebuf<_CharT>
     {
@@ -315,7 +315,7 @@ void unlock_ofstream (std::basic_ofstream<_CharT, _Traits>& os, const dyad_strea
     };
 
     if (os.is_open ()) {
-        int fd = static_cast<my_filebuf&> (*os.rdbuf ()).handle ();
+        int fd = static_cast<my_filebuf &> (*os.rdbuf ()).handle ();
         core.file_unlock (fd);
     }
 }
@@ -333,7 +333,7 @@ void unlock_ofstream (std::basic_ofstream<_CharT, _Traits>& os, const dyad_strea
  * @param[in]     core  DYAD stream core providing the unlock operation.
  */
 template <typename _CharT, typename _Traits>
-void unlock_ifstream (std::basic_ifstream<_CharT, _Traits>& is, const dyad_stream_core& core)
+void unlock_ifstream (std::basic_ifstream<_CharT, _Traits> &is, const dyad_stream_core &core)
 {
     class my_filebuf : public std::basic_filebuf<_CharT>
     {
@@ -345,7 +345,7 @@ void unlock_ifstream (std::basic_ifstream<_CharT, _Traits>& is, const dyad_strea
     };
 
     if (is.is_open ()) {
-        int fd = static_cast<my_filebuf&> (*is.rdbuf ()).handle ();
+        int fd = static_cast<my_filebuf &> (*is.rdbuf ()).handle ();
         core.file_unlock (fd);
     }
 }
@@ -363,7 +363,7 @@ void unlock_ifstream (std::basic_ifstream<_CharT, _Traits>& is, const dyad_strea
  * @param[in]     core  DYAD stream core providing the unlock operation.
  */
 template <typename _CharT, typename _Traits>
-void unlock_fstream (std::basic_fstream<_CharT, _Traits>& os, const dyad_stream_core& core)
+void unlock_fstream (std::basic_fstream<_CharT, _Traits> &os, const dyad_stream_core &core)
 {
     class my_filebuf : public std::basic_filebuf<_CharT>
     {
@@ -375,7 +375,7 @@ void unlock_fstream (std::basic_fstream<_CharT, _Traits>& os, const dyad_stream_
     };
 
     if (os.is_open ()) {
-        int fd = static_cast<my_filebuf&> (*os.rdbuf ()).handle ();
+        int fd = static_cast<my_filebuf &> (*os.rdbuf ()).handle ();
         core.file_unlock (fd);
     }
 }
@@ -472,7 +472,7 @@ class basic_ifstream_dyad
      *
      * @param[in] core  Initialized stream core to copy.
      */
-    basic_ifstream_dyad (const dyad_stream_core& core);
+    basic_ifstream_dyad (const dyad_stream_core &core);
 
     /** Constructs an unopened stream and initializes the core from environment
      *  variables via @c m_core.init(). */
@@ -489,7 +489,7 @@ class basic_ifstream_dyad
      * @param[in] filename  Path to the file to open.
      * @param[in] mode      Open mode. Defaults to @c ios_base::in.
      */
-    explicit basic_ifstream_dyad (const char* filename, ios_base::openmode mode = ios_base::in);
+    explicit basic_ifstream_dyad (const char *filename, ios_base::openmode mode = ios_base::in);
 
     /**
      * @brief Destroys the stream, releasing the underlying @c basic_ifstream.
@@ -514,7 +514,7 @@ class basic_ifstream_dyad
      * @param[in] filename  Path to the file to open.
      * @param[in] mode      Open mode. Defaults to @c ios_base::in.
      */
-    void open (const char* filename, ios_base::openmode mode = ios_base::in);
+    void open (const char *filename, ios_base::openmode mode = ios_base::in);
 
 #if __cplusplus < 201103L
     /** Returns @c true if the underlying stream is open. Returns @c false if
@@ -523,13 +523,13 @@ class basic_ifstream_dyad
 #else
     /** Constructs and opens the stream from a @c std::string filename. See the
      *  @c const char* constructor for full details. */
-    explicit basic_ifstream_dyad (const string& filename, ios_base::openmode mode = ios_base::in);
+    explicit basic_ifstream_dyad (const string &filename, ios_base::openmode mode = ios_base::in);
 
     /** Copy construction is disabled. */
-    basic_ifstream_dyad (const basic_ifstream_dyad&) = delete;
+    basic_ifstream_dyad (const basic_ifstream_dyad &) = delete;
 
     /** Move constructor. Transfers ownership of the stream and core from @p rhs. */
-    basic_ifstream_dyad (basic_ifstream_dyad&& rhs);
+    basic_ifstream_dyad (basic_ifstream_dyad &&rhs);
 #if (__cplusplus >= 201703L) && __has_include(<filesystem>)
     /**
      * @brief Constructs and opens the stream from a @c std::filesystem::path.
@@ -543,23 +543,23 @@ class basic_ifstream_dyad
      * @param[in] mode      Open mode. Defaults to @c ios_base::in.
      */
     template <typename _Path, typename _Require = dyad_if_fs_path<_Path> >
-    basic_ifstream_dyad (const _Path& filepath, std::ios_base::openmode mode = std::ios_base::in);
+    basic_ifstream_dyad (const _Path &filepath, std::ios_base::openmode mode = std::ios_base::in);
 #endif  // c++17 filesystem
 
     /** Opens the file from a @c std::string filename. Delegates to the
      *  @c const char* overload. */
-    void open (const string& filename, ios_base::openmode mode = ios_base::in);
+    void open (const string &filename, ios_base::openmode mode = ios_base::in);
 
     /** Returns @c true if the underlying stream is open. Returns @c false if
      *  the stream pointer is @c nullptr. */
     bool is_open () const;
 
     /** Move assignment. Takes ownership of @p rhs's stream and core. */
-    basic_ifstream_dyad& operator= (basic_ifstream_dyad&& rhs);
+    basic_ifstream_dyad &operator= (basic_ifstream_dyad &&rhs);
 
     /** Swaps the underlying stream with @p rhs. Has no effect if the stream
      *  pointer is @c nullptr (TODO: set fail bit).  */
-    void swap (basic_ifstream_dyad& rhs);
+    void swap (basic_ifstream_dyad &rhs);
 #endif
 
     /**
@@ -573,12 +573,12 @@ class basic_ifstream_dyad
 
     /** Returns the underlying stream buffer, or @c nullptr if the stream
      *  pointer is @c nullptr. */
-    filebuf* rdbuf () const;
+    filebuf *rdbuf () const;
 
     /** Returns a reference to the underlying @c std::basic_ifstream.
      *  @warning If the stream pointer is @c nullptr, behavior is undefined
      *  (TODO: throw).  */
-    basic_ifstream& get_stream ();
+    basic_ifstream &get_stream ();
 
     /**
      * @brief Reinitializes the stream core from an existing @c dyad_stream_core.
@@ -589,10 +589,10 @@ class basic_ifstream_dyad
      *
      * @param[in] core  Stream core to copy into this instance.
      */
-    void init (const dyad_stream_core& core);
+    void init (const dyad_stream_core &core);
 
     /** Allow read-only access to the embedded @c dyad_stream_core. */
-    const dyad_stream_core& core () const
+    const dyad_stream_core &core () const
     {
         return m_core;
     }
@@ -618,7 +618,7 @@ using wifstream_dyad = basic_ifstream_dyad<wchar_t>;
 
 #if __cplusplus < 201103L  //----------------------------------------------------
 template <typename _CharT, typename _Traits>
-basic_ifstream_dyad<_CharT, _Traits>::basic_ifstream_dyad (const dyad_stream_core& core)
+basic_ifstream_dyad<_CharT, _Traits>::basic_ifstream_dyad (const dyad_stream_core &core)
     : m_core (core)
 {
     m_stream = new basic_ifstream ();
@@ -632,7 +632,7 @@ basic_ifstream_dyad<_CharT, _Traits>::basic_ifstream_dyad ()
 }
 
 template <typename _CharT, typename _Traits>
-basic_ifstream_dyad<_CharT, _Traits>::basic_ifstream_dyad (const char* filename,
+basic_ifstream_dyad<_CharT, _Traits>::basic_ifstream_dyad (const char *filename,
                                                            std::ios_base::openmode mode)
 {
     m_core.init ();
@@ -650,7 +650,7 @@ bool basic_ifstream_dyad<_CharT, _Traits>::is_open ()
 }
 #else  //-----------------------------------------------------------------------
 template <typename _CharT, typename _Traits>
-basic_ifstream_dyad<_CharT, _Traits>::basic_ifstream_dyad (const dyad_stream_core& core)
+basic_ifstream_dyad<_CharT, _Traits>::basic_ifstream_dyad (const dyad_stream_core &core)
     : m_core (core)
 {
     m_stream = std::unique_ptr<basic_ifstream> (new basic_ifstream ());
@@ -664,7 +664,7 @@ basic_ifstream_dyad<_CharT, _Traits>::basic_ifstream_dyad ()
 }
 
 template <typename _CharT, typename _Traits>
-basic_ifstream_dyad<_CharT, _Traits>::basic_ifstream_dyad (const char* filename,
+basic_ifstream_dyad<_CharT, _Traits>::basic_ifstream_dyad (const char *filename,
                                                            std::ios_base::openmode mode)
 {
     m_core.init ();
@@ -676,7 +676,7 @@ basic_ifstream_dyad<_CharT, _Traits>::basic_ifstream_dyad (const char* filename,
 }
 
 template <typename _CharT, typename _Traits>
-basic_ifstream_dyad<_CharT, _Traits>::basic_ifstream_dyad (const string& filename,
+basic_ifstream_dyad<_CharT, _Traits>::basic_ifstream_dyad (const string &filename,
                                                            std::ios_base::openmode mode)
 {
     m_core.init ();
@@ -688,7 +688,7 @@ basic_ifstream_dyad<_CharT, _Traits>::basic_ifstream_dyad (const string& filenam
 }
 
 template <typename _CharT, typename _Traits>
-basic_ifstream_dyad<_CharT, _Traits>::basic_ifstream_dyad (basic_ifstream_dyad&& rhs)
+basic_ifstream_dyad<_CharT, _Traits>::basic_ifstream_dyad (basic_ifstream_dyad &&rhs)
     : m_stream (std::move (rhs.m_stream)), m_core (std::move (rhs.m_core))
 {
 }
@@ -696,7 +696,7 @@ basic_ifstream_dyad<_CharT, _Traits>::basic_ifstream_dyad (basic_ifstream_dyad&&
 #if (__cplusplus >= 201703L) && __has_include(<filesystem>)
 template <typename _CharT, typename _Traits>
 template <typename _Path, typename _Require>
-basic_ifstream_dyad<_CharT, _Traits>::basic_ifstream_dyad (const _Path& filepath,
+basic_ifstream_dyad<_CharT, _Traits>::basic_ifstream_dyad (const _Path &filepath,
                                                            std::ios_base::openmode mode)
 {
     m_core.init ();
@@ -709,8 +709,8 @@ basic_ifstream_dyad<_CharT, _Traits>::basic_ifstream_dyad (const _Path& filepath
 #endif  // c++17 filesystem
 
 template <typename _CharT, typename _Traits>
-basic_ifstream_dyad<_CharT, _Traits>& basic_ifstream_dyad<_CharT, _Traits>::operator= (
-    basic_ifstream_dyad&& rhs)
+basic_ifstream_dyad<_CharT, _Traits> &basic_ifstream_dyad<_CharT, _Traits>::operator= (
+    basic_ifstream_dyad &&rhs)
 {
     m_stream = std::move (rhs.m_stream);
     m_core = std::move (rhs.m_core);
@@ -732,7 +732,7 @@ basic_ifstream_dyad<_CharT, _Traits>::~basic_ifstream_dyad ()
 }
 
 template <typename _CharT, typename _Traits>
-void basic_ifstream_dyad<_CharT, _Traits>::open (const string& filename,
+void basic_ifstream_dyad<_CharT, _Traits>::open (const string &filename,
                                                  std::ios_base::openmode mode)
 {
     open (filename.c_str (), mode);
@@ -745,7 +745,7 @@ bool basic_ifstream_dyad<_CharT, _Traits>::is_open () const
 }
 
 template <typename _CharT, typename _Traits>
-void basic_ifstream_dyad<_CharT, _Traits>::swap (basic_ifstream_dyad& rhs)
+void basic_ifstream_dyad<_CharT, _Traits>::swap (basic_ifstream_dyad &rhs)
 {
     if (m_stream == nullptr) {
         // TODO: set fail bit if nullptr
@@ -756,7 +756,7 @@ void basic_ifstream_dyad<_CharT, _Traits>::swap (basic_ifstream_dyad& rhs)
 #endif  //-----------------------------------------------------------------------
 
 template <typename _CharT, typename _Traits>
-void basic_ifstream_dyad<_CharT, _Traits>::open (const char* filename, std::ios_base::openmode mode)
+void basic_ifstream_dyad<_CharT, _Traits>::open (const char *filename, std::ios_base::openmode mode)
 {
     if (m_stream == nullptr) {
         // TODO: set fail bit if nullptr
@@ -781,7 +781,7 @@ void basic_ifstream_dyad<_CharT, _Traits>::close ()
 }
 
 template <typename _CharT, typename _Traits>
-std::filebuf* basic_ifstream_dyad<_CharT, _Traits>::rdbuf () const
+std::filebuf *basic_ifstream_dyad<_CharT, _Traits>::rdbuf () const
 {
     if (m_stream == nullptr) {
         return nullptr;
@@ -790,7 +790,7 @@ std::filebuf* basic_ifstream_dyad<_CharT, _Traits>::rdbuf () const
 }
 
 template <typename _CharT, typename _Traits>
-std::basic_ifstream<_CharT, _Traits>& basic_ifstream_dyad<_CharT, _Traits>::get_stream ()
+std::basic_ifstream<_CharT, _Traits> &basic_ifstream_dyad<_CharT, _Traits>::get_stream ()
 {
     if (m_stream == nullptr) {
         // TODO: throw
@@ -799,7 +799,7 @@ std::basic_ifstream<_CharT, _Traits>& basic_ifstream_dyad<_CharT, _Traits>::get_
 }
 
 template <typename _CharT, typename _Traits>
-void basic_ifstream_dyad<_CharT, _Traits>::init (const dyad_stream_core& core)
+void basic_ifstream_dyad<_CharT, _Traits>::init (const dyad_stream_core &core)
 {
     m_core = core;
     m_core.set_initialized ();
@@ -850,7 +850,7 @@ class basic_ofstream_dyad
      *
      * @param[in] core  Initialized stream core to copy.
      */
-    basic_ofstream_dyad (const dyad_stream_core& core);
+    basic_ofstream_dyad (const dyad_stream_core &core);
 
     /** Constructs an unopened stream and initializes the core from environment
      *  variables via @c m_core.init(). */
@@ -869,7 +869,7 @@ class basic_ofstream_dyad
      * @param[in] filename  Path to the file to open.
      * @param[in] mode      Open mode. Defaults to @c ios_base::out.
      */
-    explicit basic_ofstream_dyad (const char* filename, ios_base::openmode mode = ios_base::out);
+    explicit basic_ofstream_dyad (const char *filename, ios_base::openmode mode = ios_base::out);
 
     /**
      * @brief Destroys the stream, syncing and publishing if still open.
@@ -895,7 +895,7 @@ class basic_ofstream_dyad
      * @param[in] filename  Path to the file to open.
      * @param[in] mode      Open mode. Defaults to @c ios_base::out.
      */
-    void open (const char* filename, ios_base::openmode mode = ios_base::out);
+    void open (const char *filename, ios_base::openmode mode = ios_base::out);
 
 #if __cplusplus < 201103L
     /** Returns @c true if the underlying stream is open. Returns @c false if
@@ -904,13 +904,13 @@ class basic_ofstream_dyad
 #else
     /** Constructs and opens the stream from a @c std::string filename. See the
      *  @c const char* constructor for full details. */
-    explicit basic_ofstream_dyad (const string& filename, ios_base::openmode mode = ios_base::out);
+    explicit basic_ofstream_dyad (const string &filename, ios_base::openmode mode = ios_base::out);
 
     /** Copy construction is disabled. */
-    basic_ofstream_dyad (const basic_ofstream_dyad&) = delete;
+    basic_ofstream_dyad (const basic_ofstream_dyad &) = delete;
 
     /** Move constructor. Transfers ownership of the stream and core from @p rhs. */
-    basic_ofstream_dyad (basic_ofstream_dyad&& rhs);
+    basic_ofstream_dyad (basic_ofstream_dyad &&rhs);
 #if (__cplusplus >= 201703L) && __has_include(<filesystem>)
     /**
      * @brief Constructs and opens the stream from a @c std::filesystem::path.
@@ -924,23 +924,23 @@ class basic_ofstream_dyad
      * @param[in] mode      Open mode. Defaults to @c ios_base::out.
      */
     template <typename _Path, typename _Require = dyad_if_fs_path<_Path> >
-    basic_ofstream_dyad (const _Path& filepath, std::ios_base::openmode mode = std::ios_base::out);
+    basic_ofstream_dyad (const _Path &filepath, std::ios_base::openmode mode = std::ios_base::out);
 #endif  // c++17 filesystem
 
     /** Opens the file from a @c std::string filename. Delegates to the
      *  @c const char* overload. */
-    void open (const string& filename, ios_base::openmode mode = ios_base::out);
+    void open (const string &filename, ios_base::openmode mode = ios_base::out);
 
     /** Returns @c true if the underlying stream is open. Returns @c false if
      *  the stream pointer is @c nullptr. */
     bool is_open () const;
 
     /** Move assignment. Transfers ownership of the stream and core from @p rhs. */
-    basic_ofstream_dyad& operator= (basic_ofstream_dyad&& rhs);
+    basic_ofstream_dyad &operator= (basic_ofstream_dyad &&rhs);
 
     /** Swaps the underlying stream with @p rhs. Has no effect if the stream
      *  pointer is @c nullptr. */
-    void swap (basic_ofstream_dyad& rhs);
+    void swap (basic_ofstream_dyad &rhs);
 #endif
 
     /**
@@ -956,10 +956,10 @@ class basic_ofstream_dyad
 
     /** Returns the underlying stream buffer, or @c nullptr if the stream
      *  pointer is @c nullptr. */
-    filebuf* rdbuf () const;
+    filebuf *rdbuf () const;
 
     /** Returns a reference to the underlying @c std::basic_ofstream. */
-    basic_ofstream& get_stream ();
+    basic_ofstream &get_stream ();
 
     /**
      * @brief Reinitializes the stream core from an existing @c dyad_stream_core.
@@ -970,10 +970,10 @@ class basic_ofstream_dyad
      *
      * @param[in] core  Stream core to copy into this instance.
      */
-    void init (const dyad_stream_core& core);
+    void init (const dyad_stream_core &core);
 
     /** Allow read-only access to the embedded @c dyad_stream_core. */
-    const dyad_stream_core& core () const
+    const dyad_stream_core &core () const
     {
         return m_core;
     }
@@ -999,7 +999,7 @@ using wofstream_dyad = basic_ofstream_dyad<wchar_t>;
 
 #if __cplusplus < 201103L  //----------------------------------------------------
 template <typename _CharT, typename _Traits>
-basic_ofstream_dyad<_CharT, _Traits>::basic_ofstream_dyad (const dyad_stream_core& core)
+basic_ofstream_dyad<_CharT, _Traits>::basic_ofstream_dyad (const dyad_stream_core &core)
     : m_core (core)
 {
     m_stream = new basic_ofstream ();
@@ -1013,7 +1013,7 @@ basic_ofstream_dyad<_CharT, _Traits>::basic_ofstream_dyad ()
 }
 
 template <typename _CharT, typename _Traits>
-basic_ofstream_dyad<_CharT, _Traits>::basic_ofstream_dyad (const char* filename,
+basic_ofstream_dyad<_CharT, _Traits>::basic_ofstream_dyad (const char *filename,
                                                            std::ios_base::openmode mode)
 {
     m_core.init ();
@@ -1036,7 +1036,7 @@ bool basic_ofstream_dyad<_CharT, _Traits>::is_open ()
 }
 #else  //-----------------------------------------------------------------------
 template <typename _CharT, typename _Traits>
-basic_ofstream_dyad<_CharT, _Traits>::basic_ofstream_dyad (const dyad_stream_core& core)
+basic_ofstream_dyad<_CharT, _Traits>::basic_ofstream_dyad (const dyad_stream_core &core)
     : m_core (core)
 {
     m_stream = std::unique_ptr<basic_ofstream> (new basic_ofstream ());
@@ -1050,7 +1050,7 @@ basic_ofstream_dyad<_CharT, _Traits>::basic_ofstream_dyad ()
 }
 
 template <typename _CharT, typename _Traits>
-basic_ofstream_dyad<_CharT, _Traits>::basic_ofstream_dyad (const char* filename,
+basic_ofstream_dyad<_CharT, _Traits>::basic_ofstream_dyad (const char *filename,
                                                            std::ios_base::openmode mode)
 {
     m_core.init ();
@@ -1066,14 +1066,14 @@ basic_ofstream_dyad<_CharT, _Traits>::basic_ofstream_dyad (const char* filename,
 }
 
 template <typename _CharT, typename _Traits>
-basic_ofstream_dyad<_CharT, _Traits>::basic_ofstream_dyad (const string& filename,
+basic_ofstream_dyad<_CharT, _Traits>::basic_ofstream_dyad (const string &filename,
                                                            std::ios_base::openmode mode)
 {
     m_core.init ();
     m_stream = std::unique_ptr<basic_ofstream> (new basic_ofstream (filename, mode));
     if ((m_stream != nullptr) && (*m_stream)
 #if DYAD_HAS_STD_FSTREAM_FD
-        && m_core.cmp_canonical_path_prefix (true, (const char* const)filename.c_str ())
+        && m_core.cmp_canonical_path_prefix (true, (const char *const)filename.c_str ())
 #endif  // DYAD_HAS_STD_FSTREAM_FD
     ) {
         DYAD_EXCLUSIVE_LOCK_CPP_OFSTREAM (*m_stream, m_core);
@@ -1082,7 +1082,7 @@ basic_ofstream_dyad<_CharT, _Traits>::basic_ofstream_dyad (const string& filenam
 }
 
 template <typename _CharT, typename _Traits>
-basic_ofstream_dyad<_CharT, _Traits>::basic_ofstream_dyad (basic_ofstream_dyad&& rhs)
+basic_ofstream_dyad<_CharT, _Traits>::basic_ofstream_dyad (basic_ofstream_dyad &&rhs)
     : m_stream (std::move (rhs.m_stream)), m_core (std::move (rhs.m_core))
 {
 }
@@ -1090,12 +1090,12 @@ basic_ofstream_dyad<_CharT, _Traits>::basic_ofstream_dyad (basic_ofstream_dyad&&
 #if (__cplusplus >= 201703L) && __has_include(<filesystem>)
 template <typename _CharT, typename _Traits>
 template <typename _Path, typename _Require>
-basic_ofstream_dyad<_CharT, _Traits>::basic_ofstream_dyad (const _Path& filepath,
+basic_ofstream_dyad<_CharT, _Traits>::basic_ofstream_dyad (const _Path &filepath,
                                                            std::ios_base::openmode mode)
 {
     m_core.init ();
     m_stream = std::unique_ptr<basic_ofstream> (
-        new basic_ofstream ((const char* const)filepath.c_str (), mode));
+        new basic_ofstream ((const char *const)filepath.c_str (), mode));
 
     if ((m_stream != nullptr) && (*m_stream)
 #if DYAD_HAS_STD_FSTREAM_FD
@@ -1109,8 +1109,8 @@ basic_ofstream_dyad<_CharT, _Traits>::basic_ofstream_dyad (const _Path& filepath
 #endif  // c++17 filesystem
 
 template <typename _CharT, typename _Traits>
-basic_ofstream_dyad<_CharT, _Traits>& basic_ofstream_dyad<_CharT, _Traits>::operator= (
-    basic_ofstream_dyad&& rhs)
+basic_ofstream_dyad<_CharT, _Traits> &basic_ofstream_dyad<_CharT, _Traits>::operator= (
+    basic_ofstream_dyad &&rhs)
 {
     m_stream = std::move (rhs.m_stream);
     m_core = std::move (rhs.m_core);
@@ -1146,7 +1146,7 @@ basic_ofstream_dyad<_CharT, _Traits>::~basic_ofstream_dyad ()
 }
 
 template <typename _CharT, typename _Traits>
-void basic_ofstream_dyad<_CharT, _Traits>::open (const string& filename,
+void basic_ofstream_dyad<_CharT, _Traits>::open (const string &filename,
                                                  std::ios_base::openmode mode)
 {
     open (filename.c_str (), mode);
@@ -1159,7 +1159,7 @@ bool basic_ofstream_dyad<_CharT, _Traits>::is_open () const
 }
 
 template <typename _CharT, typename _Traits>
-void basic_ofstream_dyad<_CharT, _Traits>::swap (basic_ofstream_dyad& rhs)
+void basic_ofstream_dyad<_CharT, _Traits>::swap (basic_ofstream_dyad &rhs)
 {
     if (m_stream == nullptr) {
         // TODO: set fail bit if nullptr
@@ -1170,7 +1170,7 @@ void basic_ofstream_dyad<_CharT, _Traits>::swap (basic_ofstream_dyad& rhs)
 #endif  //-----------------------------------------------------------------------
 
 template <typename _CharT, typename _Traits>
-void basic_ofstream_dyad<_CharT, _Traits>::open (const char* filename, std::ios_base::openmode mode)
+void basic_ofstream_dyad<_CharT, _Traits>::open (const char *filename, std::ios_base::openmode mode)
 {
     if (m_stream == nullptr) {
         // TODO: set fail bit if nullptr
@@ -1202,7 +1202,7 @@ void basic_ofstream_dyad<_CharT, _Traits>::close ()
 }
 
 template <typename _CharT, typename _Traits>
-std::filebuf* basic_ofstream_dyad<_CharT, _Traits>::rdbuf () const
+std::filebuf *basic_ofstream_dyad<_CharT, _Traits>::rdbuf () const
 {
     if (m_stream == nullptr) {
         return nullptr;
@@ -1211,7 +1211,7 @@ std::filebuf* basic_ofstream_dyad<_CharT, _Traits>::rdbuf () const
 }
 
 template <typename _CharT, typename _Traits>
-std::basic_ofstream<_CharT, _Traits>& basic_ofstream_dyad<_CharT, _Traits>::get_stream ()
+std::basic_ofstream<_CharT, _Traits> &basic_ofstream_dyad<_CharT, _Traits>::get_stream ()
 {
     if (m_stream == nullptr) {
         // TODO: throw
@@ -1220,7 +1220,7 @@ std::basic_ofstream<_CharT, _Traits>& basic_ofstream_dyad<_CharT, _Traits>::get_
 }
 
 template <typename _CharT, typename _Traits>
-void basic_ofstream_dyad<_CharT, _Traits>::init (const dyad_stream_core& core)
+void basic_ofstream_dyad<_CharT, _Traits>::init (const dyad_stream_core &core)
 {
     m_core = core;
     m_core.set_initialized ();
@@ -1273,7 +1273,7 @@ class basic_fstream_dyad
      *
      * @param[in] core  Initialized stream core to copy.
      */
-    basic_fstream_dyad (const dyad_stream_core& core);
+    basic_fstream_dyad (const dyad_stream_core &core);
 
     /** Constructs an unopened stream and initializes the core from environment
      *  variables via @c m_core.init(). */
@@ -1294,7 +1294,7 @@ class basic_fstream_dyad
      * @param[in] filename  Path to the file to open.
      * @param[in] mode      Open mode. Defaults to @c ios_base::in|out.
      */
-    explicit basic_fstream_dyad (const char* filename,
+    explicit basic_fstream_dyad (const char *filename,
                                  ios_base::openmode mode = ios_base::in | ios_base::out);
 
     /**
@@ -1322,7 +1322,7 @@ class basic_fstream_dyad
      * @param[in] filename  Path to the file to open.
      * @param[in] mode      Open mode. Defaults to @c ios_base::in|out.
      */
-    void open (const char* filename, ios_base::openmode mode = ios_base::in | ios_base::out);
+    void open (const char *filename, ios_base::openmode mode = ios_base::in | ios_base::out);
 
 #if __cplusplus < 201103L
     /** Returns @c true if the underlying stream is open. Returns @c false if
@@ -1331,13 +1331,13 @@ class basic_fstream_dyad
 #else
     /** Constructs and opens the stream from a @c std::string filename. See the
      *  @c const char* constructor for full details. */
-    explicit basic_fstream_dyad (const string& filename,
+    explicit basic_fstream_dyad (const string &filename,
                                  ios_base::openmode mode = ios_base::in | ios_base::out);
     /** Copy construction is disabled. */
-    basic_fstream_dyad (const basic_fstream_dyad&) = delete;
+    basic_fstream_dyad (const basic_fstream_dyad &) = delete;
 
     /** Move constructor. Transfers ownership of the stream and core from @p rhs. */
-    basic_fstream_dyad (basic_fstream_dyad&& rhs);
+    basic_fstream_dyad (basic_fstream_dyad &&rhs);
 
 #if (__cplusplus >= 201703L) && __has_include(<filesystem>)
     /**
@@ -1352,23 +1352,23 @@ class basic_fstream_dyad
      * @param[in] mode      Open mode. Defaults to @c ios_base::out.
      */
     template <typename _Path, typename _Require = dyad_if_fs_path<_Path> >
-    basic_fstream_dyad (const _Path& filepath, std::ios_base::openmode mode = std::ios_base::out);
+    basic_fstream_dyad (const _Path &filepath, std::ios_base::openmode mode = std::ios_base::out);
 #endif  // c++17 filesystem
 
     /** Opens the file from a @c std::string filename. Delegates to the
      *  @c const char* overload. */
-    void open (const string& filename, ios_base::openmode mode = ios_base::in | ios_base::out);
+    void open (const string &filename, ios_base::openmode mode = ios_base::in | ios_base::out);
 
     /** Returns @c true if the underlying stream is open. Returns @c false if
      *  the stream pointer is @c nullptr. */
     bool is_open () const;
 
     /** Move assignment. Transfers ownership of the stream and core from @p rhs. */
-    basic_fstream_dyad& operator= (basic_fstream_dyad&& rhs);
+    basic_fstream_dyad &operator= (basic_fstream_dyad &&rhs);
 
     /** Swaps the underlying stream with @p rhs. Has no effect if the stream
      *  pointer is @c nullptr. */
-    void swap (basic_fstream_dyad& rhs);
+    void swap (basic_fstream_dyad &rhs);
 #endif
 
     /**
@@ -1385,10 +1385,10 @@ class basic_fstream_dyad
 
     /** Returns the underlying stream buffer, or @c nullptr if the stream
      *  pointer is @c nullptr. */
-    filebuf* rdbuf () const;
+    filebuf *rdbuf () const;
 
     /** Returns a reference to the underlying @c std::basic_fstream. */
-    basic_fstream& get_stream ();
+    basic_fstream &get_stream ();
 
     /**
      * @brief Reinitializes the stream core from an existing @c dyad_stream_core.
@@ -1399,10 +1399,10 @@ class basic_fstream_dyad
      *
      * @param[in] core  Stream core to copy into this instance.
      */
-    void init (const dyad_stream_core& core);
+    void init (const dyad_stream_core &core);
 
     /** Allow read-only access to the embedded @c dyad_stream_core. */
-    const dyad_stream_core& core () const
+    const dyad_stream_core &core () const
     {
         return m_core;
     }
@@ -1428,7 +1428,7 @@ using wfstream_dyad = basic_fstream_dyad<wchar_t>;
 
 #if __cplusplus < 201103L  //----------------------------------------------------
 template <typename _CharT, typename _Traits>
-basic_fstream_dyad<_CharT, _Traits>::basic_fstream_dyad (const dyad_stream_core& core)
+basic_fstream_dyad<_CharT, _Traits>::basic_fstream_dyad (const dyad_stream_core &core)
     : m_core (core)
 {
     m_stream = new basic_fstream ();
@@ -1442,7 +1442,7 @@ basic_fstream_dyad<_CharT, _Traits>::basic_fstream_dyad ()
 }
 
 template <typename _CharT, typename _Traits>
-basic_fstream_dyad<_CharT, _Traits>::basic_fstream_dyad (const char* filename,
+basic_fstream_dyad<_CharT, _Traits>::basic_fstream_dyad (const char *filename,
                                                          std::ios_base::openmode mode)
 {
     m_core.init ();
@@ -1467,7 +1467,7 @@ bool basic_fstream_dyad<_CharT, _Traits>::is_open ()
 }
 #else  //-----------------------------------------------------------------------
 template <typename _CharT, typename _Traits>
-basic_fstream_dyad<_CharT, _Traits>::basic_fstream_dyad (const dyad_stream_core& core)
+basic_fstream_dyad<_CharT, _Traits>::basic_fstream_dyad (const dyad_stream_core &core)
     : m_core (core)
 {
     m_stream = std::unique_ptr<basic_fstream> (new basic_fstream ());
@@ -1481,7 +1481,7 @@ basic_fstream_dyad<_CharT, _Traits>::basic_fstream_dyad ()
 }
 
 template <typename _CharT, typename _Traits>
-basic_fstream_dyad<_CharT, _Traits>::basic_fstream_dyad (const char* filename,
+basic_fstream_dyad<_CharT, _Traits>::basic_fstream_dyad (const char *filename,
                                                          std::ios_base::openmode mode)
 {
     m_core.init ();
@@ -1496,7 +1496,7 @@ basic_fstream_dyad<_CharT, _Traits>::basic_fstream_dyad (const char* filename,
 }
 
 template <typename _CharT, typename _Traits>
-basic_fstream_dyad<_CharT, _Traits>::basic_fstream_dyad (const string& filename,
+basic_fstream_dyad<_CharT, _Traits>::basic_fstream_dyad (const string &filename,
                                                          std::ios_base::openmode mode)
 {
     m_core.init ();
@@ -1511,7 +1511,7 @@ basic_fstream_dyad<_CharT, _Traits>::basic_fstream_dyad (const string& filename,
 }
 
 template <typename _CharT, typename _Traits>
-basic_fstream_dyad<_CharT, _Traits>::basic_fstream_dyad (basic_fstream_dyad&& rhs)
+basic_fstream_dyad<_CharT, _Traits>::basic_fstream_dyad (basic_fstream_dyad &&rhs)
     : m_stream (std::move (rhs.m_stream)), m_core (std::move (rhs.m_core))
 {
 }
@@ -1519,7 +1519,7 @@ basic_fstream_dyad<_CharT, _Traits>::basic_fstream_dyad (basic_fstream_dyad&& rh
 #if (__cplusplus >= 201703L) && __has_include(<filesystem>)
 template <typename _CharT, typename _Traits>
 template <typename _Path, typename _Require>
-basic_fstream_dyad<_CharT, _Traits>::basic_fstream_dyad (const _Path& filepath,
+basic_fstream_dyad<_CharT, _Traits>::basic_fstream_dyad (const _Path &filepath,
                                                          std::ios_base::openmode mode)
 {
     m_core.init ();
@@ -1535,8 +1535,8 @@ basic_fstream_dyad<_CharT, _Traits>::basic_fstream_dyad (const _Path& filepath,
 #endif  // c++17 filesystem
 
 template <typename _CharT, typename _Traits>
-basic_fstream_dyad<_CharT, _Traits>& basic_fstream_dyad<_CharT, _Traits>::operator= (
-    basic_fstream_dyad&& rhs)
+basic_fstream_dyad<_CharT, _Traits> &basic_fstream_dyad<_CharT, _Traits>::operator= (
+    basic_fstream_dyad &&rhs)
 {
     m_stream = std::move (rhs.m_stream);
     m_core = std::move (rhs.m_core);
@@ -1574,7 +1574,7 @@ basic_fstream_dyad<_CharT, _Traits>::~basic_fstream_dyad ()
 }
 
 template <typename _CharT, typename _Traits>
-void basic_fstream_dyad<_CharT, _Traits>::open (const string& filename,
+void basic_fstream_dyad<_CharT, _Traits>::open (const string &filename,
                                                 std::ios_base::openmode mode)
 {
     open (filename.c_str (), mode);
@@ -1587,7 +1587,7 @@ bool basic_fstream_dyad<_CharT, _Traits>::is_open () const
 }
 
 template <typename _CharT, typename _Traits>
-void basic_fstream_dyad<_CharT, _Traits>::swap (basic_fstream_dyad& rhs)
+void basic_fstream_dyad<_CharT, _Traits>::swap (basic_fstream_dyad &rhs)
 {
     if (m_stream == nullptr) {
         // TODO: set fail bit if nullptr
@@ -1598,7 +1598,7 @@ void basic_fstream_dyad<_CharT, _Traits>::swap (basic_fstream_dyad& rhs)
 #endif  //-----------------------------------------------------------------------
 
 template <typename _CharT, typename _Traits>
-void basic_fstream_dyad<_CharT, _Traits>::open (const char* filename, std::ios_base::openmode mode)
+void basic_fstream_dyad<_CharT, _Traits>::open (const char *filename, std::ios_base::openmode mode)
 {
     if (m_stream == nullptr) {
         // TODO: set fail bit if nullptr
@@ -1635,7 +1635,7 @@ void basic_fstream_dyad<_CharT, _Traits>::close ()
 }
 
 template <typename _CharT, typename _Traits>
-std::filebuf* basic_fstream_dyad<_CharT, _Traits>::rdbuf () const
+std::filebuf *basic_fstream_dyad<_CharT, _Traits>::rdbuf () const
 {
     if (m_stream == nullptr) {
         return nullptr;
@@ -1644,7 +1644,7 @@ std::filebuf* basic_fstream_dyad<_CharT, _Traits>::rdbuf () const
 }
 
 template <typename _CharT, typename _Traits>
-std::basic_fstream<_CharT, _Traits>& basic_fstream_dyad<_CharT, _Traits>::get_stream ()
+std::basic_fstream<_CharT, _Traits> &basic_fstream_dyad<_CharT, _Traits>::get_stream ()
 {
     if (m_stream == nullptr) {
         // TODO: throw
@@ -1653,7 +1653,7 @@ std::basic_fstream<_CharT, _Traits>& basic_fstream_dyad<_CharT, _Traits>::get_st
 }
 
 template <typename _CharT, typename _Traits>
-void basic_fstream_dyad<_CharT, _Traits>::init (const dyad_stream_core& core)
+void basic_fstream_dyad<_CharT, _Traits>::init (const dyad_stream_core &core)
 {
     m_core = core;
     m_core.set_initialized ();

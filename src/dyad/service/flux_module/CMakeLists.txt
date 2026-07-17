@@ -15,6 +15,8 @@ set(DYAD_FLUX_MODULE_PRIVATE_HEADERS ${CMAKE_SOURCE_DIR}/include/dyad/common/dya
                                 ${CMAKE_CURRENT_SOURCE_DIR}/../../utils/utils.h)
 set(DYAD_FLUX_MODULE_PUBLIC_HEADERS)
 
+find_package(Threads REQUIRED)
+
 add_library(${DYAD_FLUX_MODULE} SHARED ${DYAD_FLUX_MODULE_SRC}
             ${DYAD_FLUX_MODULE_PRIVATE_HEADERS} ${DYAD_FLUX_MODULE_PUBLIC_HEADERS})
 set_target_properties(${DYAD_FLUX_MODULE} PROPERTIES PREFIX "")
@@ -22,6 +24,7 @@ target_link_libraries(${DYAD_FLUX_MODULE} PRIVATE Jansson::Jansson)
 target_link_libraries(${DYAD_FLUX_MODULE} PRIVATE ${PROJECT_NAME}_dtl)
 target_link_libraries(${DYAD_FLUX_MODULE} PRIVATE ${PROJECT_NAME}_ctx)
 target_link_libraries(${DYAD_FLUX_MODULE} PRIVATE ${PROJECT_NAME}_utils)
+target_link_libraries(${DYAD_FLUX_MODULE} PRIVATE Threads::Threads)
 target_compile_definitions(${DYAD_FLUX_MODULE} PRIVATE BUILDING_DYAD=1)
 target_compile_definitions(${DYAD_FLUX_MODULE} PUBLIC DYAD_HAS_CONFIG)
 target_include_directories(${DYAD_FLUX_MODULE} PUBLIC

@@ -145,7 +145,12 @@ void dyad_stream_core::init (const dyad_params &p)
                               p.m_relative_to_managed_path,
                               dyad_dtl_mode_name[static_cast<dyad_dtl_mode_t> (p.m_dtl_mode)],
                               DYAD_COMM_RECV,
-                              NULL);
+                              NULL,
+                              p.m_cache_capacity_bytes,
+                              p.m_cache_policy.c_str (),
+                              p.m_cache_low_watermark,
+                              p.m_cache_grace_period_sec,
+                              p.m_origin_path.empty () ? nullptr : p.m_origin_path.c_str ());
     DYAD_CPP_FUNCTION ();
     m_ctx = m_ctx_mutable = dyad_ctx_get ();
     if (!DYAD_IS_ERROR (rc) && m_ctx != NULL) {

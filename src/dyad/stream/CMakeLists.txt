@@ -6,7 +6,8 @@ set(DYAD_FSTREAM_PRIVATE_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/../../../include/dy
                                  ${CMAKE_CURRENT_SOURCE_DIR}/../utils/utils.h)
 set(DYAD_FSTREAM_PUBLIC_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/../../../include/dyad/stream/dyad_stream_api.hpp
                                 ${CMAKE_CURRENT_SOURCE_DIR}/../../../include/dyad/stream/dyad_params.hpp
-                                ${CMAKE_CURRENT_SOURCE_DIR}/../../../include/dyad/stream/dyad_stream_core.hpp)
+                                ${CMAKE_CURRENT_SOURCE_DIR}/../../../include/dyad/stream/dyad_stream_core.hpp
+                                ${CMAKE_CURRENT_SOURCE_DIR}/../../../include/dyad/common/dyad_cache.h)
 
 
 add_library(${PROJECT_NAME}_fstream SHARED ${DYAD_FSTREAM_SRC}

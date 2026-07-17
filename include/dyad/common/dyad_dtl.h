@@ -61,7 +61,7 @@ typedef enum dyad_dtl_mode dyad_dtl_mode_t;
  * Marked @c unused to suppress warnings when included in translation
  * units that do not reference it directly.
  */
-static const char* dyad_dtl_mode_name[DYAD_DTL_END + 1]
+static const char *dyad_dtl_mode_name[DYAD_DTL_END + 1]
     __attribute__ ((unused)) = {"UCX", "MARGO", "FLUX_RPC", "DTL_UNKNOWN"};
 
 /**
@@ -92,6 +92,16 @@ typedef enum dyad_dtl_comm_mode dyad_dtl_comm_mode_t;
  * must use the same string for requests to be dispatched correctly.
  */
 #define DYAD_DTL_RPC_NAME "dyad.fetch"
+
+/**
+ * @brief Flux RPC topic name for DYAD byte-range fetch requests.
+ *
+ * @details
+ * Like @c DYAD_DTL_RPC_NAME, but for @c dyad_consume_range() requests
+ * (FLUX_RPC and MARGO DTL modes only). Registered as a separate topic so
+ * the existing whole-file @c DYAD_DTL_RPC_NAME handler is untouched.
+ */
+#define DYAD_DTL_RPC_RANGE_NAME "dyad.fetch_range"
 
 /**
  * @brief Opaque DTL handle.

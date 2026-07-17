@@ -31,6 +31,8 @@ dyad_rc_t dyad_dtl_flux_init (const dyad_ctx_t *ctx,
 
     ctx->dtl_handle->rpc_pack = dyad_dtl_flux_rpc_pack;
     ctx->dtl_handle->rpc_unpack = dyad_dtl_flux_rpc_unpack;
+    ctx->dtl_handle->rpc_pack_range = dyad_dtl_flux_rpc_pack_range;
+    ctx->dtl_handle->rpc_unpack_range = dyad_dtl_flux_rpc_unpack_range;
     ctx->dtl_handle->rpc_respond = dyad_dtl_flux_rpc_respond;
     ctx->dtl_handle->rpc_recv_response = dyad_dtl_flux_rpc_recv_response;
     ctx->dtl_handle->get_buffer = dyad_dtl_flux_get_buffer;
@@ -39,6 +41,12 @@ dyad_rc_t dyad_dtl_flux_init (const dyad_ctx_t *ctx,
     ctx->dtl_handle->send = dyad_dtl_flux_send;
     ctx->dtl_handle->recv = dyad_dtl_flux_recv;
     ctx->dtl_handle->close_connection = dyad_dtl_flux_close_connection;
+    ctx->dtl_handle->rpc_detach_request = dyad_dtl_flux_detach_request;
+    ctx->dtl_handle->rpc_send_detached = dyad_dtl_flux_send_detached;
+    ctx->dtl_handle->rpc_abort_detached = dyad_dtl_flux_abort_detached;
+    // flux_respond_raw() touches the module's flux_t handle, which must
+    // only be touched from the reactor thread that owns it.
+    ctx->dtl_handle->send_detached_is_thread_safe = false;
 
 dtl_flux_init_region_finish:
     DYAD_C_FUNCTION_END ();
@@ -81,6 +89,69 @@ dyad_rc_t dyad_dtl_flux_rpc_unpack (const dyad_ctx_t *ctx, const flux_msg_t *msg
     dyad_rc = DYAD_RC_OK;
     DYAD_C_FUNCTION_UPDATE_STR ("upath", *upath);
 dtl_flux_rpc_unpack_region_finish:
+    DYAD_C_FUNCTION_END ();
+    return dyad_rc;
+}
+
+dyad_rc_t dyad_dtl_flux_rpc_pack_range (const dyad_ctx_t *ctx,
+                                        const char *restrict upath,
+                                        uint32_t producer_rank,
+                                        size_t offset,
+                                        size_t length,
+                                        json_t **restrict packed_obj)
+{
+    DYAD_C_FUNCTION_START ();
+    DYAD_C_FUNCTION_UPDATE_STR ("upath", upath);
+    DYAD_C_FUNCTION_UPDATE_INT ("producer_rank", producer_rank);
+    dyad_rc_t rc = DYAD_RC_OK;
+    *packed_obj = json_pack ("{s:s, s:I, s:I}",
+                             "upath",
+                             upath,
+                             "offset",
+                             (json_int_t)offset,
+                             "length",
+                             (json_int_t)length);
+    if (*packed_obj == NULL) {
+        DYAD_LOG_ERROR (ctx, "Could not pack upath/offset/length for Flux DTL");
+        rc = DYAD_RC_BADPACK;
+        goto dtl_flux_rpc_pack_range;
+    }
+dtl_flux_rpc_pack_range:
+    DYAD_C_FUNCTION_END ();
+    return rc;
+}
+
+dyad_rc_t dyad_dtl_flux_rpc_unpack_range (const dyad_ctx_t *ctx,
+                                          const flux_msg_t *msg,
+                                          char **upath,
+                                          size_t *offset,
+                                          size_t *length)
+{
+    DYAD_C_FUNCTION_START ();
+    int rc = 0;
+    dyad_rc_t dyad_rc = DYAD_RC_OK;
+    json_int_t offset_val = 0;
+    json_int_t length_val = 0;
+    rc = flux_request_unpack (msg,
+                              NULL,
+                              "{s:s, s:I, s:I}",
+                              "upath",
+                              upath,
+                              "offset",
+                              &offset_val,
+                              "length",
+                              &length_val);
+    if (FLUX_IS_ERROR (rc)) {
+        DYAD_LOG_ERROR (ctx, "Could not unpack ranged Flux message from consumer");
+        dyad_rc = DYAD_RC_BADUNPACK;
+        goto dtl_flux_rpc_unpack_range_region_finish;
+    }
+    *offset = (size_t)offset_val;
+    *length = (size_t)length_val;
+    ctx->dtl_handle->private_dtl.flux_dtl_handle->msg = (flux_msg_t *)msg;
+    dyad_rc = DYAD_RC_OK;
+    DYAD_C_FUNCTION_UPDATE_STR ("upath", *upath);
+dtl_flux_rpc_unpack_range_region_finish:
     DYAD_C_FUNCTION_END ();
     return dyad_rc;
 }
@@ -213,6 +284,64 @@ finish_recv:
     DYAD_C_FUNCTION_UPDATE_INT ("tmp_buflen", tmp_buflen);
     DYAD_C_FUNCTION_END ();
     return dyad_rc;
+}
+
+dyad_rc_t dyad_dtl_flux_detach_request (const dyad_ctx_t *ctx, void **req_state)
+{
+    DYAD_C_FUNCTION_START ();
+    struct dyad_dtl_flux_req_state *state = NULL;
+    dyad_dtl_flux_t *dtl_handle = ctx->dtl_handle->private_dtl.flux_dtl_handle;
+
+    state = (struct dyad_dtl_flux_req_state *)malloc (sizeof (struct dyad_dtl_flux_req_state));
+    if (state == NULL) {
+        DYAD_C_FUNCTION_END ();
+        return DYAD_RC_SYSFAIL;
+    }
+    state->h = dtl_handle->h;
+    // Standard Flux idiom for retaining a message past the synchronous
+    // callback scope that received it -- see flux_msg_incref()/decref()
+    // docs. dtl_handle->msg is cleared afterward so a later request's
+    // rpc_unpack_range() cannot be mistaken for this one.
+    state->msg = (flux_msg_t *)flux_msg_incref (dtl_handle->msg);
+    dtl_handle->msg = NULL;
+    *req_state = state;
+
+    DYAD_C_FUNCTION_END ();
+    return DYAD_RC_OK;
+}
+
+dyad_rc_t dyad_dtl_flux_send_detached (const dyad_ctx_t *ctx,
+                                       void *req_state,
+                                       void *buf,
+                                       size_t buflen)
+{
+    DYAD_C_FUNCTION_START ();
+    dyad_rc_t dyad_rc = DYAD_RC_OK;
+    int rc = 0;
+    struct dyad_dtl_flux_req_state *state = (struct dyad_dtl_flux_req_state *)req_state;
+
+    DYAD_LOG_INFO (ctx, "Send data to consumer using a Flux RPC response (detached)");
+    rc = flux_respond_raw (state->h, state->msg, buf, buflen);
+    if (FLUX_IS_ERROR (rc)) {
+        DYAD_LOG_ERROR (ctx,
+                        "Could not send Flux RPC response containing file "
+                        "contents (detached)");
+        dyad_rc = DYAD_RC_FLUXFAIL;
+    }
+    flux_msg_decref (state->msg);
+    free (state);
+
+    DYAD_C_FUNCTION_UPDATE_INT ("buflen", buflen);
+    DYAD_C_FUNCTION_END ();
+    return dyad_rc;
+}
+
+dyad_rc_t dyad_dtl_flux_abort_detached (const dyad_ctx_t *ctx, void *req_state)
+{
+    struct dyad_dtl_flux_req_state *state = (struct dyad_dtl_flux_req_state *)req_state;
+    flux_msg_decref (state->msg);
+    free (state);
+    return DYAD_RC_OK;
 }
 
 dyad_rc_t dyad_dtl_flux_close_connection (const dyad_ctx_t *ctx)

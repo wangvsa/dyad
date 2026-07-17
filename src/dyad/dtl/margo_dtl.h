@@ -11,6 +11,26 @@
 #include <margo.h>
 #include <stdlib.h>
 
+/**
+ * @brief One cached resolution of a consumer's Margo address string.
+ *
+ * @details
+ * @c addr_str is an owned copy of the address string a consumer embeds in
+ * its Flux RPC request (see @c dyad_dtl_margo_rpc_pack()); @c addr is the
+ * @c hg_addr_t Mercury resolved it to. Cached indefinitely (freed only at
+ * @c dyad_dtl_margo_finalize()) so a producer that repeatedly services the
+ * same consumer over the life of a job -- the normal case, since a training
+ * job's consumers are a small, fixed set of ranks issuing thousands of
+ * fetches -- resolves each consumer's address once instead of on every
+ * single request. See @c dyad_dtl_margo_addr_cache_lookup() for why doing
+ * the naive thing (resolve + free per request, as this DTL originally did)
+ * breaks down at sustained request volume.
+ */
+struct dyad_dtl_margo_addr_cache_entry {
+    char *addr_str;
+    hg_addr_t addr;
+};
+
 struct dyad_dtl_margo {
     flux_t *h;
     bool debug;
@@ -21,9 +41,31 @@ struct dyad_dtl_margo {
     bool recv_ready;
     size_t recv_len;
     void *recv_buffer;
+    // Address cache -- see struct dyad_dtl_margo_addr_cache_entry. Only ever
+    // touched from the module's reactor thread (same thread that calls
+    // rpc_unpack()/rpc_unpack_range()), so no locking is needed.
+    struct dyad_dtl_margo_addr_cache_entry *addr_cache;
+    size_t addr_cache_len;
+    size_t addr_cache_cap;
 };
 
 typedef struct dyad_dtl_margo dyad_dtl_margo_t;
+
+/**
+ * @brief Per-request state detached from the shared @c dyad_dtl_margo
+ *        fields by @c dyad_dtl_margo_detach_request(), so a request can be
+ *        finished (RDMA push via @c margo_forward()) directly from a
+ *        worker thread without racing a later request's
+ *        @c margo_addr_lookup() call, which would otherwise overwrite the
+ *        same shared @c remote_addr field.
+ */
+struct dyad_dtl_margo_req_state {
+    margo_instance_id mid;
+    hg_id_t sendrecv_rpc_id;
+    // Borrowed from the address cache -- NOT owned/freed here. See
+    // struct dyad_dtl_margo_addr_cache_entry.
+    hg_addr_t remote_addr;
+};
 
 /**
  * @brief Initializes the Margo DTL internal state.
@@ -107,6 +149,57 @@ dyad_rc_t dyad_dtl_margo_init (const dyad_ctx_t *ctx,
                                dyad_dtl_mode_t mode,
                                dyad_dtl_comm_mode_t comm_mode,
                                bool debug);
+
+/**
+ * @brief Resolves a consumer's Margo address string to an @c hg_addr_t,
+ *        reusing a cached resolution if one already exists.
+ *
+ * @details
+ * Linearly scans @c margo_handle->addr_cache for an entry whose
+ * @c addr_str matches @p addr_str. On a hit, returns the cached @c hg_addr_t
+ * directly -- no Margo/Mercury call at all. On a miss, resolves it via
+ * @c margo_addr_lookup(), and on success appends a new owned entry (a
+ * @c strdup() of @p addr_str plus the resolved address) to the cache before
+ * returning it. The cache is never evicted from; entries live until
+ * @c dyad_dtl_margo_finalize() frees the whole cache.
+ *
+ * A linear scan is intentional: the cache holds one entry per distinct
+ * consumer a given producer services, which for DYAD's usage (a job's
+ * consumer ranks are a small, fixed set) is at most a few dozen -- far
+ * cheaper than the RDMA operation each lookup guards anyway.
+ *
+ * @note This exists because doing a fresh @c margo_addr_lookup() +
+ *       @c margo_addr_free() on every single request (this DTL's original
+ *       behavior) is fine at low request volume but was found to exhaust
+ *       or corrupt state in Mercury's CXI (Slingshot) provider under
+ *       sustained full-scale request volume (thousands of requests over
+ *       many minutes), manifesting as indefinite
+ *       @c HG_PROTONOSUPPORT/"Could not lookup address" failures on later
+ *       lookups for addresses that had resolved and been used successfully
+ *       many times before. Caching resolved addresses avoids the
+ *       repeated create/destroy churn entirely, matching the UCX DTL
+ *       backend's existing per-consumer endpoint cache
+ *       (@c ucx_ep_cache.cpp) for the same reason.
+ *
+ * @note Must be called from the module's reactor thread (same constraint as
+ *       @c margo_addr_lookup() itself, and matching where this is called
+ *       from: @c dyad_dtl_margo_rpc_unpack()/@c _rpc_unpack_range()).
+ *
+ * @param[in]  ctx      DYAD context.
+ * @param[in]  addr_str Consumer's Margo address string.
+ * @param[out] out_addr Set to the resolved (cached or freshly looked up)
+ *                       address on success. Borrowed from the cache --
+ *                       the caller must not free it.
+ *
+ * @return @c dyad_rc_t return code:
+ * @retval DYAD_RC_OK          Resolution succeeded (cache hit or fresh
+ *                              lookup).
+ * @retval DYAD_RC_SYSFAIL      Cache growth allocation failed.
+ * @retval DYAD_RC_MARGOINIT_FAIL @c margo_addr_lookup() failed.
+ */
+dyad_rc_t dyad_dtl_margo_addr_cache_lookup (const dyad_ctx_t *ctx,
+                                            const char *addr_str,
+                                            hg_addr_t *out_addr);
 
 /**
  * @brief Packs a file fetch request into a JSON object for a Margo RPC call.
@@ -201,6 +294,65 @@ dyad_rc_t dyad_dtl_margo_rpc_pack (const dyad_ctx_t *ctx,
  *       the Flux message.
  */
 dyad_rc_t dyad_dtl_margo_rpc_unpack (const dyad_ctx_t *ctx, const flux_msg_t *msg, char **upath);
+
+/**
+ * @brief Packs a byte-range fetch request into a JSON object for a Margo RPC call.
+ *
+ * @details
+ * Same as @c dyad_dtl_margo_rpc_pack() but additionally packs @p offset and
+ * @p length. The Mercury/RDMA data-transfer layer (@c margo_rpc_in_t,
+ * @c data_ready_rpc(), @c dyad_dtl_margo_send()/@c dyad_dtl_margo_recv())
+ * needs no range-awareness at all: @p offset only matters to the
+ * producer's Flux-side callback, which uses it to decide what to
+ * @c pread() from the file *before* ever registering a bulk buffer. By
+ * the time @c dyad_dtl_margo_send() is called, its buffer already holds
+ * just the requested sub-range, so the existing bulk-create/RDMA-pull
+ * path moves it identically to a whole-file transfer.
+ *
+ * @param[in]  ctx           DYAD context.
+ * @param[in]  upath         Relative path of the file to fetch from.
+ * @param[in]  producer_rank Flux rank of the producer broker.
+ * @param[in]  offset        Starting byte offset of the requested range.
+ * @param[in]  length        Number of bytes requested.
+ * @param[out] packed_obj    Set to the allocated JSON object on success.
+ *
+ * @return @c dyad_rc_t return code:
+ * @retval DYAD_RC_OK      The JSON object was created successfully.
+ * @retval DYAD_RC_BADPACK @c json_pack() failed to create the object.
+ */
+dyad_rc_t dyad_dtl_margo_rpc_pack_range (const dyad_ctx_t *ctx,
+                                         const char *upath,
+                                         uint32_t producer_rank,
+                                         size_t offset,
+                                         size_t length,
+                                         json_t **packed_obj);
+
+/**
+ * @brief Unpacks a byte-range fetch request from an incoming Flux RPC message
+ *        and resolves the consumer's Margo address.
+ *
+ * @details
+ * Same as @c dyad_dtl_margo_rpc_unpack() but additionally extracts @p offset
+ * and @p length from the JSON payload.
+ *
+ * @param[in]  ctx    DYAD context.
+ * @param[in]  msg    Incoming Flux RPC message containing the JSON payload
+ *                    packed by @c dyad_dtl_margo_rpc_pack_range().
+ * @param[out] upath  Relative path of the requested file. Valid for the
+ *                    lifetime of @p msg.
+ * @param[out] offset Starting byte offset of the requested range.
+ * @param[out] length Number of bytes requested.
+ *
+ * @return @c dyad_rc_t return code:
+ * @retval DYAD_RC_OK        Unpacking and address resolution succeeded.
+ * @retval DYAD_RC_BADUNPACK @c flux_request_unpack() failed to extract the
+ *                           required fields from the message.
+ */
+dyad_rc_t dyad_dtl_margo_rpc_unpack_range (const dyad_ctx_t *ctx,
+                                           const flux_msg_t *msg,
+                                           char **upath,
+                                           size_t *offset,
+                                           size_t *length);
 
 /**
  * @brief Sends the initial RPC acknowledgement from the service to the consumer.
@@ -443,6 +595,95 @@ dyad_rc_t dyad_dtl_margo_recv (const dyad_ctx_t *ctx, void **buf, size_t *buflen
 dyad_rc_t dyad_dtl_margo_close_connection (const dyad_ctx_t *ctx);
 
 /**
+ * @brief Detaches the current request's resolved consumer address from the
+ *        shared, single-slot @c remote_addr field into an
+ *        independently-owned request state blob.
+ *
+ * @details
+ * Copies @c mid, @c sendrecv_rpc_id (process-wide, immutable, just
+ * convenience copies so @c dyad_dtl_margo_send_detached() never has to
+ * touch the shared @c dyad_dtl_margo struct at all) and @c remote_addr
+ * (resolved by the preceding @c dyad_dtl_margo_rpc_unpack_range() call,
+ * borrowed from the address cache -- see
+ * @c struct dyad_dtl_margo_addr_cache_entry) out of the shared fields into
+ * a newly allocated @c struct dyad_dtl_margo_req_state, and clears the
+ * shared @c remote_addr field so a later request's
+ * @c margo_addr_lookup()/cache hit can't be mistaken for this one.
+ * @c remote_addr is NOT owned by the returned state -- it is not freed by
+ * @c dyad_dtl_margo_send_detached()/@c dyad_dtl_margo_abort_detached(),
+ * only by @c dyad_dtl_margo_finalize() tearing down the whole cache.
+ *
+ * @param[in]  ctx       DYAD context.
+ * @param[out] req_state Set to a newly allocated request-state blob owning
+ *                       the resolved consumer address. Must be passed to
+ *                       @c dyad_dtl_margo_send_detached() exactly once.
+ *
+ * @return Always returns @c DYAD_RC_OK, unless allocation fails
+ *         (@c DYAD_RC_SYSFAIL).
+ */
+dyad_rc_t dyad_dtl_margo_detach_request (const dyad_ctx_t *ctx, void **req_state);
+
+/**
+ * @brief Sends file data to the consumer via Margo RDMA using a previously
+ *        detached request's resolved address, instead of the shared
+ *        @c remote_addr field.
+ *
+ * @details
+ * Equivalent to @c dyad_dtl_margo_send(), but reads @c mid,
+ * @c sendrecv_rpc_id, and @c remote_addr from @p req_state (as produced by
+ * @c dyad_dtl_margo_detach_request()) instead of the shared fields.
+ * @c remote_addr is borrowed from the address cache and is NOT freed here
+ * (only @p req_state itself is freed) -- see
+ * @c struct dyad_dtl_margo_addr_cache_entry.
+ *
+ * @note Must be called from the module's reactor thread, like the Flux RPC
+ *       backend's equivalent -- @c margo_init() for this DTL's
+ *       producer/@c DYAD_COMM_SEND side creates no dedicated Argobots
+ *       execution stream, so @c mid is only a valid Argobots execution
+ *       context on the thread that called @c margo_init() (the reactor
+ *       thread). A plain worker-pool @c pthread is not an Argobots
+ *       ULT/execution-stream context, and calling @c margo_forward() from
+ *       one hangs (the consumer's RDMA pull is never triggered).
+ *       @see dyad_dtl::send_detached_is_thread_safe (false for this
+ *       backend).
+ *
+ * @param[in] ctx       DYAD context.
+ * @param[in] req_state Request state from a prior
+ *                      @c dyad_dtl_margo_detach_request() call. Freed by
+ *                      this call.
+ * @param[in] buf       Buffer containing the file data to send.
+ * @param[in] buflen    Number of bytes in @p buf.
+ *
+ * @return @c dyad_rc_t return code:
+ * @retval DYAD_RC_OK Always returned. Error handling for Margo calls is
+ *                    not yet implemented, matching @c dyad_dtl_margo_send()
+ *                    (see TODO there).
+ */
+dyad_rc_t dyad_dtl_margo_send_detached (const dyad_ctx_t *ctx,
+                                        void *req_state,
+                                        void *buf,
+                                        size_t buflen);
+
+/**
+ * @brief Frees a detached request's state without sending data, for use on
+ *        an I/O-error path.
+ *
+ * @details
+ * Frees @p req_state. @c remote_addr is borrowed from the address cache
+ * and is NOT freed here (mirroring @c dyad_dtl_margo_send_detached()) --
+ * see @c struct dyad_dtl_margo_addr_cache_entry. Safe to call from any
+ * thread -- touches only Margo/Mercury state.
+ *
+ * @param[in] ctx       DYAD context.
+ * @param[in] req_state Request state from a prior
+ *                      @c dyad_dtl_margo_detach_request() call. Freed by
+ *                      this call.
+ *
+ * @return Always returns @c DYAD_RC_OK.
+ */
+dyad_rc_t dyad_dtl_margo_abort_detached (const dyad_ctx_t *ctx, void *req_state);
+
+/**
  * @brief Finalizes and frees the Margo DTL internal state.
  *
  * @details
@@ -453,10 +694,16 @@ dyad_rc_t dyad_dtl_margo_close_connection (const dyad_ctx_t *ctx);
  *     local Margo address via @c margo_addr_free().
  *  2. If @c margo_handle->remote_addr is non-@c NULL, frees the remote
  *     address (the consumer's resolved Margo server address) via
- *     @c margo_addr_free().
- *  3. Finalizes the Margo instance via @c margo_finalize(), which shuts
+ *     @c margo_addr_free(). In practice this is normally @c NULL, since
+ *     @c dyad_dtl_margo_detach_request() clears it after every request --
+ *     this is a safety net for the non-worker-pool (UCX-style synchronous)
+ *     path, which doesn't go through detach/cache at all.
+ *  3. Frees every entry in the address cache (see
+ *     @c struct dyad_dtl_margo_addr_cache_entry) via @c margo_addr_free()
+ *     and frees the cache array itself.
+ *  4. Finalizes the Margo instance via @c margo_finalize(), which shuts
  *     down the Mercury progress loop and any associated Argobots ESs.
- *  4. Frees the @c dyad_dtl_margo struct and sets the handle pointer
+ *  5. Frees the @c dyad_dtl_margo struct and sets the handle pointer
  *     to @c NULL.
  *
  * If @c ctx->dtl_handle is @c NULL or

@@ -9,9 +9,11 @@
 #include <dyad/common/dyad_envs.h>
 #include <dyad/common/dyad_logging.h>
 #include <dyad/common/dyad_profiler.h>
+#include <dyad/cache/dyad_cache_int.h>
 #include <dyad/client/dyad_client_int.h>
 #include <dyad/dtl/dyad_dtl_api.h>
 #include <dyad/utils/murmur3.h>
+#include <dyad/utils/range_cache.h>
 #include <dyad/utils/utils.h>
 #include <fcntl.h>
 #include <flux/core.h>
@@ -798,6 +800,117 @@ get_done:;
 }
 
 /**
+ * @brief Retrieves a byte range of file data from a remote producer's Flux
+ *        broker via RPC.
+ *
+ * @details
+ * Parallel to @c dyad_get_data(), for @c dyad_consume_range() requests
+ * (FLUX_RPC and MARGO DTL modes only, checked by the caller). Differs only
+ * in: packs @p offset/@p length via @c rpc_pack_range() instead of just
+ * @p mdata->fpath, and targets the @c DYAD_DTL_RPC_RANGE_NAME topic instead
+ * of @c DYAD_DTL_RPC_NAME so it is routed to @c dyad_fetch_range_request_cb()
+ * on the producer's broker.
+ *
+ * @param[in]  ctx        Pointer to the DYAD context. Must not be @c NULL.
+ * @param[in]  mdata      Metadata for the file to retrieve. Must not be
+ *                        @c NULL. @c mdata->fpath and @c mdata->owner_rank
+ *                        identify the file and the producer broker to
+ *                        contact.
+ * @param[in]  offset     Starting byte offset of the requested range.
+ * @param[in]  length     Number of bytes requested.
+ * @param[out] file_data  Address of a pointer to be set to the buffer
+ *                        containing the retrieved range. Allocated by the
+ *                        DTL layer; the caller releases it via
+ *                        @c ctx->dtl_handle->return_buffer().
+ * @param[out] file_len   Address of a @c size_t to be set to the number of
+ *                        bytes in @p file_data.
+ *
+ * @return @c dyad_rc_t return code, same conventions as @c dyad_get_data().
+ */
+DYAD_DLL_EXPORTED dyad_rc_t dyad_get_data_range (const dyad_ctx_t *restrict ctx,
+                                                 const dyad_metadata_t *restrict mdata,
+                                                 size_t offset,
+                                                 size_t length,
+                                                 char **restrict file_data,
+                                                 size_t *restrict file_len)
+{
+    DYAD_C_FUNCTION_START ();
+    dyad_rc_t rc = DYAD_RC_OK;
+    flux_future_t *f = NULL;
+    json_t *rpc_payload = NULL;
+    DYAD_LOG_DEBUG (ctx, "DYAD CLIENT: Packing ranged payload for RPC to DYAD module");
+    DYAD_C_FUNCTION_UPDATE_INT ("owner_rank", mdata->owner_rank);
+    DYAD_C_FUNCTION_UPDATE_STR ("fpath", mdata->fpath);
+    rc = ctx->dtl_handle
+             ->rpc_pack_range (ctx, mdata->fpath, mdata->owner_rank, offset, length, &rpc_payload);
+    if (DYAD_IS_ERROR (rc)) {
+        DYAD_LOG_ERROR (ctx,
+                        "Cannot create JSON payload for ranged Flux RPC to "
+                        "DYAD module\n");
+        goto get_range_done;
+    }
+    DYAD_LOG_DEBUG (ctx, "DYAD CLIENT: Sending ranged payload for RPC to DYAD module");
+    f = flux_rpc_pack ((flux_t *)ctx->h,
+                       DYAD_DTL_RPC_RANGE_NAME,
+                       mdata->owner_rank,
+                       FLUX_RPC_STREAMING,
+                       "o",
+                       rpc_payload);
+    if (f == NULL) {
+        DYAD_LOG_ERROR (ctx, "Cannot send ranged RPC to producer module.");
+        rc = DYAD_RC_BADRPC;
+        goto get_range_done;
+    }
+    DYAD_LOG_DEBUG (ctx, "DYAD CLIENT: Receive RPC response from DYAD module");
+    rc = ctx->dtl_handle->rpc_recv_response (ctx, f);
+    if (DYAD_IS_ERROR (rc)) {
+        DYAD_LOG_ERROR (ctx, "Cannot receive and/or parse the RPC response.");
+        goto get_range_done;
+    }
+    DYAD_LOG_DEBUG (ctx, "DYAD CLIENT: Establish DTL connection with DYAD module");
+    rc = ctx->dtl_handle->establish_connection (ctx);
+    if (DYAD_IS_ERROR (rc)) {
+        DYAD_LOG_ERROR (ctx,
+                        "Cannot establish connection with DYAD module on broker "
+                        "%u.",
+                        mdata->owner_rank);
+        goto get_range_done;
+    }
+    DYAD_LOG_DEBUG (ctx, "DYAD CLIENT: Receive ranged file data via DTL");
+    rc = ctx->dtl_handle->recv (ctx, (void **)file_data, file_len);
+    DYAD_LOG_DEBUG (ctx, "DYAD CLIENT: Close DTL connection with DYAD module");
+    ctx->dtl_handle->close_connection (ctx);
+    if (DYAD_IS_ERROR (rc)) {
+        DYAD_LOG_ERROR (ctx, "Cannot receive ranged data from producer module.");
+        goto get_range_done;
+    }
+    DYAD_C_FUNCTION_UPDATE_INT ("file_len", *file_len);
+
+    rc = DYAD_RC_OK;
+
+get_range_done:;
+    // Same end-of-stream handling as dyad_get_data() -- see its comment.
+    if (rc != DYAD_RC_RPC_FINISHED && rc != DYAD_RC_BADRPC) {
+        if (!(flux_rpc_get (f, NULL) < 0 && errno == ENODATA)) {
+            DYAD_LOG_ERROR (ctx,
+                            "An error occured at end of getting ranged data! Either the "
+                            "module sent too many responses, or the module "
+                            "failed with a bad error (errno = %d).",
+                            errno);
+            rc = DYAD_RC_BADRPC;
+        }
+    }
+    DYAD_LOG_DEBUG (ctx,
+                    "DYAD CLIENT: Read %zd bytes of range from %s file",
+                    *file_len,
+                    mdata->fpath);
+    DYAD_LOG_DEBUG (ctx, "DYAD CLIENT: Destroy the Flux future for the RPC.");
+    flux_future_destroy (f);
+    DYAD_C_FUNCTION_END ();
+    return rc;
+}
+
+/**
  * @brief Writes file data retrieved from a producer to the consumer-managed directory.
  *
  * @details
@@ -946,6 +1059,11 @@ dyad_rc_t dyad_produce (dyad_ctx_t *restrict ctx, const char *restrict fname)
     // If the context is valid, call dyad_commit to perform
     // the producer operation
     rc = dyad_commit (ctx, fname);
+    if (!DYAD_IS_ERROR (rc)) {
+        // Best-effort: eviction failures must never turn a successful
+        // produce into a reported error. No-ops if eviction is disabled.
+        dyad_cache_maybe_evict (ctx, ctx->prod_managed_path);
+    }
 produce_done:;
     DYAD_C_FUNCTION_END ();
     return rc;
@@ -1216,6 +1334,12 @@ dyad_rc_t dyad_consume (dyad_ctx_t *restrict ctx, const char *restrict fname)
             };
         }
         dyad_release_flock (ctx, lock_fd, &exclusive_lock);
+        // Best-effort: eviction failures must never turn a successful
+        // consume into a reported error. No-ops if eviction is disabled.
+        // Reached whether the file was already local or freshly fetched;
+        // dyad_cache_maybe_evict()'s own capacity check makes the
+        // already-under-budget case a cheap no-op either way.
+        dyad_cache_maybe_evict (ctx, ctx->cons_managed_path);
     }
     DYAD_C_FUNCTION_UPDATE_INT ("file_size", file_size);
 consume_done:;
@@ -1321,6 +1445,12 @@ dyad_rc_t dyad_consume_w_metadata (dyad_ctx_t *restrict ctx,
         };
     }
     dyad_release_flock (ctx, lock_fd, &exclusive_lock);
+    // Best-effort: eviction failures must never turn a successful consume
+    // into a reported error. No-ops if eviction is disabled. Reached
+    // whether the file was already local or freshly fetched;
+    // dyad_cache_maybe_evict()'s own capacity check makes the
+    // already-under-budget case a cheap no-op either way.
+    dyad_cache_maybe_evict (ctx, ctx->cons_managed_path);
     DYAD_C_FUNCTION_UPDATE_INT ("file_size", file_size);
 
     if (close (lock_fd) != 0) {
@@ -1334,6 +1464,130 @@ consume_done:;
     }
 consume_close:;
     // Set reenter to true to allow additional intercepting
+    ctx->reenter = true;
+    DYAD_C_FUNCTION_END ();
+    return rc;
+}
+
+dyad_rc_t dyad_consume_range (dyad_ctx_t *restrict ctx,
+                              const char *restrict fname,
+                              size_t offset,
+                              size_t length,
+                              void **restrict data,
+                              size_t *restrict data_len)
+{
+    DYAD_C_FUNCTION_START ();
+    DYAD_C_FUNCTION_UPDATE_STR ("fname", fname);
+    dyad_rc_t rc = DYAD_RC_OK;
+    dyad_metadata_t *mdata = NULL;
+    char upath[PATH_MAX + 1] = {'\0'};
+    char fullpath[PATH_MAX + 1] = {'\0'};
+    int fd = -1;
+    ssize_t nread = 0;
+    struct flock shared_lock;
+
+    *data = NULL;
+    *data_len = 0ul;
+
+    if (!ctx || !ctx->h) {
+        rc = DYAD_RC_NOCTX;
+        goto consume_range_close;
+    }
+    if (ctx->cons_managed_path == NULL) {
+        rc = DYAD_RC_BADMANAGEDPATH;
+        goto consume_range_close;
+    }
+    if (ctx->dtl_handle == NULL || ctx->dtl_handle->mode == DYAD_DTL_UCX) {
+        DYAD_LOG_ERROR (ctx, "dyad_consume_range is not supported for the active DTL mode (UCX)");
+        rc = DYAD_RC_BADDTLMODE;
+        goto consume_range_close;
+    }
+
+    if (ctx->relative_to_managed_path && (strlen (fname) > 0ul)
+        && (strncmp (fname, DYAD_PATH_DELIM, ctx->delim_len) != 0)) {
+        memcpy (upath, fname, strlen (fname));
+    } else if (!cmp_canonical_path_prefix (ctx, false, fname, upath, PATH_MAX)) {
+        DYAD_LOG_ERROR (ctx,
+                        "dyad_consume_range: '%s' is not under the consumer-managed path",
+                        fname);
+        rc = DYAD_RC_BADMANAGEDPATH;
+        goto consume_range_close;
+    }
+    ctx->reenter = false;
+
+    rc = dyad_fetch_metadata (ctx, fname, upath, &mdata);
+    if (DYAD_IS_ERROR (rc)) {
+        DYAD_LOG_ERROR (ctx, "dyad_consume_range: dyad_fetch_metadata failed!");
+        goto consume_range_done;
+    }
+
+    if (mdata == NULL) {
+        // File is already local to this node (per dyad_fetch_metadata's
+        // existing HFL/DMD check) -- pread the local copy directly, no RPC.
+        strncpy (fullpath, ctx->cons_managed_path, PATH_MAX - 1);
+        concat_str (fullpath, upath, "/", PATH_MAX);
+        if (ctx->origin_path != NULL) {
+            char origin_fullpath[PATH_MAX + 1] = {'\0'};
+            strncpy (origin_fullpath, ctx->origin_path, PATH_MAX - 1);
+            concat_str (origin_fullpath, upath, "/", PATH_MAX);
+            rc = dyad_range_cache_ensure (ctx, fullpath, origin_fullpath, offset, length);
+            if (DYAD_IS_ERROR (rc)) {
+                DYAD_LOG_ERROR (ctx,
+                                "dyad_consume_range: dyad_range_cache_ensure failed for local "
+                                "file '%s'",
+                                fullpath);
+                goto consume_range_done;
+            }
+        }
+        fd = open (fullpath, O_RDONLY);
+        if (fd == -1) {
+            DYAD_LOG_ERROR (ctx, "dyad_consume_range: cannot open local file '%s'", fullpath);
+            rc = DYAD_RC_BADFIO;
+            goto consume_range_done;
+        }
+        rc = dyad_shared_flock (ctx, fd, &shared_lock);
+        if (DYAD_IS_ERROR (rc)) {
+            close (fd);
+            goto consume_range_done;
+        }
+        *data = malloc (length);
+        if (*data == NULL) {
+            rc = DYAD_RC_SYSFAIL;
+            dyad_release_flock (ctx, fd, &shared_lock);
+            close (fd);
+            goto consume_range_done;
+        }
+        nread = pread (fd, *data, length, (off_t)offset);
+        dyad_release_flock (ctx, fd, &shared_lock);
+        close (fd);
+        if (nread < 0 || (size_t)nread != length) {
+            DYAD_LOG_ERROR (ctx,
+                            "dyad_consume_range: pread of local file '%s' failed (got %zd of "
+                            "%zu)",
+                            fullpath,
+                            nread,
+                            length);
+            free (*data);
+            *data = NULL;
+            rc = DYAD_RC_BADFIO;
+            goto consume_range_done;
+        }
+        *data_len = length;
+    } else {
+        // File owned by a remote broker -- fetch just the requested range.
+        rc = dyad_get_data_range (ctx, mdata, offset, length, (char **)data, data_len);
+        if (DYAD_IS_ERROR (rc)) {
+            DYAD_LOG_ERROR (ctx, "dyad_consume_range: dyad_get_data_range failed!");
+            goto consume_range_done;
+        }
+    }
+    rc = DYAD_RC_OK;
+
+consume_range_done:;
+    if (mdata != NULL) {
+        dyad_free_metadata (&mdata);
+    }
+consume_range_close:;
     ctx->reenter = true;
     DYAD_C_FUNCTION_END ();
     return rc;

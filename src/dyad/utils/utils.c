@@ -60,11 +60,11 @@
 #define DYAD_PATH_DELIM "/"
 #endif
 
-uint32_t hash_str (const char* str, const uint32_t seed)
+uint32_t hash_str (const char *str, const uint32_t seed)
 {
     if (!str)
         return 0u;
-    const char* str_long = str;
+    const char *str_long = str;
     size_t str_len = strlen (str);
     char buf[256] = {'\0'};
     uint32_t hash[4] = {0u};  // Output for the hash
@@ -85,12 +85,12 @@ uint32_t hash_str (const char* str, const uint32_t seed)
     return (hash[0] ^ hash[1] ^ hash[2] ^ hash[3]) + 1;
 }
 
-uint32_t hash_path_prefix (const char* str, const uint32_t seed, const size_t len)
+uint32_t hash_path_prefix (const char *str, const uint32_t seed, const size_t len)
 {
     if (!str || len == 0ul) {
         return 0u;
     }
-    const char* str_long = str;
+    const char *str_long = str;
     size_t str_len = strlen (str);
     char buf[256] = {'\0'};
     uint32_t hash[4] = {0u};  // Output for the hash
@@ -112,9 +112,9 @@ uint32_t hash_path_prefix (const char* str, const uint32_t seed, const size_t le
     return (hash[0] ^ hash[1] ^ hash[2] ^ hash[3]) + 1;
 }
 
-char* concat_str (char* __restrict__ str,
-                  const char* __restrict__ to_append,
-                  const char* __restrict__ connector,
+char *concat_str (char *__restrict__ str,
+                  const char *__restrict__ to_append,
+                  const char *__restrict__ connector,
                   size_t str_capacity)
 {
     const size_t str_len_org = strlen (str);
@@ -133,7 +133,7 @@ char* concat_str (char* __restrict__ str,
     }
     const size_t str_len = (con_end ? (str_len_org - con_len) : str_len_org);
 
-    const char* const str_end = str + str_capacity;
+    const char *const str_end = str + str_capacity;
     bool no_overlap = ((to_append + strlen (to_append) <= str) || (str_end <= to_append))
                       && ((connector + strlen (connector) <= str) || (str_end <= connector));
 
@@ -142,10 +142,10 @@ char* concat_str (char* __restrict__ str,
         return NULL;
     }
 
-    char* buf = (char*)calloc (all_len + 1ul, sizeof (char));
+    char *buf = (char *)calloc (all_len + 1ul, sizeof (char));
 
     memcpy (buf, str, str_len);
-    char* buf_pos = buf + str_len;
+    char *buf_pos = buf + str_len;
 
     if (connector != NULL) {
         memcpy (buf_pos, connector, con_len);
@@ -160,10 +160,10 @@ char* concat_str (char* __restrict__ str,
     return str;
 }
 
-bool extract_user_path (const char* __restrict__ prefix,
-                        const char* __restrict__ full,
-                        const char* __restrict__ delim,
-                        char* __restrict__ upath,
+bool extract_user_path (const char *__restrict__ prefix,
+                        const char *__restrict__ full,
+                        const char *__restrict__ delim,
+                        char *__restrict__ upath,
                         const size_t upath_capacity)
 {
     size_t prefix_len = strlen (prefix);
@@ -176,7 +176,7 @@ bool extract_user_path (const char* __restrict__ prefix,
     }
 
     {
-        const char* const upath_end = upath + upath_capacity;
+        const char *const upath_end = upath + upath_capacity;
         bool no_overlap = ((prefix + prefix_len <= upath) || (upath_end <= prefix))
                           && ((full + full_len <= upath) || (upath_end <= full))
                           && ((delim + delim_len <= upath) || (upath_end <= delim));
@@ -226,10 +226,10 @@ bool extract_user_path (const char* __restrict__ prefix,
     return true;
 }
 
-bool cmp_canonical_path_prefix (const dyad_ctx_t* __restrict__ ctx,
+bool cmp_canonical_path_prefix (const dyad_ctx_t *__restrict__ ctx,
                                 const bool is_prod,
-                                const char* __restrict__ path,
-                                char* __restrict__ upath,
+                                const char *__restrict__ path,
+                                char *__restrict__ upath,
                                 const size_t upath_capacity)
 {
     // Only works when there are no multiple absolute paths via hardlinks
@@ -239,8 +239,8 @@ bool cmp_canonical_path_prefix (const dyad_ctx_t* __restrict__ ctx,
         return false;
     }
 
-    const char* prefix = NULL;
-    const char* can_prefix = NULL;
+    const char *prefix = NULL;
+    const char *can_prefix = NULL;
     uint32_t prefix_len = 0u;
     uint32_t can_prefix_len = 0u;
     uint32_t prefix_hash = 0u;
@@ -342,7 +342,7 @@ bool cmp_canonical_path_prefix (const dyad_ctx_t* __restrict__ ctx,
  *          are not checked. Only the return value of the final @c mkdir() for
  *          @p dir itself is returned to the caller.
  */
-int mkpath (const char* dir, const mode_t m)
+int mkpath (const char *dir, const mode_t m)
 {
     struct stat sb;
 
@@ -359,7 +359,7 @@ int mkpath (const char* dir, const mode_t m)
     return mkdir (dir, m);
 }
 
-int mkdir_as_needed (const char* path, const mode_t m)
+int mkdir_as_needed (const char *path, const mode_t m)
 {
     if (path == NULL || strlen (path) == 0ul) {
         DYAD_LOG_ERROR (NULL, "DYAD UTL: Cannot create a directory with no name\n");
@@ -422,7 +422,7 @@ int mkdir_as_needed (const char* path, const mode_t m)
     return 0;  // The new directory has been succesfully created
 }
 
-int get_path (const int fd, const size_t max_size, char* path)
+int get_path (const int fd, const size_t max_size, char *path)
 {
     if (max_size < 1ul) {
         DYAD_LOG_DEBUG (NULL, "DYAD UTIL: Invalid max path size.");
@@ -447,7 +447,7 @@ int get_path (const int fd, const size_t max_size, char* path)
     return 0;
 }
 
-bool is_path_dir (const char* path)
+bool is_path_dir (const char *path)
 {
     if (path == NULL || strlen (path) == 0ul) {
         return false;
@@ -476,7 +476,7 @@ bool is_fd_dir (int fd)
 }
 
 #if DYAD_SPIN_WAIT
-bool get_stat (const char* path, unsigned int max_retry, long ns_sleep)
+bool get_stat (const char *path, unsigned int max_retry, long ns_sleep)
 {
     struct stat sb;
     unsigned int num_retry = 0u;
@@ -521,9 +521,9 @@ ssize_t get_file_size (int fd)
 }
 #endif
 
-dyad_rc_t dyad_excl_flock (const dyad_ctx_t* __restrict__ ctx,
+dyad_rc_t dyad_excl_flock (const dyad_ctx_t *__restrict__ ctx,
                            int fd,
-                           struct flock* __restrict__ lock)
+                           struct flock *__restrict__ lock)
 {
     dyad_rc_t rc = DYAD_RC_OK;
     DYAD_C_FUNCTION_START ();
@@ -554,9 +554,47 @@ excl_flock_end:;
     return rc;
 }
 
-dyad_rc_t dyad_shared_flock (const dyad_ctx_t* __restrict__ ctx,
+dyad_rc_t dyad_try_excl_flock (const dyad_ctx_t *__restrict__ ctx,
+                               int fd,
+                               struct flock *__restrict__ lock)
+{
+    dyad_rc_t rc = DYAD_RC_OK;
+    DYAD_C_FUNCTION_START ();
+    DYAD_C_FUNCTION_UPDATE_INT ("fd", fd);
+    DYAD_LOG_DEBUG (ctx,
+                    "DYAD UTIL: [node %u rank %u pid %d] Attempts a non-blocking exclusive lock "
+                    "on fd %d.",
+                    ctx->node_idx,
+                    ctx->rank,
+                    ctx->pid,
+                    fd);
+    if (!lock) {
+        rc = DYAD_RC_BADFIO;
+        goto try_excl_flock_end;
+    }
+    lock->l_type = F_WRLCK;
+    lock->l_whence = SEEK_SET;
+    lock->l_start = 0;
+    lock->l_len = 0;
+    lock->l_pid = ctx->pid;                 // getpid();
+    if (fcntl (fd, F_SETLK, lock) == -1) {  // returns immediately instead of waiting
+        if (errno == EAGAIN || errno == EACCES) {
+            rc = DYAD_RC_BUSY;
+        } else {
+            DYAD_LOG_ERROR (ctx, "DYAD UTIL: Cannot apply exclusive lock on fd %d.", fd);
+            rc = DYAD_RC_BADFIO;
+        }
+        goto try_excl_flock_end;
+    }
+    rc = DYAD_RC_OK;
+try_excl_flock_end:;
+    DYAD_C_FUNCTION_END ();
+    return rc;
+}
+
+dyad_rc_t dyad_shared_flock (const dyad_ctx_t *__restrict__ ctx,
                              int fd,
-                             struct flock* __restrict__ lock)
+                             struct flock *__restrict__ lock)
 {
     DYAD_C_FUNCTION_START ();
     DYAD_C_FUNCTION_UPDATE_INT ("fd", fd);
@@ -587,9 +625,9 @@ shared_flock_end:;
     return rc;
 }
 
-dyad_rc_t dyad_release_flock (const dyad_ctx_t* __restrict__ ctx,
+dyad_rc_t dyad_release_flock (const dyad_ctx_t *__restrict__ ctx,
                               int fd,
-                              struct flock* __restrict__ lock)
+                              struct flock *__restrict__ lock)
 {
     DYAD_C_FUNCTION_START ();
     DYAD_C_FUNCTION_UPDATE_INT ("fd", fd);
@@ -617,11 +655,11 @@ release_flock_end:;
 }
 
 #if DYAD_SYNC_DIR
-int sync_containing_dir (const char* path)
+int sync_containing_dir (const char *path)
 {
     char fullpath[PATH_MAX + 2] = {'\0'};
     strncpy (fullpath, path, PATH_MAX);
-    const char* containing_dir = dirname (fullpath);
+    const char *containing_dir = dirname (fullpath);
     int dir_fd = open (containing_dir, O_RDONLY);
     if (strlen (containing_dir) == 0) {
         return 0;

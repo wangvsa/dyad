@@ -3,6 +3,7 @@ set(DYAD_CLIENT_PRIVATE_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/../common/dyad_loggi
                               ${CMAKE_CURRENT_SOURCE_DIR}/../common/dyad_profiler.h
                               ${CMAKE_CURRENT_SOURCE_DIR}/../common/dyad_structures_int.h
                               ${CMAKE_CURRENT_SOURCE_DIR}/../dtl/dyad_dtl_api.h
+                              ${CMAKE_CURRENT_SOURCE_DIR}/../cache/dyad_cache_int.h
                               ${CMAKE_CURRENT_SOURCE_DIR}/../utils/utils.h
                               ${CMAKE_CURRENT_SOURCE_DIR}/../utils/murmur3.h
                               ${CMAKE_CURRENT_SOURCE_DIR}/dyad_client_int.h)
@@ -18,7 +19,7 @@ set_target_properties(${PROJECT_NAME}_client PROPERTIES CMAKE_INSTALL_RPATH
                       "${CMAKE_INSTALL_PREFIX}/${DYAD_LIBDIR}")
 target_link_libraries(${PROJECT_NAME}_client PRIVATE Jansson::Jansson flux::core)
 target_link_libraries(${PROJECT_NAME}_client PRIVATE ${PROJECT_NAME}_utils
-                      ${PROJECT_NAME}_murmur3 ${PROJECT_NAME}_dtl)
+                      ${PROJECT_NAME}_murmur3 ${PROJECT_NAME}_dtl ${PROJECT_NAME}_cache)
 target_link_libraries(${PROJECT_NAME}_client PUBLIC ${PROJECT_NAME}_ctx)
 
 target_compile_definitions(${PROJECT_NAME}_client PRIVATE BUILDING_DYAD=1)

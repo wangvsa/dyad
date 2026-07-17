@@ -66,6 +66,9 @@ enum dyad_core_return_codes {
     DYAD_RC_BAD_CLI_ARG_DEF = -1008,  ///< Trying to define a CLI argument failed
     DYAD_RC_BAD_CLI_PARSE = -1009,    ///< Trying to parse CLI arguments failed
     DYAD_RC_BADBUF = -1010,           ///< Invalid buffer/pointer passed to function
+    DYAD_RC_BUSY = -1011,             ///< Resource (e.g. a file lock) is held by another
+                                      ///< process; not a hard failure, caller should skip/retry
+    DYAD_RC_BADCACHEMODE = -1012,     ///< Invalid DYAD cache-eviction policy mode provided
 
     // FLUX
     DYAD_RC_FLUXFAIL = -2000,      ///< Some Flux function failed

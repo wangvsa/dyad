@@ -131,6 +131,10 @@ docs/demos/SCA26/cpp_prod
 tests/integration/dlio_benchmark/logs
 scripts/checkpoints
 scripts/logs
+tests/pydyad_spsc_range/logs
+tests/pydyad_spsc_lazy_range/logs
 tests/integration/dlio_benchmark/perf_analysis/.ipynb_checkpoints
 
 /CLAUDE.md
+/deps
+/source-me.sh

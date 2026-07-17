@@ -22,6 +22,17 @@ struct dyad_dtl_flux {
 typedef struct dyad_dtl_flux dyad_dtl_flux_t;
 
 /**
+ * @brief Per-request state detached from the shared @c dyad_dtl_flux
+ *        fields by @c dyad_dtl_flux_detach_request(), so a request can be
+ *        finished later (e.g. from a worker-thread completion queue)
+ *        without racing a later request's unpack call.
+ */
+struct dyad_dtl_flux_req_state {
+    flux_t *h;
+    flux_msg_t *msg;  // incref'd; released by dyad_dtl_flux_send_detached()
+};
+
+/**
  * @brief Initializes the Flux RPC DTL internal state.
  *
  * @details
@@ -132,6 +143,57 @@ dyad_rc_t dyad_dtl_flux_rpc_pack (const dyad_ctx_t *ctx,
  *       the Flux broker and must not be freed by DYAD.
  */
 dyad_rc_t dyad_dtl_flux_rpc_unpack (const dyad_ctx_t *ctx, const flux_msg_t *msg, char **upath);
+
+/**
+ * @brief Packs a byte-range fetch request into a JSON object for a Flux RPC call.
+ *
+ * @details
+ * Same as @c dyad_dtl_flux_rpc_pack() but additionally packs @p offset and
+ * @p length, producing @c {"upath": "<upath>", "offset": <offset>, "length": <length>}.
+ *
+ * @param[in]  ctx           DYAD context.
+ * @param[in]  upath         Relative path of the file to fetch from.
+ * @param[in]  producer_rank Flux rank of the producer broker. Not embedded
+ *                           in the payload for Flux RPC.
+ * @param[in]  offset        Starting byte offset of the requested range.
+ * @param[in]  length        Number of bytes requested.
+ * @param[out] packed_obj    Set to the allocated JSON object on success.
+ *
+ * @return @c dyad_rc_t return code:
+ * @retval DYAD_RC_OK      The JSON object was created successfully.
+ * @retval DYAD_RC_BADPACK @c json_pack() failed to create the object.
+ */
+dyad_rc_t dyad_dtl_flux_rpc_pack_range (const dyad_ctx_t *ctx,
+                                        const char *restrict upath,
+                                        uint32_t producer_rank,
+                                        size_t offset,
+                                        size_t length,
+                                        json_t **restrict packed_obj);
+
+/**
+ * @brief Unpacks a byte-range fetch request from an incoming Flux RPC message.
+ *
+ * @details
+ * Same as @c dyad_dtl_flux_rpc_unpack() but additionally extracts @p offset
+ * and @p length from the JSON payload.
+ *
+ * @param[in]  ctx    DYAD context.
+ * @param[in]  msg    Incoming Flux RPC message containing the JSON payload.
+ * @param[out] upath  Relative path of the requested file. Valid for the
+ *                    lifetime of @p msg.
+ * @param[out] offset Starting byte offset of the requested range.
+ * @param[out] length Number of bytes requested.
+ *
+ * @return @c dyad_rc_t return code:
+ * @retval DYAD_RC_OK        Unpacking succeeded.
+ * @retval DYAD_RC_BADUNPACK @c flux_request_unpack() failed to extract the
+ *                           fields from the message.
+ */
+dyad_rc_t dyad_dtl_flux_rpc_unpack_range (const dyad_ctx_t *ctx,
+                                          const flux_msg_t *msg,
+                                          char **upath,
+                                          size_t *offset,
+                                          size_t *length);
 
 /**
  * @brief Sends the initial RPC acknowledgement from the service to the consumer.
@@ -348,6 +410,76 @@ dyad_rc_t dyad_dtl_flux_recv (const dyad_ctx_t *ctx, void **buf, size_t *buflen)
  * @return Always returns @c DYAD_RC_OK.
  */
 dyad_rc_t dyad_dtl_flux_close_connection (const dyad_ctx_t *ctx);
+
+/**
+ * @brief Detaches the current request's message from the shared,
+ *        single-slot @c msg field into an independently-owned request
+ *        state blob.
+ *
+ * @details
+ * Takes a reference on the message stored by the preceding
+ * @c dyad_dtl_flux_rpc_unpack_range() call via @c flux_msg_incref() (the
+ * standard Flux idiom for retaining a message beyond the synchronous
+ * callback scope that received it) and stores it in a newly allocated
+ * @c struct dyad_dtl_flux_req_state, then clears the shared @c msg field
+ * so a subsequent request's unpack call cannot be confused with this one.
+ *
+ * @param[in]  ctx       DYAD context.
+ * @param[out] req_state Set to a newly allocated request-state blob owning
+ *                       an incref'd reference to the request message. Must
+ *                       be passed to @c dyad_dtl_flux_send_detached()
+ *                       exactly once.
+ *
+ * @return Always returns @c DYAD_RC_OK, unless allocation fails
+ *         (@c DYAD_RC_SYSFAIL).
+ */
+dyad_rc_t dyad_dtl_flux_detach_request (const dyad_ctx_t *ctx, void **req_state);
+
+/**
+ * @brief Sends file data to the consumer using a previously detached
+ *        request's message, instead of the shared @c msg field.
+ *
+ * @details
+ * Equivalent to @c dyad_dtl_flux_send() but reads the request message from
+ * @p req_state (as produced by @c dyad_dtl_flux_detach_request()) instead
+ * of the shared, single-slot field -- safe to call after other requests'
+ * unpack calls have since overwritten that shared field. Releases the
+ * message reference via @c flux_msg_decref() and frees @p req_state before
+ * returning, regardless of success or failure.
+ *
+ * @note Must be called from the module's reactor thread -- the @c flux_t
+ *       handle used internally is not safe to touch from any other thread.
+ *       @see dyad_dtl::send_detached_is_thread_safe (false for this
+ *       backend).
+ *
+ * @param[in] ctx       DYAD context.
+ * @param[in] req_state Request state from a prior
+ *                      @c dyad_dtl_flux_detach_request() call. Freed by
+ *                      this call.
+ * @param[in] buf       Buffer containing the file data to send.
+ * @param[in] buflen    Number of bytes in @p buf.
+ *
+ * @return @c dyad_rc_t return code:
+ * @retval DYAD_RC_OK       Data sent successfully.
+ * @retval DYAD_RC_FLUXFAIL @c flux_respond_raw() failed.
+ */
+dyad_rc_t dyad_dtl_flux_send_detached (const dyad_ctx_t *ctx,
+                                       void *req_state,
+                                       void *buf,
+                                       size_t buflen);
+
+/**
+ * @brief Frees a detached request's message reference without sending
+ *        data, for use on an I/O-error path.
+ *
+ * @param[in] ctx       DYAD context.
+ * @param[in] req_state Request state from a prior
+ *                      @c dyad_dtl_flux_detach_request() call. Freed by
+ *                      this call.
+ *
+ * @return Always returns @c DYAD_RC_OK.
+ */
+dyad_rc_t dyad_dtl_flux_abort_detached (const dyad_ctx_t *ctx, void *req_state);
 
 /**
  * @brief Finalizes and frees the Flux RPC DTL internal state.
